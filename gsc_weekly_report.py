@@ -42,7 +42,12 @@ def fetch_query_data(service, start_date, end_date, row_limit=250):
             "position": row.get("position", 0),
         })
 
-    return pd.DataFrame(data)
+    df = pd.DataFrame(data)
+
+    if df.empty:
+        return pd.DataFrame(columns=["query", "clicks", "impressions", "ctr", "position"])
+
+    return df
 
 
 def prepare_comparison(current_df, previous_df):
@@ -60,19 +65,30 @@ def prepare_comparison(current_df, previous_df):
         "position": "position_previous",
     })
 
-    merged_df = pd.merge(
-        current_df,
-        previous_df,
-        on="query",
-        how="outer"
-    ).fillna(0)
+    merged_df = pd.merge(current_df, previous_df, on="query", how="outer").fillna(0)
 
     merged_df["clicks_change"] = merged_df["clicks_current"] - merged_df["clicks_previous"]
     merged_df["impressions_change"] = merged_df["impressions_current"] - merged_df["impressions_previous"]
     merged_df["ctr_change"] = merged_df["ctr_current"] - merged_df["ctr_previous"]
     merged_df["position_change"] = merged_df["position_current"] - merged_df["position_previous"]
 
+    merged_df["is_new_query"] = (merged_df["clicks_previous"] == 0) & (merged_df["clicks_current"] > 0)
+    merged_df["is_lost_query"] = (merged_df["clicks_previous"] > 0) & (merged_df["clicks_current"] == 0)
+
     return merged_df.sort_values(by="clicks_current", ascending=False)
+
+
+def safe_pct_change(current, previous):
+    if previous == 0:
+        return None
+    return ((current - previous) / previous) * 100
+
+
+def format_pct_change(current, previous):
+    pct = safe_pct_change(current, previous)
+    if pct is None:
+        return "n/a"
+    return f"{pct:+.1f}%"
 
 
 def write_summary(merged_df, current_start, current_end, previous_start, previous_end):
@@ -81,22 +97,55 @@ def write_summary(merged_df, current_start, current_end, previous_start, previou
     total_impressions_current = merged_df["impressions_current"].sum()
     total_impressions_previous = merged_df["impressions_previous"].sum()
 
+    weighted_ctr_current = (
+        total_clicks_current / total_impressions_current
+        if total_impressions_current > 0 else 0
+    )
+    weighted_ctr_previous = (
+        total_clicks_previous / total_impressions_previous
+        if total_impressions_previous > 0 else 0
+    )
+
+    avg_position_current = (
+        merged_df.loc[merged_df["impressions_current"] > 0, "position_current"]
+        .mean()
+        if not merged_df.loc[merged_df["impressions_current"] > 0].empty else 0
+    )
+    avg_position_previous = (
+        merged_df.loc[merged_df["impressions_previous"] > 0, "position_previous"]
+        .mean()
+        if not merged_df.loc[merged_df["impressions_previous"] > 0].empty else 0
+    )
+
     top_queries = merged_df.sort_values(by="clicks_current", ascending=False).head(10)
     gainers = merged_df.sort_values(by="clicks_change", ascending=False).head(10)
     losers = merged_df.sort_values(by="clicks_change", ascending=True).head(10)
+    new_queries = merged_df[merged_df["is_new_query"]].sort_values(by="clicks_current", ascending=False).head(10)
+    lost_queries = merged_df[merged_df["is_lost_query"]].sort_values(by="clicks_previous", ascending=False).head(10)
 
     lines = []
-    lines.append(f"# Weekly GSC Summary")
+    lines.append("# Weekly GSC Summary")
     lines.append("")
     lines.append(f"**Current period:** {current_start} to {current_end}")
     lines.append(f"**Previous period:** {previous_start} to {previous_end}")
     lines.append("")
     lines.append("## Overall performance")
-    lines.append(f"- Clicks: {total_clicks_current:.0f} (previous: {total_clicks_previous:.0f}, change: {total_clicks_current - total_clicks_previous:.0f})")
-    lines.append(f"- Impressions: {total_impressions_current:.0f} (previous: {total_impressions_previous:.0f}, change: {total_impressions_current - total_impressions_previous:.0f})")
+    lines.append(
+        f"- Clicks: {total_clicks_current:.0f} vs {total_clicks_previous:.0f} "
+        f"({format_pct_change(total_clicks_current, total_clicks_previous)})"
+    )
+    lines.append(
+        f"- Impressions: {total_impressions_current:.0f} vs {total_impressions_previous:.0f} "
+        f"({format_pct_change(total_impressions_current, total_impressions_previous)})"
+    )
+    lines.append(
+        f"- CTR: {weighted_ctr_current:.2%} vs {weighted_ctr_previous:.2%}"
+    )
+    lines.append(
+        f"- Avg position: {avg_position_current:.2f} vs {avg_position_previous:.2f}"
+    )
     lines.append("")
-    lines.append("## Top 10 queries by current clicks")
-
+    lines.append("## Top queries")
     for _, row in top_queries.iterrows():
         lines.append(
             f"- {row['query']}: {row['clicks_current']:.0f} clicks, "
@@ -105,22 +154,41 @@ def write_summary(merged_df, current_start, current_end, previous_start, previou
         )
 
     lines.append("")
-    lines.append("## Top 10 gainers by clicks")
-
+    lines.append("## Biggest gainers")
     for _, row in gainers.iterrows():
         lines.append(
-            f"- {row['query']}: change {row['clicks_change']:.0f} "
-            f"({row['clicks_previous']:.0f} → {row['clicks_current']:.0f})"
+            f"- {row['query']}: {row['clicks_previous']:.0f} → {row['clicks_current']:.0f} "
+            f"({row['clicks_change']:+.0f})"
         )
 
     lines.append("")
-    lines.append("## Top 10 losers by clicks")
-
+    lines.append("## Biggest losers")
     for _, row in losers.iterrows():
         lines.append(
-            f"- {row['query']}: change {row['clicks_change']:.0f} "
-            f"({row['clicks_previous']:.0f} → {row['clicks_current']:.0f})"
+            f"- {row['query']}: {row['clicks_previous']:.0f} → {row['clicks_current']:.0f} "
+            f"({row['clicks_change']:+.0f})"
         )
+
+    lines.append("")
+    lines.append("## New queries")
+    if new_queries.empty:
+        lines.append("- None")
+    else:
+        for _, row in new_queries.iterrows():
+            lines.append(
+                f"- {row['query']}: {row['clicks_current']:.0f} clicks, "
+                f"{row['impressions_current']:.0f} impressions"
+            )
+
+    lines.append("")
+    lines.append("## Lost queries")
+    if lost_queries.empty:
+        lines.append("- None")
+    else:
+        for _, row in lost_queries.iterrows():
+            lines.append(
+                f"- {row['query']}: dropped from {row['clicks_previous']:.0f} clicks to 0"
+            )
 
     with open("weekly_summary.md", "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
