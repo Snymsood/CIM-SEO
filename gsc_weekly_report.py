@@ -787,14 +787,7 @@ def upload_pdf_to_monday(pdf_path):
         print("Skipping monday file upload: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.")
         return
 
-    query = """
-    mutation ($file: File!, $item_id: ID!) {
-      add_file_to_update(file: $file, update_id: null) {
-        id
-      }
-    }
-    """
-    # monday file uploads are more reliable when attached to an update, so first create an update
+    # First create the update we want the file attached to
     update_query = """
     mutation ($item_id: ID!, $body: String!) {
       create_update(item_id: $item_id, body: $body) {
@@ -809,7 +802,10 @@ def upload_pdf_to_monday(pdf_path):
 
     update_response = requests.post(
         MONDAY_API_URL,
-        headers={**monday_headers(), "Content-Type": "application/json"},
+        headers={
+            "Authorization": MONDAY_API_TOKEN,
+            "Content-Type": "application/json",
+        },
         json={"query": update_query, "variables": update_variables},
         timeout=60,
     )
@@ -821,38 +817,48 @@ def upload_pdf_to_monday(pdf_path):
 
     update_id = update_data["data"]["create_update"]["id"]
 
+    # Then upload the file to that update
     file_query = """
-    mutation ($file: File!, $update_id: ID!) {
-      add_file_to_update(file: $file, update_id: $update_id) {
+    mutation ($update_id: ID!, $file: File!) {
+      add_file_to_update(update_id: $update_id, file: $file) {
         id
       }
     }
     """
 
-    operations = {
-        "query": file_query,
-        "variables": {
-            "update_id": str(update_id),
-            "file": None,
-        },
-    }
-    map_data = {
-        "0": ["variables.file"]
-    }
+    import json
 
     with open(pdf_path, "rb") as f:
         response = requests.post(
             MONDAY_FILE_API_URL,
-            headers=monday_headers(),
-            data={
-                "operations": str(operations).replace("'", '"'),
-                "map": str(map_data).replace("'", '"'),
+            headers={
+                "Authorization": MONDAY_API_TOKEN,
             },
-            files={"0": ("weekly_summary.pdf", f, "application/pdf")},
+            data={
+                "query": file_query,
+                "variables": json.dumps({
+                    "update_id": str(update_id),
+                    "file": None
+                }),
+                "map": json.dumps({
+                    "pdf": ["variables.file"]
+                }),
+            },
+            files={
+                "pdf": ("weekly_summary.pdf", f, "application/pdf")
+            },
             timeout=120,
         )
 
+    print("monday file upload status:", response.status_code)
+    print("monday file upload response:", response.text)
+
     response.raise_for_status()
+
+    response_data = response.json()
+    if "errors" in response_data:
+        raise RuntimeError(f"monday file upload failed: {response_data['errors']}")
+
     print("Uploaded PDF to monday update.")
 
 
