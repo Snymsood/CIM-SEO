@@ -39,4 +39,9 @@ jobs:
             top_queries.csv
             biggest_gainers.csv
             biggest_losers.csv
+            weekly_pages_report.csv
+            weekly_pages_comparison.csv
+            top_pages.csv
+            page_gainers.csv
+            page_losers.csv
             weekly_summary.md
