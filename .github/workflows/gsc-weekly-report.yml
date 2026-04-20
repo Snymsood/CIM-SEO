@@ -30,18 +30,35 @@ jobs:
         run: python gsc_weekly_report.py
 
       - name: Upload report files
+
         uses: actions/upload-artifact@v4
+
         with:
+
           name: gsc-weekly-report
+
           path: |
+
             weekly_gsc_report.csv
+
             weekly_comparison.csv
+
             top_queries.csv
+
             biggest_gainers.csv
+
             biggest_losers.csv
+
             weekly_pages_report.csv
+
             weekly_pages_comparison.csv
+
             top_pages.csv
+
             page_gainers.csv
+
             page_losers.csv
+
             weekly_summary.md
+
+            weekly_summary.html
