@@ -2,7 +2,9 @@ from datetime import date, timedelta
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from openai import OpenAI
+from weasyprint import HTML
 import pandas as pd
+import requests
 import os
 import html
 
@@ -10,6 +12,11 @@ SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly"]
 KEY_FILE = "gsc-key.json"
 SITE_URL = os.environ["GSC_PROPERTY"]
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
+MONDAY_ITEM_ID = os.getenv("MONDAY_ITEM_ID")
+
+MONDAY_API_URL = "https://api.monday.com/v2"
+MONDAY_FILE_API_URL = "https://api.monday.com/v2/file"
 
 
 def get_service():
@@ -234,140 +241,81 @@ Top pages:
 
 
 def md_table_from_df(df, columns, rename_map=None):
-
     work = df[columns].copy()
-
     if rename_map:
-
         work = work.rename(columns=rename_map)
 
     for col in work.columns:
-
         lower_col = col.lower()
 
         if "ctr" in lower_col:
-
             work[col] = pd.to_numeric(work[col], errors="coerce").map(
-
                 lambda x: f"{x:.2%}" if pd.notnull(x) else ""
-
             )
-
         elif "position" in lower_col:
-
             work[col] = pd.to_numeric(work[col], errors="coerce").map(
-
                 lambda x: f"{x:.2f}" if pd.notnull(x) else ""
-
             )
-
         elif "change" in lower_col or col.strip() == "Δ" or "delta" in lower_col:
-
             work[col] = pd.to_numeric(work[col], errors="coerce").map(
-
                 lambda x: format_delta(x) if pd.notnull(x) else ""
-
             )
-
         elif any(token in lower_col for token in ["click", "impression", "prev", "current"]):
-
             work[col] = pd.to_numeric(work[col], errors="coerce").map(
-
                 lambda x: f"{x:.0f}" if pd.notnull(x) else ""
-
             )
-
         else:
-
             work[col] = work[col].fillna("").astype(str)
 
     header = "| " + " | ".join(work.columns) + " |"
-
     separator = "| " + " | ".join(["---"] * len(work.columns)) + " |"
-
     rows = [
-
         "| " + " | ".join(str(v) for v in row) + " |"
-
         for row in work.values.tolist()
-
     ]
-
     return "\n".join([header, separator] + rows)
 
 
 def html_table_from_df(df, columns, rename_map=None):
-
     work = df[columns].copy()
-
     if rename_map:
-
         work = work.rename(columns=rename_map)
 
     for col in work.columns:
-
         lower_col = col.lower()
 
         if "ctr" in lower_col:
-
             work[col] = pd.to_numeric(work[col], errors="coerce").map(
-
                 lambda x: f"{x:.2%}" if pd.notnull(x) else ""
-
             )
-
         elif "position" in lower_col:
-
             work[col] = pd.to_numeric(work[col], errors="coerce").map(
-
                 lambda x: f"{x:.2f}" if pd.notnull(x) else ""
-
             )
-
         elif "change" in lower_col or col.strip() == "Δ" or "delta" in lower_col:
-
             work[col] = pd.to_numeric(work[col], errors="coerce").map(
-
                 lambda x: format_delta(x) if pd.notnull(x) else ""
-
             )
-
         elif any(token in lower_col for token in ["click", "impression", "prev", "current"]):
-
             work[col] = pd.to_numeric(work[col], errors="coerce").map(
-
                 lambda x: f"{x:.0f}" if pd.notnull(x) else ""
-
             )
-
         else:
-
             work[col] = work[col].fillna("").astype(str)
 
     header_html = "".join(f"<th>{html.escape(str(col))}</th>" for col in work.columns)
-
     body_rows = []
-
     for row in work.values.tolist():
-
         cells = "".join(f"<td>{html.escape(str(v))}</td>" for v in row)
-
         body_rows.append(f"<tr>{cells}</tr>")
 
     return f"""
-
     <table>
-
       <thead><tr>{header_html}</tr></thead>
-
       <tbody>
-
         {''.join(body_rows)}
-
       </tbody>
-
     </table>
-
     """
 
 
@@ -630,6 +578,7 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
         padding: 12px 14px;
         border-bottom: 1px solid #e5e7eb;
         vertical-align: top;
+        word-break: break-word;
     }}
     th {{
         background: #111827;
@@ -676,7 +625,6 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
     </div>
 
     <h2>Top Queries</h2>
-    <div class="section-note">Highest-click query terms in the current week.</div>
     {html_table_from_df(top_queries,
         ["query", "clicks_current", "clicks_change", "impressions_current", "ctr_current", "position_current"],
         {
@@ -712,7 +660,6 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
     )}
 
     <h2>Top Pages</h2>
-    <div class="section-note">Highest-click landing pages in the current week.</div>
     {html_table_from_df(top_pages,
         ["page", "clicks_current", "clicks_change", "impressions_current", "ctr_current", "position_current"],
         {
@@ -752,6 +699,161 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
 """
     with open("weekly_summary.html", "w", encoding="utf-8") as f:
         f.write(html_output)
+
+
+def generate_pdf():
+    HTML("weekly_summary.html").write_pdf("weekly_summary.pdf")
+    print("Saved weekly_summary.pdf")
+
+
+def build_monday_update_text(query_df, current_start, current_end, previous_start, previous_end):
+    total_clicks_current = query_df["clicks_current"].sum()
+    total_clicks_previous = query_df["clicks_previous"].sum()
+    total_impressions_current = query_df["impressions_current"].sum()
+    total_impressions_previous = query_df["impressions_previous"].sum()
+    weighted_ctr_current = total_clicks_current / total_impressions_current if total_impressions_current else 0
+    weighted_ctr_previous = total_clicks_previous / total_impressions_previous if total_impressions_previous else 0
+    avg_position_current = query_df.loc[query_df["impressions_current"] > 0, "position_current"].mean() if not query_df.loc[query_df["impressions_current"] > 0].empty else 0
+    avg_position_previous = query_df.loc[query_df["impressions_previous"] > 0, "position_previous"].mean() if not query_df.loc[query_df["impressions_previous"] > 0].empty else 0
+
+    top_queries = query_df.sort_values(by="clicks_current", ascending=False).head(10)
+    executive_read = build_executive_read(
+        total_clicks_current,
+        total_clicks_previous,
+        total_impressions_current,
+        total_impressions_previous,
+        weighted_ctr_current,
+        weighted_ctr_previous,
+        avg_position_current,
+        avg_position_previous,
+        top_queries,
+    )
+
+    lines = [
+        f"GSC Weekly Report",
+        f"Current period: {current_start} to {current_end}",
+        f"Previous period: {previous_start} to {previous_end}",
+        "",
+        "Executive read:",
+    ]
+    lines.extend([f"- {line}" for line in executive_read])
+    lines.extend([
+        "",
+        f"Clicks: {total_clicks_current:.0f} vs {total_clicks_previous:.0f} ({format_pct_change(total_clicks_current, total_clicks_previous)})",
+        f"Impressions: {total_impressions_current:.0f} vs {total_impressions_previous:.0f} ({format_pct_change(total_impressions_current, total_impressions_previous)})",
+        f"CTR: {weighted_ctr_current:.2%} vs {weighted_ctr_previous:.2%}",
+        f"Avg position: {avg_position_current:.2f} vs {avg_position_previous:.2f}",
+        "",
+        "PDF attached by automation.",
+    ])
+    return "\n".join(lines)
+
+
+def monday_headers():
+    return {
+        "Authorization": MONDAY_API_TOKEN,
+    }
+
+
+def post_monday_update(update_text):
+    if not MONDAY_API_TOKEN or not MONDAY_ITEM_ID:
+        print("Skipping monday update: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.")
+        return
+
+    query = """
+    mutation ($item_id: ID!, $body: String!) {
+      create_update(item_id: $item_id, body: $body) {
+        id
+      }
+    }
+    """
+    variables = {
+        "item_id": str(MONDAY_ITEM_ID),
+        "body": update_text,
+    }
+
+    response = requests.post(
+        MONDAY_API_URL,
+        headers={**monday_headers(), "Content-Type": "application/json"},
+        json={"query": query, "variables": variables},
+        timeout=60,
+    )
+    response.raise_for_status()
+    print("Posted monday update.")
+
+
+def upload_pdf_to_monday(pdf_path):
+    if not MONDAY_API_TOKEN or not MONDAY_ITEM_ID:
+        print("Skipping monday file upload: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.")
+        return
+
+    query = """
+    mutation ($file: File!, $item_id: ID!) {
+      add_file_to_update(file: $file, update_id: null) {
+        id
+      }
+    }
+    """
+    # monday file uploads are more reliable when attached to an update, so first create an update
+    update_query = """
+    mutation ($item_id: ID!, $body: String!) {
+      create_update(item_id: $item_id, body: $body) {
+        id
+      }
+    }
+    """
+    update_variables = {
+        "item_id": str(MONDAY_ITEM_ID),
+        "body": "Automated GSC weekly PDF report attached.",
+    }
+
+    update_response = requests.post(
+        MONDAY_API_URL,
+        headers={**monday_headers(), "Content-Type": "application/json"},
+        json={"query": update_query, "variables": update_variables},
+        timeout=60,
+    )
+    update_response.raise_for_status()
+    update_data = update_response.json()
+
+    if "errors" in update_data:
+        raise RuntimeError(f"monday update creation failed: {update_data['errors']}")
+
+    update_id = update_data["data"]["create_update"]["id"]
+
+    file_query = """
+    mutation ($file: File!, $update_id: ID!) {
+      add_file_to_update(file: $file, update_id: $update_id) {
+        id
+      }
+    }
+    """
+
+    operations = {
+        "query": file_query,
+        "variables": {
+            "update_id": str(update_id),
+            "file": None,
+        },
+    }
+    map_data = {
+        "0": ["variables.file"]
+    }
+
+    with open(pdf_path, "rb") as f:
+        response = requests.post(
+            MONDAY_FILE_API_URL,
+            headers=monday_headers(),
+            data={
+                "operations": str(operations).replace("'", '"'),
+                "map": str(map_data).replace("'", '"'),
+            },
+            files={"0": ("weekly_summary.pdf", f, "application/pdf")},
+            timeout=120,
+        )
+
+    response.raise_for_status()
+    print("Uploaded PDF to monday update.")
 
 
 def main():
@@ -821,7 +923,22 @@ def main():
         previous_end
     )
 
-    print("Saved weekly_summary.md and weekly_summary.html")
+    generate_pdf()
+
+    try:
+        monday_update_text = build_monday_update_text(
+            query_comparison_df,
+            current_start,
+            current_end,
+            previous_start,
+            previous_end
+        )
+        post_monday_update(monday_update_text)
+        upload_pdf_to_monday("weekly_summary.pdf")
+    except Exception as e:
+        print(f"monday upload step failed: {e}")
+
+    print("Saved weekly_summary.md, weekly_summary.html, weekly_summary.pdf")
     print("Saved query and page comparison outputs")
 
 
