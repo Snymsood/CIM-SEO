@@ -26,7 +26,7 @@ jobs:
 
       - name: Run GSC report
         env:
-          GSC_PROPERTY: "sc-domain:yourdomain.com"
+          GSC_PROPERTY: "https://www.cim.org/"
         run: python gsc_weekly_report.py
 
       - name: Upload report
