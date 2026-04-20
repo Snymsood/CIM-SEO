@@ -863,7 +863,6 @@ def main():
     generate_pdf()
 
     try:
-        post_monday_update(monday_update_text)
         upload_pdf_to_monday("keyword_ranking_summary.pdf")
     except Exception as e:
         print(f"monday upload step failed: {e}")
