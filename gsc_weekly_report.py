@@ -797,7 +797,7 @@ def upload_pdf_to_monday(pdf_path):
     """
     update_variables = {
         "item_id": str(MONDAY_ITEM_ID),
-        "body": "Automated GSC weekly PDF report attached.",
+        "body": "GSC weekly PDF report attached.",
     }
 
     update_response = requests.post(
@@ -845,7 +845,7 @@ def upload_pdf_to_monday(pdf_path):
                 }),
             },
             files={
-                "pdf": ("weekly_summary.pdf", f, "application/pdf")
+                "pdf": ("google-search-console-audit.pdf", f, "application/pdf")
             },
             timeout=120,
         )
@@ -932,14 +932,6 @@ def main():
     generate_pdf()
 
     try:
-        monday_update_text = build_monday_update_text(
-            query_comparison_df,
-            current_start,
-            current_end,
-            previous_start,
-            previous_end
-        )
-        post_monday_update(monday_update_text)
         upload_pdf_to_monday("weekly_summary.pdf")
     except Exception as e:
         print(f"monday upload step failed: {e}")
