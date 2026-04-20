@@ -1,0 +1,50 @@
+name: Critical Landing Pages to Monitor
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 13 * * 1"
+
+jobs:
+  critical-landing-pages:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write service account key
+        run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
+
+      - name: Run landing pages report
+        env:
+          GSC_PROPERTY: "sc-domain:cim.org"
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_ITEM_ID: "11404508352"
+        run: python gsc_landing_pages_report.py
+
+      - name: Upload landing pages artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: critical-landing-pages
+          path: |
+            tracked_pages.csv
+            tracked_pages_current_week.csv
+            tracked_pages_previous_week.csv
+            tracked_pages_comparison.csv
+            page_traffic_gainers.csv
+            page_traffic_losers.csv
+            page_position_gainers.csv
+            page_position_losers.csv
+            landing_pages_summary.md
+            landing_pages_summary.html
+            landing_pages_summary.pdf
