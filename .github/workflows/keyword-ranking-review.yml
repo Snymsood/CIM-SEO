@@ -1,0 +1,50 @@
+name: Keyword Ranking Review
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 13 * * 1"
+
+jobs:
+  keyword-ranking-review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write service account key
+        run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
+
+      - name: Run keyword ranking review
+        env:
+          GSC_PROPERTY: "sc-domain:cim.org"
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_ITEM_ID: "11404481882"
+        run: python gsc_keyword_ranking_report.py
+
+      - name: Upload keyword ranking artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: keyword-ranking-review
+          path: |
+            tracked_keywords.csv
+            tracked_keywords_current_week.csv
+            tracked_keywords_previous_week.csv
+            tracked_keywords_comparison.csv
+            ranking_gainers.csv
+            ranking_losers.csv
+            entered_top_3.csv
+            entered_top_10.csv
+            keyword_ranking_summary.md
+            keyword_ranking_summary.html
+            keyword_ranking_summary.pdf
