@@ -863,13 +863,6 @@ def main():
     generate_pdf()
 
     try:
-        monday_update_text = build_monday_update_text(
-            comparison_df,
-            current_start,
-            current_end,
-            previous_start,
-            previous_end
-        )
         post_monday_update(monday_update_text)
         upload_pdf_to_monday("keyword_ranking_summary.pdf")
     except Exception as e:
