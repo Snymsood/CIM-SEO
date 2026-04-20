@@ -234,57 +234,140 @@ Top pages:
 
 
 def md_table_from_df(df, columns, rename_map=None):
+
     work = df[columns].copy()
+
     if rename_map:
+
         work = work.rename(columns=rename_map)
 
     for col in work.columns:
-        if "ctr" in col.lower():
-            work[col] = work[col].map(lambda x: f"{x:.2%}" if pd.notnull(x) else "")
-        elif "position" in col.lower():
-            work[col] = work[col].map(lambda x: f"{x:.2f}" if pd.notnull(x) else "")
-        elif "change" in col.lower():
-            work[col] = work[col].map(lambda x: format_delta(x) if pd.notnull(x) else "")
-        elif work[col].dtype != object:
-            work[col] = work[col].map(lambda x: f"{x:.0f}" if pd.notnull(x) else "")
+
+        lower_col = col.lower()
+
+        if "ctr" in lower_col:
+
+            work[col] = pd.to_numeric(work[col], errors="coerce").map(
+
+                lambda x: f"{x:.2%}" if pd.notnull(x) else ""
+
+            )
+
+        elif "position" in lower_col:
+
+            work[col] = pd.to_numeric(work[col], errors="coerce").map(
+
+                lambda x: f"{x:.2f}" if pd.notnull(x) else ""
+
+            )
+
+        elif "change" in lower_col or col.strip() == "Δ" or "delta" in lower_col:
+
+            work[col] = pd.to_numeric(work[col], errors="coerce").map(
+
+                lambda x: format_delta(x) if pd.notnull(x) else ""
+
+            )
+
+        elif any(token in lower_col for token in ["click", "impression", "prev", "current"]):
+
+            work[col] = pd.to_numeric(work[col], errors="coerce").map(
+
+                lambda x: f"{x:.0f}" if pd.notnull(x) else ""
+
+            )
+
+        else:
+
+            work[col] = work[col].fillna("").astype(str)
 
     header = "| " + " | ".join(work.columns) + " |"
+
     separator = "| " + " | ".join(["---"] * len(work.columns)) + " |"
+
     rows = [
+
         "| " + " | ".join(str(v) for v in row) + " |"
+
         for row in work.values.tolist()
+
     ]
+
     return "\n".join([header, separator] + rows)
 
 
 def html_table_from_df(df, columns, rename_map=None):
+
     work = df[columns].copy()
+
     if rename_map:
+
         work = work.rename(columns=rename_map)
 
     for col in work.columns:
-        if "ctr" in col.lower():
-            work[col] = work[col].map(lambda x: f"{x:.2%}" if pd.notnull(x) else "")
-        elif "position" in col.lower():
-            work[col] = work[col].map(lambda x: f"{x:.2f}" if pd.notnull(x) else "")
-        elif "change" in col.lower():
-            work[col] = work[col].map(lambda x: format_delta(x) if pd.notnull(x) else "")
-        elif work[col].dtype != object:
-            work[col] = work[col].map(lambda x: f"{x:.0f}" if pd.notnull(x) else "")
+
+        lower_col = col.lower()
+
+        if "ctr" in lower_col:
+
+            work[col] = pd.to_numeric(work[col], errors="coerce").map(
+
+                lambda x: f"{x:.2%}" if pd.notnull(x) else ""
+
+            )
+
+        elif "position" in lower_col:
+
+            work[col] = pd.to_numeric(work[col], errors="coerce").map(
+
+                lambda x: f"{x:.2f}" if pd.notnull(x) else ""
+
+            )
+
+        elif "change" in lower_col or col.strip() == "Δ" or "delta" in lower_col:
+
+            work[col] = pd.to_numeric(work[col], errors="coerce").map(
+
+                lambda x: format_delta(x) if pd.notnull(x) else ""
+
+            )
+
+        elif any(token in lower_col for token in ["click", "impression", "prev", "current"]):
+
+            work[col] = pd.to_numeric(work[col], errors="coerce").map(
+
+                lambda x: f"{x:.0f}" if pd.notnull(x) else ""
+
+            )
+
+        else:
+
+            work[col] = work[col].fillna("").astype(str)
 
     header_html = "".join(f"<th>{html.escape(str(col))}</th>" for col in work.columns)
+
     body_rows = []
+
     for row in work.values.tolist():
+
         cells = "".join(f"<td>{html.escape(str(v))}</td>" for v in row)
+
         body_rows.append(f"<tr>{cells}</tr>")
 
     return f"""
+
     <table>
+
       <thead><tr>{header_html}</tr></thead>
+
       <tbody>
+
         {''.join(body_rows)}
+
       </tbody>
+
     </table>
+
     """
 
 
