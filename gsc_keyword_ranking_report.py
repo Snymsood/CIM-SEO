@@ -740,7 +740,7 @@ def upload_pdf_to_monday(pdf_path):
     """
     update_variables = {
         "item_id": str(MONDAY_ITEM_ID),
-        "body": "Automated keyword ranking PDF report attached.",
+        "body": "Keyword ranking PDF report attached.",
     }
 
     update_response = requests.post(
@@ -787,7 +787,7 @@ def upload_pdf_to_monday(pdf_path):
                 }),
             },
             files={
-                "pdf": ("keyword_ranking_summary.pdf", f, "application/pdf")
+                "pdf": ("keyword_ranking_review.pdf", f, "application/pdf")
             },
             timeout=120,
         )
