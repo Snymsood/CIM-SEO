@@ -27,7 +27,7 @@ jobs:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
           MONDAY_ITEM_ID: "11404492774"
-        run: python site_speed_monitoring.py
+        run: python -u site_speed_monitoring.py
 
       - name: Upload site speed artifacts
         uses: actions/upload-artifact@v4
