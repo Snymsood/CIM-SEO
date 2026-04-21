@@ -123,13 +123,37 @@ def collect_snapshot(tracked_df):
 
     for _, row in tracked_df.iterrows():
         page_meta = row.to_dict()
+
         for strategy in ["mobile", "desktop"]:
-            data = fetch_pagespeed(page_meta["page"], strategy=strategy)
-            records.append(build_page_record(page_meta, strategy, data))
-            print(f"Fetched {strategy} PSI for {page_meta['page']}")
+            try:
+                data = fetch_pagespeed(page_meta["page"], strategy=strategy)
+                records.append(build_page_record(page_meta, strategy, data))
+                print(f"Fetched {strategy} PSI for {page_meta['page']}", flush=True)
+            except Exception as e:
+                print(f"Failed PSI for {strategy} {page_meta['page']}: {e}", flush=True)
+                records.append({
+                    "date": date.today().isoformat(),
+                    "page": page_meta["page"],
+                    "category": page_meta["category"],
+                    "priority": page_meta["priority"],
+                    "strategy": strategy,
+                    "performance_score": None,
+                    "lcp_lab_ms": None,
+                    "fcp_lab_ms": None,
+                    "tbt_lab_ms": None,
+                    "cls_lab": None,
+                    "speed_index_ms": None,
+                    "lcp_field_ms": None,
+                    "lcp_field_category": None,
+                    "inp_field_ms": None,
+                    "inp_field_category": None,
+                    "cls_field": None,
+                    "cls_field_category": None,
+                    "fcp_field_ms": None,
+                    "fcp_field_category": None,
+                })
 
     return pd.DataFrame(records)
-
 
 def load_previous_snapshot():
     if os.path.exists(SNAPSHOT_FILE):
