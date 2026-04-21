@@ -4,3 +4,4 @@ pandas
 openai
 requests
 weasyprint
+beautifulsoup4
