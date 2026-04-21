@@ -1,0 +1,9 @@
+seed_url,scope_type,priority
+https://www.cim.org/,domain,high
+https://convention.cim.org/,domain,high
+https://memo.cim.org/,domain,medium
+https://mrmr.cim.org/,domain,high
+https://mrr.cim.org/,domain,medium
+https://magazine.cim.org/en/,domain,medium
+https://mines-et-environnement.cim.org/,domain,medium
+https://capitalprojects.cim.org/,domain,low
