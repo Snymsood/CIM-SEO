@@ -85,6 +85,10 @@ def fetch_pagespeed(url, strategy="mobile"):
     }
 
     response = requests.get(PAGESPEED_API_URL, params=params, timeout=180)
+
+    if not response.ok:
+        print(f"PSI error for {strategy} {url}: {response.status_code} {response.text}", flush=True)
+
     response.raise_for_status()
     return response.json()
 
