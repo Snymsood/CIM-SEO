@@ -1,0 +1,41 @@
+name: Broken Link Check
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 14 * * 1"
+
+jobs:
+  broken-link-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run broken link check
+        run: python -u broken_link_check.py
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_ITEM_ID: "11404485394"
+
+      - name: Upload broken link artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: broken-link-check
+          path: |
+            broken_link_seed_domains.csv
+            discovered_internal_links.csv
+            broken_link_results.csv
+            broken_link_issues_only.csv
+            broken_link_summary.html
+            broken_link_summary.pdf
