@@ -1,0 +1,46 @@
+name: GA4 Weekly Report
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 14 * * 1"
+
+jobs:
+  ga4-weekly-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write service account key
+        run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
+
+      - name: Run GA4 weekly report
+        env:
+          GA4_PROPERTY_ID: "341629008"
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_ITEM_ID: "11472460397"
+        run: python -u ga4_weekly_report.py
+
+      - name: Upload GA4 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ga4-weekly-report
+          path: |
+            ga4_summary_comparison.csv
+            ga4_top_landing_pages.csv
+            ga4_top_channels.csv
+            ga4_device_split.csv
+            ga4_country_split.csv
+            ga4_weekly_summary.html
+            ga4_weekly_summary.pdf
