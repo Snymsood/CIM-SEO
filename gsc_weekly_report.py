@@ -189,7 +189,7 @@ def build_executive_read(total_clicks_current, total_clicks_previous,
 
 def build_ai_analysis(query_df, page_df, current_start, current_end, previous_start, previous_end):
     if not GROQ_API_KEY:
-        return "AI executive analysis was skipped because GROQ_API_KEY is not configured."
+        return "Executive commentary is unavailable for this run."
 
     top_queries = query_df.sort_values(by="clicks_current", ascending=False).head(10)[[
         "query", "clicks_current", "clicks_change", "impressions_current", "ctr_current", "position_current"
@@ -251,9 +251,9 @@ Top pages:
             temperature=0.2,
         )
         content = response.choices[0].message.content.strip()
-        return content if content else "AI executive analysis returned an empty response."
+        return content if content else "Executive commentary was empty for this run."
     except Exception as e:
-        return f"AI executive analysis failed, so the report fell back to deterministic output only. Error: {str(e)}"
+        return "Executive commentary is temporarily unavailable for this run."
 
 
 def html_table_from_df(df, columns, rename_map=None):
@@ -423,7 +423,7 @@ def write_markdown_summary(query_df, page_df, ai_analysis, current_start, curren
     lines.extend([f"- {line}" for line in executive_read])
     lines.extend([
         "",
-        "## AI Executive Analysis",
+        "## Executive Commentary",
         "",
         ai_analysis,
         "",
@@ -507,7 +507,7 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
         }}
     }}
     body {{
-        font-family: Arial, sans-serif;
+        font-family: "Times New Roman", Times, serif;
         margin: 0;
         background: {BG};
         color: {TEXT};
@@ -518,15 +518,15 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
         margin: 0 auto;
     }}
     .hero {{
-        background: linear-gradient(135deg, {ACCENT} 0%, #163A5F 100%);
+        background: linear-gradient(135deg, #0F4C81 0%, #1D3557 42%, #2A9D8F 100%);
         color: white;
-        padding: 28px 30px;
+        padding: 34px 36px;
         border-radius: 18px;
         margin-bottom: 20px;
     }}
     .hero h1 {{
         margin: 0 0 8px 0;
-        font-size: 30px;
+        font-size: 32px;
     }}
     .hero .subline {{
         font-size: 14px;
@@ -540,7 +540,7 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
     .section-title {{
         margin: 24px 0 10px 0;
         font-size: 20px;
-        color: #0F172A;
+        color: #102A43;
     }}
     .section-note {{
         color: #667085;
@@ -550,43 +550,44 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
     .grid-4 {{
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        gap: 14px;
-        margin-bottom: 18px;
+        gap: 18px;
+        margin-bottom: 24px;
     }}
     .grid-2 {{
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 18px;
-        margin-bottom: 18px;
+        grid-template-columns: 1fr;
+        gap: 22px;
+        margin-bottom: 24px;
     }}
     .card, .panel, .chart-card {{
-        background: white;
-        border-radius: 14px;
-        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
-        padding: 16px 18px;
+        background: linear-gradient(180deg, #FFFFFF 0%, #FDFEFE 100%);
+        border: 1px solid #E5EEF5;
+        border-radius: 16px;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+        padding: 22px 24px;
     }}
     .label {{
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 0.08em;
-        color: #64748B;
+        color: #5B7083;
         margin-bottom: 8px;
     }}
     .value {{
         font-size: 28px;
         font-weight: 700;
-        color: #0F172A;
+        color: #102A43;
     }}
     .sub {{
         font-size: 12px;
-        color: #64748B;
+        color: #5B7083;
         margin-top: 6px;
     }}
     .delta {{
         margin-top: 10px;
         font-size: 16px;
         font-weight: 700;
-        color: {ACCENT};
+        color: #C84C09;
     }}
     .foot {{
         margin-top: 6px;
@@ -613,13 +614,13 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
         display: block;
     }}
     .callout {{
-        border-left: 4px solid {ACCENT_2};
-        background: #F8FAFC;
+        border-left: 6px solid #2A9D8F;
+        background: #F7FBFF;
         padding: 14px 16px;
         border-radius: 10px;
         margin-top: 12px;
-        font-size: 13px;
-        color: #475569;
+        font-size: 14px;
+        color: #3D5166;
     }}
     table {{
         width: 100%;
@@ -639,12 +640,12 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
         word-break: break-word;
     }}
     th {{
-        background: #0F172A;
+        background: #1D3557;
         color: white;
         font-size: 12px;
     }}
     tr:nth-child(even) td {{
-        background: #FAFAFA;
+        background: #F8FBFD;
     }}
     .break-before {{
         page-break-before: always;
@@ -654,7 +655,7 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
 <body>
 <div class=\"container\">
     <div class=\"hero\">
-        <h1>Google Search Console Weekly Executive Report</h1>
+        <h1>Google Search Console Weekly Report</h1>
         <div class=\"subline\">Corporate SEO performance summary for {html.escape(SITE_URL)}</div>
         <div class=\"meta\">Current period: {current_start} to {current_end} | Previous period: {previous_start} to {previous_end}</div>
     </div>
@@ -670,10 +671,10 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
         <div class=\"panel\">
             <h2>Executive Read</h2>
             <ul class=\"highlight-list\">{highlights}</ul>
-            <div class=\"callout\">This report combines deterministic Search Console metrics with AI-assisted interpretation. Charts and KPI cards are source-of-truth visuals; the narrative is intended to accelerate executive review.</div>
+            <div class=\"callout\">This report consolidates weekly Search Console performance into an executive-ready format, with KPI summaries, visual trends, and key demand drivers presented for rapid stakeholder review.</div>
         </div>
         <div class=\"panel\">
-            <h2>AI Executive Analysis</h2>
+            <h2>Executive Commentary</h2>
             <div class=\"ai-block\">{html.escape(ai_analysis)}</div>
         </div>
     </div>
