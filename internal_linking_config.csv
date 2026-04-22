@@ -1,0 +1,22 @@
+rule_type,value,notes
+seed_url,https://www.cim.org/,main site
+seed_url,https://convention.cim.org/,event subdomain
+seed_url,https://memo.cim.org/,subsite
+seed_url,https://mrmr.cim.org/,resource subdomain
+seed_url,https://mrr.cim.org/,subsite
+seed_url,https://magazine.cim.org/en/,publication
+seed_url,https://mines-et-environnement.cim.org/,subsite
+seed_url,https://capitalprojects.cim.org/,subsite
+priority_target,https://www.cim.org/featured-events/cim-connect-convention-and-expo/,key event page
+priority_target,https://www.cim.org/membership/,membership page
+priority_target,https://www.cim.org/cim-scholarships/,scholarships
+priority_target,https://www.cim.org/professional-development/short-courses/,education
+priority_target,https://www.cim.org/events/,events hub
+priority_target,https://convention.cim.org/register,conversion page
+generic_anchor,click here,generic anchor text
+generic_anchor,read more,generic anchor text
+generic_anchor,learn more,generic anchor text
+generic_anchor,more,generic anchor text
+min_internal_outlinks,3,page flagged if fewer than this
+min_inlinks_to_priority_target,2,priority target flagged if fewer than this
+max_pages_per_domain,120,crawl limit
