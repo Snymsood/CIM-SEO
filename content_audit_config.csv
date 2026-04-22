@@ -1,0 +1,15 @@
+rule_type,value,notes
+include_prefix,https://www.cim.org/,main site pages
+exclude_prefix,https://www.cim.org/featured-events/,exclude major event hubs
+exclude_prefix,https://www.cim.org/membership/,exclude membership core pages
+exclude_prefix,https://www.cim.org/events,exclude core event pages
+exclude_prefix,https://www.cim.org/cim-scholarships/,exclude scholarship page
+exclude_prefix,https://www.cim.org/professional-development/,exclude key education pages
+exclude_contains,/past-award-winners/,candidate area unless you want to exclude later
+exclude_contains,.pdf,exclude document files
+exclude_contains,/wp-admin/,exclude admin
+exclude_contains,/feed/,exclude feeds
+min_impressions,50,minimum visibility threshold for evaluation
+max_clicks_for_low_performance,25,page considered weak if clicks are below this
+min_position_for_low_performance,8,page considered weak if avg position is worse than this
+monthly_selection_count,1,select one page per month
