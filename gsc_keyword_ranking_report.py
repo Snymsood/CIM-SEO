@@ -7,6 +7,11 @@ import pandas as pd
 import requests
 import os
 import html
+import base64
+from io import BytesIO
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 
 SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly"]
 KEY_FILE = "gsc-key.json"
@@ -18,6 +23,16 @@ MONDAY_ITEM_ID = os.getenv("MONDAY_ITEM_ID")
 MONDAY_API_URL = "https://api.monday.com/v2"
 MONDAY_FILE_API_URL = "https://api.monday.com/v2/file"
 TRACKED_KEYWORDS_FILE = "tracked_keywords.csv"
+
+ACCENT = "#0f4c81"
+ACCENT_2 = "#2f7d8c"
+ACCENT_3 = "#d06b43"
+ACCENT_4 = "#6a8caf"
+TEXT = "#1f2937"
+MUTED = "#6b7280"
+BG = "#f4f6fb"
+CARD = "#ffffff"
+BORDER = "#d8dee9"
 
 
 def get_service():
@@ -160,12 +175,16 @@ def format_pct_change(current, previous):
 
 
 def format_delta(value):
+    if pd.isna(value):
+        return ""
     if value > 0:
         return f"+{value:.2f}"
     return f"{value:.2f}"
 
 
 def format_delta_int(value):
+    if pd.isna(value):
+        return ""
     if value > 0:
         return f"+{value:.0f}"
     return f"{value:.0f}"
@@ -206,9 +225,9 @@ def build_executive_read(comparison_df):
     return lines
 
 
-def build_ai_analysis(comparison_df, current_start, current_end, previous_start, previous_end):
+def build_executive_commentary(comparison_df, current_start, current_end, previous_start, previous_end):
     if not GROQ_API_KEY:
-        return "AI executive analysis was skipped because GROQ_API_KEY is not configured."
+        return "Executive commentary was unavailable for this run."
 
     top_table = comparison_df[[
         "keyword", "category", "priority", "clicks_current", "impressions_current",
@@ -216,7 +235,7 @@ def build_ai_analysis(comparison_df, current_start, current_end, previous_start,
     ]].head(15)
 
     prompt = f"""
-You are writing a concise corporate keyword ranking analysis for SEO stakeholders.
+You are writing concise executive commentary for a manually prepared keyword ranking report.
 
 Write:
 1. Executive Summary
@@ -227,10 +246,11 @@ Write:
 Requirements:
 - professional corporate tone
 - concise and readable
-- under 350 words
+- under 300 words
+- do not mention AI, models, automation, or system-generated analysis
 - do not invent data
 - focus on ranking movement and visibility changes
-- avoid hype
+- write as if this is part of a manually produced executive report
 
 Current period: {current_start} to {current_end}
 Previous period: {previous_start} to {previous_end}
@@ -240,25 +260,19 @@ Tracked keyword data:
 """
 
     try:
-        client = OpenAI(
-            api_key=GROQ_API_KEY,
-            base_url="https://api.groq.com/openai/v1"
-        )
-
+        client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "You write precise weekly SEO keyword ranking summaries."},
+                {"role": "system", "content": "You write precise weekly SEO executive commentary."},
                 {"role": "user", "content": prompt},
             ],
             temperature=0.2,
         )
-
         content = response.choices[0].message.content.strip()
-        return content if content else "AI executive analysis returned an empty response."
-
-    except Exception as e:
-        return f"AI executive analysis failed, so the report fell back to deterministic output only. Error: {str(e)}"
+        return content if content else "Executive commentary was unavailable for this run."
+    except Exception:
+        return "Executive commentary was unavailable for this run."
 
 
 def md_table_from_df(df, columns, rename_map=None):
@@ -321,7 +335,83 @@ def html_table_from_df(df, columns, rename_map=None):
     """
 
 
-def write_markdown_summary(comparison_df, ai_analysis, current_start, current_end, previous_start, previous_end):
+def fig_to_base64(fig):
+    buffer = BytesIO()
+    fig.savefig(buffer, format="png", dpi=180, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    buffer.seek(0)
+    return base64.b64encode(buffer.read()).decode("utf-8")
+
+
+def make_barh_chart(df, label_col, value_col, title, color, top_n=10):
+    if df.empty:
+        return ""
+    chart_df = df.head(top_n).copy().iloc[::-1]
+    fig, ax = plt.subplots(figsize=(10, 4.8))
+    ax.barh(chart_df[label_col], chart_df[value_col], color=color)
+    ax.set_title(title, fontsize=14, fontweight="bold")
+    ax.grid(axis="x", linestyle="--", alpha=0.25)
+    ax.spines[['top', 'right']].set_visible(False)
+    ax.tick_params(axis='y', labelsize=9)
+    ax.tick_params(axis='x', labelsize=9)
+    fig.tight_layout()
+    return fig_to_base64(fig)
+
+
+def make_diverging_position_chart(gainers_df, losers_df, label_col, value_col, title):
+    g = gainers_df.head(6).copy()
+    l = losers_df.head(6).copy()
+    if g.empty and l.empty:
+        return ""
+
+    g = g[[label_col, value_col]].copy()
+    l = l[[label_col, value_col]].copy()
+    g[value_col] = g[value_col].abs()
+    l[value_col] = -l[value_col].abs()
+    plot_df = pd.concat([g, l], ignore_index=True)
+    plot_df = plot_df.sort_values(by=value_col)
+
+    colors = [ACCENT_3 if v < 0 else ACCENT_2 for v in plot_df[value_col]]
+
+    fig, ax = plt.subplots(figsize=(10, 5.2))
+    ax.barh(plot_df[label_col], plot_df[value_col], color=colors)
+    ax.axvline(0, color="#444", linewidth=1)
+    ax.set_title(title, fontsize=14, fontweight="bold")
+    ax.grid(axis="x", linestyle="--", alpha=0.25)
+    ax.spines[['top', 'right']].set_visible(False)
+    ax.tick_params(axis='y', labelsize=9)
+    ax.tick_params(axis='x', labelsize=9)
+    fig.tight_layout()
+    return fig_to_base64(fig)
+
+
+def make_kpi_comparison_chart(comparison_df):
+    visible_now = int((comparison_df["impressions_current"] > 0).sum())
+    visible_prev = int((comparison_df["impressions_previous"] > 0).sum())
+    improved_count = int(comparison_df["ranking_improved"].sum())
+    declined_count = int(comparison_df["ranking_declined"].sum())
+    entered_top_10 = int(comparison_df["entered_top_10"].sum())
+    entered_top_3 = int(comparison_df["entered_top_3"].sum())
+
+    metrics = ["Visible", "Improved", "Declined", "Top 10", "Top 3"]
+    prev_vals = [visible_prev, 0, 0, 0, 0]
+    curr_vals = [visible_now, improved_count, declined_count, entered_top_10, entered_top_3]
+
+    x = range(len(metrics))
+    fig, ax = plt.subplots(figsize=(10, 4.8))
+    ax.bar([i - 0.18 for i in x], prev_vals, width=0.36, label="Previous", color="#b7c2d0")
+    ax.bar([i + 0.18 for i in x], curr_vals, width=0.36, label="Current", color=ACCENT)
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(metrics)
+    ax.set_title("Keyword Visibility and Ranking Movement", fontsize=14, fontweight="bold")
+    ax.grid(axis="y", linestyle="--", alpha=0.25)
+    ax.legend(frameon=False)
+    ax.spines[['top', 'right']].set_visible(False)
+    fig.tight_layout()
+    return fig_to_base64(fig)
+
+
+def write_markdown_summary(comparison_df, commentary, current_start, current_end, previous_start, previous_end):
     executive_read = build_executive_read(comparison_df)
 
     top_keywords = comparison_df.sort_values(by=["clicks_current", "impressions_current"], ascending=[False, False]).head(15)
@@ -338,18 +428,15 @@ def write_markdown_summary(comparison_df, ai_analysis, current_start, current_en
     lines.append("")
     for line in executive_read:
         lines.append(f"- {line}")
-
     lines.append("")
-    lines.append("## AI Executive Analysis")
+    lines.append("## Executive Commentary")
     lines.append("")
-    lines.append(ai_analysis)
-
+    lines.append(commentary)
     lines.append("")
     lines.append("## Reporting Window")
     lines.append("")
     lines.append(f"- Current period: {current_start} to {current_end}")
     lines.append(f"- Previous period: {previous_start} to {previous_end}")
-
     lines.append("")
     lines.append("## Top Tracked Keywords")
     lines.append("")
@@ -366,87 +453,42 @@ def write_markdown_summary(comparison_df, ai_analysis, current_start, current_en
             "position_change": "WoW Position Δ",
         }
     ))
-
     lines.append("")
     lines.append("## Biggest Ranking Improvements")
     lines.append("")
-    lines.append(md_table_from_df(
-        biggest_gainers,
-        ["keyword", "position_previous", "position_current", "position_change", "clicks_current"],
-        {
-            "keyword": "Keyword",
-            "position_previous": "Prev Position",
-            "position_current": "Current Position",
-            "position_change": "Position Δ",
-            "clicks_current": "Clicks",
-        }
-    ))
-
+    lines.append(md_table_from_df(biggest_gainers, ["keyword", "position_previous", "position_current", "position_change", "clicks_current"], {
+        "keyword": "Keyword", "position_previous": "Prev Position", "position_current": "Current Position", "position_change": "Position Δ", "clicks_current": "Clicks"
+    }))
     lines.append("")
     lines.append("## Biggest Ranking Declines")
     lines.append("")
-    lines.append(md_table_from_df(
-        biggest_losers,
-        ["keyword", "position_previous", "position_current", "position_change", "clicks_current"],
-        {
-            "keyword": "Keyword",
-            "position_previous": "Prev Position",
-            "position_current": "Current Position",
-            "position_change": "Position Δ",
-            "clicks_current": "Clicks",
-        }
-    ))
-
+    lines.append(md_table_from_df(biggest_losers, ["keyword", "position_previous", "position_current", "position_change", "clicks_current"], {
+        "keyword": "Keyword", "position_previous": "Prev Position", "position_current": "Current Position", "position_change": "Position Δ", "clicks_current": "Clicks"
+    }))
     lines.append("")
     lines.append("## Entered Top 3")
     lines.append("")
-    lines.append(md_table_from_df(
-        entered_top_3,
-        ["keyword", "category", "priority", "position_previous", "position_current"],
-        {
-            "keyword": "Keyword",
-            "category": "Category",
-            "priority": "Priority",
-            "position_previous": "Prev Position",
-            "position_current": "Current Position",
-        }
-    ))
-
+    lines.append(md_table_from_df(entered_top_3, ["keyword", "category", "priority", "position_previous", "position_current"], {
+        "keyword": "Keyword", "category": "Category", "priority": "Priority", "position_previous": "Prev Position", "position_current": "Current Position"
+    }))
     lines.append("")
     lines.append("## Entered Top 10")
     lines.append("")
-    lines.append(md_table_from_df(
-        entered_top_10,
-        ["keyword", "category", "priority", "position_previous", "position_current"],
-        {
-            "keyword": "Keyword",
-            "category": "Category",
-            "priority": "Priority",
-            "position_previous": "Prev Position",
-            "position_current": "Current Position",
-        }
-    ))
-
+    lines.append(md_table_from_df(entered_top_10, ["keyword", "category", "priority", "position_previous", "position_current"], {
+        "keyword": "Keyword", "category": "Category", "priority": "Priority", "position_previous": "Prev Position", "position_current": "Current Position"
+    }))
     lines.append("")
     lines.append("## Lost Visibility")
     lines.append("")
-    lines.append(md_table_from_df(
-        lost_visibility,
-        ["keyword", "category", "priority", "impressions_previous", "impressions_current"],
-        {
-            "keyword": "Keyword",
-            "category": "Category",
-            "priority": "Priority",
-            "impressions_previous": "Prev Impressions",
-            "impressions_current": "Current Impressions",
-        }
-    ))
+    lines.append(md_table_from_df(lost_visibility, ["keyword", "category", "priority", "impressions_previous", "impressions_current"], {
+        "keyword": "Keyword", "category": "Category", "priority": "Priority", "impressions_previous": "Prev Impressions", "impressions_current": "Current Impressions"
+    }))
 
     with open("keyword_ranking_summary.md", "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
 
 
-def write_html_summary(comparison_df, ai_analysis, current_start, current_end, previous_start, previous_end):
+def write_html_summary(comparison_df, commentary, current_start, current_end, previous_start, previous_end):
     executive_read = build_executive_read(comparison_df)
 
     top_keywords = comparison_df.sort_values(by=["clicks_current", "impressions_current"], ascending=[False, False]).head(15)
@@ -456,86 +498,167 @@ def write_html_summary(comparison_df, ai_analysis, current_start, current_end, p
     entered_top_10 = comparison_df[comparison_df["entered_top_10"]].head(15)
     lost_visibility = comparison_df[comparison_df["lost_visibility"]].head(15)
 
-    def card(title, value, sub):
-        return f"""
-        <div class="card">
-            <div class="label">{html.escape(title)}</div>
-            <div class="value">{html.escape(value)}</div>
-            <div class="sub">{html.escape(sub)}</div>
-        </div>
-        """
-
     visible_now = int((comparison_df["impressions_current"] > 0).sum())
+    visible_prev = int((comparison_df["impressions_previous"] > 0).sum())
     improved_count = int(comparison_df["ranking_improved"].sum())
     declined_count = int(comparison_df["ranking_declined"].sum())
     top_10_count = int(comparison_df["entered_top_10"].sum())
+    top_3_count = int(comparison_df["entered_top_3"].sum())
+
+    avg_pos_current_series = comparison_df.loc[comparison_df["position_current"] > 0, "position_current"]
+    avg_pos_previous_series = comparison_df.loc[comparison_df["position_previous"] > 0, "position_previous"]
+    avg_pos_current = avg_pos_current_series.mean() if not avg_pos_current_series.empty else 0
+    avg_pos_previous = avg_pos_previous_series.mean() if not avg_pos_previous_series.empty else 0
+
+    kpi_chart = make_kpi_comparison_chart(comparison_df)
+    top_keywords_chart = make_barh_chart(top_keywords, "keyword", "clicks_current", "Top Tracked Keywords by Clicks", ACCENT_2, 10)
+    position_gainers_chart = make_barh_chart(biggest_gainers.assign(position_gain=biggest_gainers["position_previous"] - biggest_gainers["position_current"]), "keyword", "position_gain", "Best Position Improvements", ACCENT_2, 10) if not biggest_gainers.empty else ""
+    visibility_chart = make_barh_chart(top_keywords, "keyword", "impressions_current", "Top Tracked Keywords by Impressions", ACCENT_4, 10)
+    winners_losers_chart = make_diverging_position_chart(
+        biggest_gainers.assign(delta=biggest_gainers["position_previous"] - biggest_gainers["position_current"]),
+        biggest_losers.assign(delta=biggest_losers["position_previous"] - biggest_losers["position_current"]),
+        "keyword", "delta", "Ranking Winners and Losers"
+    )
+
+    def card(title, value, sub, tone="blue"):
+        tone_class = f"tone-{tone}"
+        return f"""
+        <div class=\"card {tone_class}\">
+            <div class=\"label\">{html.escape(title)}</div>
+            <div class=\"value\">{html.escape(value)}</div>
+            <div class=\"sub\">{html.escape(sub)}</div>
+        </div>
+        """
 
     html_output = f"""
 <!DOCTYPE html>
-<html lang="en">
+<html lang=\"en\">
 <head>
-<meta charset="utf-8">
+<meta charset=\"utf-8\">
 <title>Weekly Keyword Ranking Review</title>
 <style>
+    @page {{
+        size: A4;
+        margin: 16mm 14mm 16mm 14mm;
+        @bottom-right {{
+            content: "Page " counter(page);
+            color: #6b7280;
+            font-size: 10px;
+        }}
+    }}
     body {{
-        font-family: Arial, sans-serif;
+        font-family: "Times New Roman", Times, serif;
         margin: 0;
-        padding: 32px;
-        background: #f5f7fb;
-        color: #1f2937;
+        background: {BG};
+        color: {TEXT};
+        font-size: 12pt;
+        line-height: 1.45;
     }}
     .container {{
-        max-width: 1200px;
+        max-width: 1120px;
         margin: 0 auto;
+        padding: 8px 0 18px 0;
     }}
-    h1 {{
+    .hero {{
+        background: linear-gradient(135deg, {ACCENT} 0%, #1d6596 55%, {ACCENT_2} 100%);
+        color: white;
+        border-radius: 18px;
+        padding: 28px 30px;
+        margin-bottom: 22px;
+        box-shadow: 0 10px 24px rgba(15, 76, 129, 0.18);
+    }}
+    .hero h1 {{
+        margin: 0 0 8px 0;
+        font-size: 28px;
+        font-weight: 700;
+    }}
+    .hero .subhead {{
+        font-size: 13px;
+        opacity: 0.94;
         margin-bottom: 8px;
     }}
-    h2 {{
-        margin-top: 32px;
-        border-bottom: 2px solid #e5e7eb;
-        padding-bottom: 8px;
+    .hero .window {{
+        font-size: 12px;
+        opacity: 0.95;
     }}
-    .muted {{
-        color: #6b7280;
-        margin-bottom: 20px;
+    .section {{
+        background: {CARD};
+        border: 1px solid {BORDER};
+        border-radius: 16px;
+        padding: 22px 24px;
+        margin: 0 0 18px 0;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
+    }}
+    .section h2 {{
+        margin: 0 0 8px 0;
+        font-size: 20px;
+        color: {ACCENT};
+    }}
+    .section-note {{
+        color: {MUTED};
+        font-size: 11px;
+        margin-bottom: 16px;
     }}
     .grid {{
         display: grid;
         grid-template-columns: repeat(4, 1fr);
         gap: 16px;
-        margin: 20px 0 28px 0;
+        margin-top: 12px;
     }}
     .card {{
-        background: white;
-        border-radius: 12px;
-        padding: 18px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        border-radius: 14px;
+        padding: 18px 18px 16px 18px;
+        color: white;
+        min-height: 100px;
+        box-sizing: border-box;
     }}
+    .tone-blue {{ background: linear-gradient(135deg, {ACCENT}, #265f97); }}
+    .tone-teal {{ background: linear-gradient(135deg, {ACCENT_2}, #4d9da1); }}
+    .tone-orange {{ background: linear-gradient(135deg, {ACCENT_3}, #dc8a63); }}
+    .tone-slate {{ background: linear-gradient(135deg, {ACCENT_4}, #8ca5c4); }}
     .label {{
-        font-size: 12px;
+        font-size: 11px;
         text-transform: uppercase;
-        color: #6b7280;
-        margin-bottom: 10px;
+        letter-spacing: 0.08em;
+        opacity: 0.92;
+        margin-bottom: 12px;
     }}
     .value {{
         font-size: 28px;
         font-weight: 700;
-        margin-bottom: 6px;
+        line-height: 1.05;
+        margin-bottom: 8px;
     }}
     .sub {{
-        font-size: 13px;
-        color: #6b7280;
+        font-size: 11.5px;
+        opacity: 0.96;
     }}
-    .panel {{
-        background: white;
+    .commentary {{
+        background: linear-gradient(180deg, #f8fbff 0%, #eef5fb 100%);
+        border-left: 6px solid {ACCENT};
+        padding: 18px 18px 18px 20px;
         border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-        margin-bottom: 20px;
+        white-space: pre-wrap;
     }}
-    ul {{
-        margin-top: 0;
+    .exec-list {{
+        margin: 0;
+        padding-left: 22px;
+    }}
+    .exec-list li {{
+        margin: 0 0 8px 0;
+    }}
+    .chart-wrap {{
+        background: #fff;
+        border: 1px solid {BORDER};
+        border-radius: 16px;
+        padding: 18px 18px 12px 18px;
+        margin: 0 0 18px 0;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+        page-break-inside: avoid;
+    }}
+    .chart-wrap img {{
+        width: 100%;
+        display: block;
     }}
     table {{
         width: 100%;
@@ -543,132 +666,173 @@ def write_html_summary(comparison_df, ai_analysis, current_start, current_end, p
         background: white;
         border-radius: 12px;
         overflow: hidden;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-        margin-bottom: 24px;
+        margin-top: 12px;
     }}
     th, td {{
         text-align: left;
-        padding: 12px 14px;
+        padding: 11px 12px;
         border-bottom: 1px solid #e5e7eb;
         vertical-align: top;
         word-break: break-word;
+        font-size: 10.5px;
     }}
     th {{
-        background: #111827;
+        background: {ACCENT};
         color: white;
-        font-size: 13px;
+        font-size: 10.5px;
+        letter-spacing: 0.02em;
     }}
     tr:nth-child(even) td {{
-        background: #f9fafb;
+        background: #f9fbfd;
     }}
-    .ai-block {{
-        white-space: pre-wrap;
-        line-height: 1.5;
+    .page-break {{
+        page-break-before: always;
     }}
 </style>
 </head>
 <body>
-<div class="container">
-    <h1>Weekly Keyword Ranking Review</h1>
-    <div class="muted">Current period: {current_start} to {current_end} | Previous period: {previous_start} to {previous_end}</div>
+<div class=\"container\">
+    <div class=\"hero\">
+        <h1>Weekly Keyword Ranking Review</h1>
+        <div class=\"subhead\">Search performance review for tracked priority keyword set</div>
+        <div class=\"window\">Current period: {current_start} to {current_end} &nbsp;|&nbsp; Previous period: {previous_start} to {previous_end}</div>
+    </div>
 
-    <div class="panel">
+    <div class=\"section\">
         <h2>Executive Read</h2>
-        <ul>{''.join(f"<li>{html.escape(line)}</li>" for line in executive_read)}</ul>
+        <div class=\"section-note\">Weekly summary of visibility, ranking movement, and threshold entries across the monitored keyword set.</div>
+        <ul class=\"exec-list\">{''.join(f'<li>{html.escape(line)}</li>' for line in executive_read)}</ul>
     </div>
 
-    <div class="panel">
-        <h2>AI Executive Analysis</h2>
-        <div class="ai-block">{html.escape(ai_analysis)}</div>
+    <div class=\"section\">
+        <h2>Executive Commentary</h2>
+        <div class=\"commentary\">{html.escape(commentary)}</div>
     </div>
 
-    <h2>KPI Snapshot</h2>
-    <div class="grid">
-        {card("Visible Keywords", str(visible_now), "tracked keywords with impressions")}
-        {card("Ranking Improvements", str(improved_count), "keywords with better avg position")}
-        {card("Ranking Declines", str(declined_count), "keywords with weaker avg position")}
-        {card("Entered Top 10", str(top_10_count), "new top-10 entries")}
+    <div class=\"section\">
+        <h2>Key Performance Indicators</h2>
+        <div class=\"section-note\">Current-period performance and ranking movement across the tracked keyword list.</div>
+        <div class=\"grid\">
+            {card('Visible Keywords', str(visible_now), f'Previous: {visible_prev}', 'blue')}
+            {card('Ranking Improvements', str(improved_count), 'Keywords with stronger average position', 'teal')}
+            {card('Ranking Declines', str(declined_count), 'Keywords with weaker average position', 'orange')}
+            {card('Entered Top 10', str(top_10_count), f'Entered Top 3: {top_3_count}', 'slate')}
+        </div>
     </div>
 
-    <h2>Top Tracked Keywords</h2>
-    {html_table_from_df(
-        top_keywords,
-        ["keyword", "category", "priority", "clicks_current", "impressions_current", "position_current", "position_change"],
-        {
-            "keyword": "Keyword",
-            "category": "Category",
-            "priority": "Priority",
-            "clicks_current": "Clicks",
-            "impressions_current": "Impressions",
-            "position_current": "Current Position",
-            "position_change": "WoW Position Δ",
-        }
-    )}
+    <div class=\"section\">
+        <h2>Performance Overview</h2>
+        <div class=\"section-note\">Current week versus prior week across the primary executive ranking indicators.</div>
+        <div class=\"chart-wrap\"><img src=\"data:image/png;base64,{kpi_chart}\"></div>
+        <div class=\"grid\" style=\"grid-template-columns: repeat(2, 1fr);\">
+            {card('Avg Position (High Priority)', f'{avg_pos_current:.2f}', f'Previous: {avg_pos_previous:.2f}', 'blue')}
+            {card('Top 3 Entries', str(top_3_count), f'Top 10 Entries: {top_10_count}', 'teal')}
+        </div>
+    </div>
 
-    <h2>Biggest Ranking Improvements</h2>
-    {html_table_from_df(
-        biggest_gainers,
-        ["keyword", "position_previous", "position_current", "position_change", "clicks_current"],
-        {
-            "keyword": "Keyword",
-            "position_previous": "Prev Position",
-            "position_current": "Current Position",
-            "position_change": "Position Δ",
-            "clicks_current": "Clicks",
-        }
-    )}
+    <div class=\"section\">
+        <h2>Top Demand Drivers</h2>
+        <div class=\"section-note\">Tracked keywords contributing the strongest click and impression volume in the current week.</div>
+        <div class=\"chart-wrap\"><img src=\"data:image/png;base64,{top_keywords_chart}\"></div>
+        <div class=\"chart-wrap\"><img src=\"data:image/png;base64,{visibility_chart}\"></div>
+    </div>
 
-    <h2>Biggest Ranking Declines</h2>
-    {html_table_from_df(
-        biggest_losers,
-        ["keyword", "position_previous", "position_current", "position_change", "clicks_current"],
-        {
-            "keyword": "Keyword",
-            "position_previous": "Prev Position",
-            "position_current": "Current Position",
-            "position_change": "Position Δ",
-            "clicks_current": "Clicks",
-        }
-    )}
+    <div class=\"section\">
+        <h2>Winners and Losers</h2>
+        <div class=\"section-note\">Largest ranking improvements and declines across the monitored keyword set.</div>
+        <div class=\"chart-wrap\"><img src=\"data:image/png;base64,{winners_losers_chart}\"></div>
+        <div class=\"chart-wrap\"><img src=\"data:image/png;base64,{position_gainers_chart}\"></div>
+    </div>
 
-    <h2>Entered Top 3</h2>
-    {html_table_from_df(
-        entered_top_3,
-        ["keyword", "category", "priority", "position_previous", "position_current"],
-        {
-            "keyword": "Keyword",
-            "category": "Category",
-            "priority": "Priority",
-            "position_previous": "Prev Position",
-            "position_current": "Current Position",
-        }
-    )}
+    <div class=\"section page-break\">
+        <h2>Top Tracked Keywords</h2>
+        <div class=\"section-note\">Current-period ranking and traffic performance for the highest-impact tracked search terms.</div>
+        {html_table_from_df(
+            top_keywords,
+            ["keyword", "category", "priority", "clicks_current", "impressions_current", "position_current", "position_change"],
+            {
+                "keyword": "Keyword",
+                "category": "Category",
+                "priority": "Priority",
+                "clicks_current": "Clicks",
+                "impressions_current": "Impressions",
+                "position_current": "Current Position",
+                "position_change": "WoW Position Δ",
+            }
+        )}
+    </div>
 
-    <h2>Entered Top 10</h2>
-    {html_table_from_df(
-        entered_top_10,
-        ["keyword", "category", "priority", "position_previous", "position_current"],
-        {
-            "keyword": "Keyword",
-            "category": "Category",
-            "priority": "Priority",
-            "position_previous": "Prev Position",
-            "position_current": "Current Position",
-        }
-    )}
+    <div class=\"section\">
+        <h2>Biggest Ranking Improvements</h2>
+        {html_table_from_df(
+            biggest_gainers,
+            ["keyword", "position_previous", "position_current", "position_change", "clicks_current"],
+            {
+                "keyword": "Keyword",
+                "position_previous": "Prev Position",
+                "position_current": "Current Position",
+                "position_change": "Position Δ",
+                "clicks_current": "Clicks",
+            }
+        )}
+    </div>
 
-    <h2>Lost Visibility</h2>
-    {html_table_from_df(
-        lost_visibility,
-        ["keyword", "category", "priority", "impressions_previous", "impressions_current"],
-        {
-            "keyword": "Keyword",
-            "category": "Category",
-            "priority": "Priority",
-            "impressions_previous": "Prev Impressions",
-            "impressions_current": "Current Impressions",
-        }
-    )}
+    <div class=\"section\">
+        <h2>Biggest Ranking Declines</h2>
+        {html_table_from_df(
+            biggest_losers,
+            ["keyword", "position_previous", "position_current", "position_change", "clicks_current"],
+            {
+                "keyword": "Keyword",
+                "position_previous": "Prev Position",
+                "position_current": "Current Position",
+                "position_change": "Position Δ",
+                "clicks_current": "Clicks",
+            }
+        )}
+    </div>
+
+    <div class=\"section\">
+        <h2>Threshold Entries</h2>
+        <div class=\"section-note\">Keywords crossing key ranking milestones in the current week.</div>
+        {html_table_from_df(
+            entered_top_3,
+            ["keyword", "category", "priority", "position_previous", "position_current"],
+            {
+                "keyword": "Entered Top 3 Keyword",
+                "category": "Category",
+                "priority": "Priority",
+                "position_previous": "Prev Position",
+                "position_current": "Current Position",
+            }
+        )}
+        {html_table_from_df(
+            entered_top_10,
+            ["keyword", "category", "priority", "position_previous", "position_current"],
+            {
+                "keyword": "Entered Top 10 Keyword",
+                "category": "Category",
+                "priority": "Priority",
+                "position_previous": "Prev Position",
+                "position_current": "Current Position",
+            }
+        )}
+    </div>
+
+    <div class=\"section\">
+        <h2>Lost Visibility</h2>
+        {html_table_from_df(
+            lost_visibility,
+            ["keyword", "category", "priority", "impressions_previous", "impressions_current"],
+            {
+                "keyword": "Keyword",
+                "category": "Category",
+                "priority": "Priority",
+                "impressions_previous": "Prev Impressions",
+                "impressions_current": "Current Impressions",
+            }
+        )}
+    </div>
 </div>
 </body>
 </html>
@@ -680,50 +844,6 @@ def write_html_summary(comparison_df, ai_analysis, current_start, current_end, p
 def generate_pdf():
     HTML("keyword_ranking_summary.html").write_pdf("keyword_ranking_summary.pdf")
     print("Saved keyword_ranking_summary.pdf")
-
-
-def build_monday_update_text(comparison_df, current_start, current_end, previous_start, previous_end):
-    executive_read = build_executive_read(comparison_df)
-    lines = [
-        "Keyword Ranking Review",
-        f"Current period: {current_start} to {current_end}",
-        f"Previous period: {previous_start} to {previous_end}",
-        "",
-        "Executive read:",
-    ]
-    lines.extend([f"- {line}" for line in executive_read])
-    lines.extend(["", "PDF attached by automation."])
-    return "\n".join(lines)
-
-
-def post_monday_update(update_text):
-    if not MONDAY_API_TOKEN or not MONDAY_ITEM_ID:
-        print("Skipping monday update: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.")
-        return
-
-    query = """
-    mutation ($item_id: ID!, $body: String!) {
-      create_update(item_id: $item_id, body: $body) {
-        id
-      }
-    }
-    """
-    variables = {
-        "item_id": str(MONDAY_ITEM_ID),
-        "body": update_text,
-    }
-
-    response = requests.post(
-        MONDAY_API_URL,
-        headers={
-            "Authorization": MONDAY_API_TOKEN,
-            "Content-Type": "application/json",
-        },
-        json={"query": query, "variables": variables},
-        timeout=60,
-    )
-    response.raise_for_status()
-    print("Posted monday update.")
 
 
 def upload_pdf_to_monday(pdf_path):
@@ -787,7 +907,7 @@ def upload_pdf_to_monday(pdf_path):
                 }),
             },
             files={
-                "pdf": ("keyword_ranking_review.pdf", f, "application/pdf")
+                "pdf": ("keyword-ranking-review.pdf", f, "application/pdf")
             },
             timeout=120,
         )
@@ -835,7 +955,7 @@ def main():
     top_3.to_csv("entered_top_3.csv", index=False)
     top_10.to_csv("entered_top_10.csv", index=False)
 
-    ai_analysis = build_ai_analysis(
+    commentary = build_executive_commentary(
         comparison_df,
         current_start,
         current_end,
@@ -845,7 +965,7 @@ def main():
 
     write_markdown_summary(
         comparison_df,
-        ai_analysis,
+        commentary,
         current_start,
         current_end,
         previous_start,
@@ -853,7 +973,7 @@ def main():
     )
     write_html_summary(
         comparison_df,
-        ai_analysis,
+        commentary,
         current_start,
         current_end,
         previous_start,
