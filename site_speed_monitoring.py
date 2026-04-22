@@ -6,6 +6,10 @@ import requests
 import os
 import html
 import json
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from pathlib import Path
 
 PAGESPEED_API_KEY = os.getenv("PAGESPEED_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
@@ -15,6 +19,7 @@ MONDAY_ITEM_ID = os.getenv("MONDAY_ITEM_ID")
 TRACKED_PAGES_FILE = "tracked_speed_pages.csv"
 SNAPSHOT_FILE = "site_speed_latest_snapshot.csv"
 HISTORY_FILE = "site_speed_history.csv"
+CHARTS_DIR = Path("site_speed_charts")
 
 MONDAY_API_URL = "https://api.monday.com/v2"
 MONDAY_FILE_API_URL = "https://api.monday.com/v2/file"
@@ -40,39 +45,21 @@ def get_nested(data, path, default=None):
 
 
 def get_audit_numeric(data, audit_key):
-    value = get_nested(
-        data,
-        ["lighthouseResult", "audits", audit_key, "numericValue"],
-        None
-    )
+    value = get_nested(data, ["lighthouseResult", "audits", audit_key, "numericValue"], None)
     return float(value) if value is not None else None
 
 
 def get_performance_score(data):
-    score = get_nested(
-        data,
-        ["lighthouseResult", "categories", "performance", "score"],
-        None
-    )
+    score = get_nested(data, ["lighthouseResult", "categories", "performance", "score"], None)
     return float(score) * 100 if score is not None else None
 
 
 def get_field_metric(data, metric_key):
-    metric = get_nested(
-        data,
-        ["loadingExperience", "metrics", metric_key],
-        None
-    )
+    metric = get_nested(data, ["loadingExperience", "metrics", metric_key], None)
     if not metric:
-        metric = get_nested(
-            data,
-            ["originLoadingExperience", "metrics", metric_key],
-            None
-        )
-
+        metric = get_nested(data, ["originLoadingExperience", "metrics", metric_key], None)
     if not metric:
         return None, None
-
     return metric.get("percentile"), metric.get("category")
 
 
@@ -83,12 +70,9 @@ def fetch_pagespeed(url, strategy="mobile"):
         "category": "performance",
         "key": PAGESPEED_API_KEY,
     }
-
     response = requests.get(PAGESPEED_API_URL, params=params, timeout=180)
-
     if not response.ok:
         print(f"PSI error for {strategy} {url}: {response.status_code} {response.text}", flush=True)
-
     response.raise_for_status()
     return response.json()
 
@@ -124,10 +108,8 @@ def build_page_record(page_meta, strategy, data):
 
 def collect_snapshot(tracked_df):
     records = []
-
     for _, row in tracked_df.iterrows():
         page_meta = row.to_dict()
-
         for strategy in ["mobile", "desktop"]:
             try:
                 data = fetch_pagespeed(page_meta["page"], strategy=strategy)
@@ -156,8 +138,8 @@ def collect_snapshot(tracked_df):
                     "fcp_field_ms": None,
                     "fcp_field_category": None,
                 })
-
     return pd.DataFrame(records)
+
 
 def load_previous_snapshot():
     if os.path.exists(SNAPSHOT_FILE):
@@ -182,18 +164,12 @@ def prepare_comparison(current_df, previous_df):
             "cls_field": "cls_field_previous",
         })
 
-        work = pd.merge(
-            current_df,
-            previous_small,
-            on=["page", "strategy"],
-            how="left"
-        )
+        work = pd.merge(current_df, previous_small, on=["page", "strategy"], how="left")
 
     work["performance_score_change"] = work["performance_score"] - work["performance_score_previous"]
     work["lcp_lab_ms_change"] = work["lcp_lab_ms"] - work["lcp_lab_ms_previous"]
     work["inp_field_ms_change"] = work["inp_field_ms"] - work["inp_field_ms_previous"]
     work["cls_field_change"] = work["cls_field"] - work["cls_field_previous"]
-
     return work
 
 
@@ -213,10 +189,9 @@ def format_delta(value, decimals=0):
 
 def build_executive_read(comparison_df):
     mobile = comparison_df[comparison_df["strategy"] == "mobile"].copy()
-
     lines = []
     if mobile.empty:
-        return ["No mobile PageSpeed data was available."]
+        return ["No mobile site speed data was available."]
 
     avg_score = mobile["performance_score"].mean()
     poor_lcp = mobile[mobile["lcp_field_category"] == "SLOW"]
@@ -230,20 +205,18 @@ def build_executive_read(comparison_df):
 
     improved = mobile[mobile["performance_score_change"] > 0].shape[0]
     declined = mobile[mobile["performance_score_change"] < 0].shape[0]
-
     if improved > declined:
         lines.append("More pages improved in performance score than declined versus the previous run.")
     elif declined > improved:
         lines.append("More pages declined in performance score than improved versus the previous run.")
     else:
         lines.append("Performance score movement was mixed across the tracked pages.")
-
     return lines
 
 
-def build_ai_analysis(comparison_df):
+def build_commentary(comparison_df):
     if not GROQ_API_KEY:
-        return "AI executive analysis was skipped because GROQ_API_KEY is not configured."
+        return "Executive commentary was unavailable because the commentary service key was not configured."
 
     mobile = comparison_df[comparison_df["strategy"] == "mobile"].copy()
     top_table = mobile[[
@@ -265,16 +238,14 @@ Requirements:
 - under 300 words
 - do not invent data
 - focus on Core Web Vitals and performance risk
+- do not mention AI or automation
 
 Tracked page speed data:
 {top_table.to_csv(index=False)}
 """
 
     try:
-        client = OpenAI(
-            api_key=GROQ_API_KEY,
-            base_url="https://api.groq.com/openai/v1"
-        )
+        client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
         response = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
@@ -285,7 +256,7 @@ Tracked page speed data:
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
-        return f"AI executive analysis failed, so the report fell back to deterministic output only. Error: {str(e)}"
+        return f"Executive commentary could not be generated for this run. Error: {str(e)}"
 
 
 def html_table_from_df(df, columns, rename_map=None):
@@ -311,25 +282,94 @@ def html_table_from_df(df, columns, rename_map=None):
     for row in work.values.tolist():
         cells = "".join(f"<td>{html.escape(str(v))}</td>" for v in row)
         body_rows.append(f"<tr>{cells}</tr>")
-
     return f"<table><thead><tr>{header_html}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
 
 
-def write_html_summary(comparison_df, ai_analysis):
-    mobile = comparison_df[comparison_df["strategy"] == "mobile"].sort_values(
-        by=["priority", "performance_score"],
-        ascending=[True, False]
-    )
-    desktop = comparison_df[comparison_df["strategy"] == "desktop"].sort_values(
-        by=["priority", "performance_score"],
-        ascending=[True, False]
-    )
+def save_chart(fig, filename):
+    CHARTS_DIR.mkdir(exist_ok=True)
+    path = CHARTS_DIR / filename
+    fig.savefig(path, dpi=180, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return path
 
+
+def build_charts(comparison_df):
+    CHARTS_DIR.mkdir(exist_ok=True)
+    mobile = comparison_df[comparison_df["strategy"] == "mobile"].copy().fillna(0)
+    desktop = comparison_df[comparison_df["strategy"] == "desktop"].copy().fillna(0)
+
+    charts = {}
+
+    fig, ax = plt.subplots(figsize=(8, 4.8))
+    labels = ["Avg Score", "Poor LCP", "Poor INP", "Poor CLS"]
+    mobile_vals = [
+        mobile["performance_score"].mean() if not mobile.empty else 0,
+        (mobile["lcp_field_category"] == "SLOW").sum(),
+        (mobile["inp_field_category"] == "SLOW").sum(),
+        (mobile["cls_field_category"] == "SLOW").sum(),
+    ]
+    desktop_vals = [
+        desktop["performance_score"].mean() if not desktop.empty else 0,
+        (desktop["lcp_field_category"] == "SLOW").sum(),
+        (desktop["inp_field_category"] == "SLOW").sum(),
+        (desktop["cls_field_category"] == "SLOW").sum(),
+    ]
+    x = range(len(labels))
+    ax.bar([i - 0.18 for i in x], mobile_vals, width=0.36, label="Mobile", color="#1d4ed8")
+    ax.bar([i + 0.18 for i in x], desktop_vals, width=0.36, label="Desktop", color="#0f766e")
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(labels)
+    ax.set_title("Mobile vs Desktop Site Speed Snapshot")
+    ax.grid(axis="y", linestyle="--", alpha=0.25)
+    ax.legend(frameon=False)
+    charts["overview"] = save_chart(fig, "overview.png")
+
+    top_mobile = mobile.sort_values("performance_score", ascending=False).head(10)
+    fig, ax = plt.subplots(figsize=(8, 5.2))
+    ax.barh(top_mobile["page"].str.replace("https://", "", regex=False).str[:55][::-1], top_mobile["performance_score"][::-1], color="#2563eb")
+    ax.set_title("Top Mobile Performance Scores")
+    ax.grid(axis="x", linestyle="--", alpha=0.25)
+    charts["top_mobile"] = save_chart(fig, "top_mobile.png")
+
+    worst_lcp = mobile.sort_values("lcp_lab_ms", ascending=False).head(10)
+    fig, ax = plt.subplots(figsize=(8, 5.2))
+    ax.barh(worst_lcp["page"].str.replace("https://", "", regex=False).str[:55][::-1], worst_lcp["lcp_lab_ms"][::-1], color="#dc2626")
+    ax.set_title("Highest Mobile LCP Pages")
+    ax.grid(axis="x", linestyle="--", alpha=0.25)
+    charts["worst_lcp"] = save_chart(fig, "worst_lcp.png")
+
+    score_change = mobile[["page", "performance_score_change"]].dropna().sort_values("performance_score_change")
+    fig, ax = plt.subplots(figsize=(8, 5.2))
+    colors = ["#ea580c" if v < 0 else "#0891b2" for v in score_change["performance_score_change"]]
+    ax.barh(score_change["page"].str.replace("https://", "", regex=False).str[:55], score_change["performance_score_change"], color=colors)
+    ax.set_title("Mobile Score Winners and Losers")
+    ax.axvline(0, color="#475569", linewidth=1)
+    ax.grid(axis="x", linestyle="--", alpha=0.25)
+    charts["score_change"] = save_chart(fig, "score_change.png")
+
+    return charts
+
+
+def img_tag(path, alt):
+    return f'<img src="{path.as_posix()}" alt="{html.escape(alt)}" style="width:100%; display:block; border-radius:16px;">'
+
+
+def write_html_summary(comparison_df, commentary):
+    mobile = comparison_df[comparison_df["strategy"] == "mobile"].sort_values(by=["priority", "performance_score"], ascending=[True, False])
+    desktop = comparison_df[comparison_df["strategy"] == "desktop"].sort_values(by=["priority", "performance_score"], ascending=[True, False])
     executive_read = build_executive_read(comparison_df)
+    charts = build_charts(comparison_df)
 
-    def card(title, value, sub):
+    def card(title, value, sub, tone="blue"):
+        tone_map = {
+            "blue": ("#dbeafe", "#1d4ed8"),
+            "teal": ("#ccfbf1", "#0f766e"),
+            "gold": ("#fef3c7", "#b45309"),
+            "rose": ("#ffe4e6", "#be123c"),
+        }
+        bg, accent = tone_map[tone]
         return f'''
-        <div class="card">
+        <div class="card" style="background:{bg}; border-top:6px solid {accent};">
             <div class="label">{html.escape(title)}</div>
             <div class="value">{html.escape(value)}</div>
             <div class="sub">{html.escape(sub)}</div>
@@ -343,74 +383,107 @@ def write_html_summary(comparison_df, ai_analysis):
 <meta charset="utf-8">
 <title>Site Speed Monitoring</title>
 <style>
-body {{ font-family: Arial, sans-serif; margin: 0; padding: 32px; background: #f5f7fb; color: #1f2937; }}
-.container {{ max-width: 1200px; margin: 0 auto; }}
-h2 {{ margin-top: 32px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }}
-.grid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin:20px 0 28px 0; }}
-.card, .panel {{ background:white; border-radius:12px; padding:18px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }}
-.panel {{ margin-bottom:20px; }}
-.label {{ font-size:12px; text-transform:uppercase; color:#6b7280; margin-bottom:10px; }}
-.value {{ font-size:28px; font-weight:700; margin-bottom:6px; }}
-.sub {{ font-size:13px; color:#6b7280; }}
-table {{ width:100%; border-collapse:collapse; background:white; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08); margin-bottom:24px; }}
-th, td {{ text-align:left; padding:12px 14px; border-bottom:1px solid #e5e7eb; vertical-align:top; word-break:break-word; }}
-th {{ background:#111827; color:white; font-size:13px; }}
-tr:nth-child(even) td {{ background:#f9fafb; }}
-.ai-block {{ white-space:pre-wrap; line-height:1.5; }}
+body {{ font-family: 'Times New Roman', Times, serif; margin: 0; padding: 0; background: #eef2ff; color: #1f2937; }}
+.page {{ padding: 38px 42px 34px 42px; }}
+.container {{ max-width: 1180px; margin: 0 auto; }}
+.hero {{ background: linear-gradient(135deg, #1d4ed8 0%, #0f766e 100%); color: white; border-radius: 24px; padding: 32px 34px; margin-bottom: 26px; }}
+.hero h1 {{ margin: 0 0 8px 0; font-size: 34px; }}
+.hero p {{ margin: 0; font-size: 16px; line-height: 1.6; }}
+h2 {{ margin: 0 0 14px 0; font-size: 24px; color: #0f172a; }}
+h3 {{ margin: 0 0 12px 0; font-size: 19px; color: #0f172a; }}
+.section {{ background: #ffffff; border-radius: 22px; padding: 26px 28px; margin-bottom: 24px; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.07); }}
+.grid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-top: 18px; margin-bottom: 8px; }}
+.card {{ border-radius: 18px; padding: 18px 18px 20px 18px; }}
+.label {{ font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: #475569; margin-bottom: 10px; }}
+.value {{ font-size: 30px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }}
+.sub {{ font-size: 14px; color: #334155; line-height: 1.5; }}
+.two-col {{ display:grid; grid-template-columns: 1.15fr 0.85fr; gap: 22px; align-items: start; }}
+ul {{ margin: 0; padding-left: 22px; line-height: 1.8; }}
+.commentary {{ white-space: pre-wrap; line-height: 1.8; font-size: 15px; color:#1e293b; background: #eff6ff; border-left: 6px solid #2563eb; border-radius: 16px; padding: 18px 20px; }}
+.chart-panel {{ background: #f8fafc; border: 1px solid #dbe4f0; border-radius: 18px; padding: 16px; margin-top: 16px; }}
+.chart-row {{ margin-bottom: 22px; }}
+table {{ width:100%; border-collapse:collapse; background:white; border-radius:18px; overflow:hidden; margin-top: 12px; }}
+th, td {{ text-align:left; padding:14px 16px; border-bottom:1px solid #e2e8f0; vertical-align:top; word-break:break-word; }}
+th {{ background:#1e3a8a; color:white; font-size:13px; letter-spacing:0.05em; text-transform:uppercase; }}
+tr:nth-child(even) td {{ background:#f8fafc; }}
+.footer-note {{ color:#64748b; font-size:12px; text-align:right; margin-top: 10px; }}
 </style>
 </head>
 <body>
+<div class="page">
 <div class="container">
-<h1>Site Speed Monitoring</h1>
+    <div class="hero">
+        <h1>Site Speed Monitoring</h1>
+        <p>Weekly technical performance review across tracked priority pages and subdomains.</p>
+        <p>Prepared for stakeholder review • Generated {date.today().isoformat()}</p>
+    </div>
 
-<div class="panel">
-<h2>Executive Read</h2>
-<ul>{''.join(f"<li>{html.escape(line)}</li>" for line in executive_read)}</ul>
+    <div class="section">
+        <div class="two-col">
+            <div>
+                <h2>Executive Overview</h2>
+                <ul>{''.join(f'<li>{html.escape(line)}</li>' for line in executive_read)}</ul>
+            </div>
+            <div>
+                <h2>Executive Commentary</h2>
+                <div class="commentary">{html.escape(commentary)}</div>
+            </div>
+        </div>
+        <div class="grid">
+            {card("Tracked URLs", str(comparison_df['page'].nunique()), "mobile and desktop measurements collected", "blue")}
+            {card("Mobile Avg Score", format_num(mobile['performance_score'].mean(), 1), "PageSpeed performance benchmark", "teal")}
+            {card("Desktop Avg Score", format_num(desktop['performance_score'].mean(), 1), "PageSpeed performance benchmark", "gold")}
+            {card("Poor Mobile LCP", str((mobile['lcp_field_category'] == 'SLOW').sum()), "pages with slow field LCP", "rose")}
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Performance Overview</h2>
+        <div class="chart-row chart-panel">{img_tag(charts['overview'], 'Site speed overview')}</div>
+    </div>
+
+    <div class="section">
+        <h2>Score and Core Web Vitals Drivers</h2>
+        <div class="chart-row chart-panel">{img_tag(charts['top_mobile'], 'Top mobile scores')}</div>
+        <div class="chart-row chart-panel">{img_tag(charts['worst_lcp'], 'Highest mobile LCP')}</div>
+        <div class="chart-row chart-panel">{img_tag(charts['score_change'], 'Mobile score winners and losers')}</div>
+    </div>
+
+    <div class="section">
+        <h2>Mobile Results</h2>
+        {html_table_from_df(mobile,
+            ["page", "category", "priority", "performance_score", "performance_score_change", "lcp_lab_ms", "inp_field_ms", "cls_field"],
+            {
+                "page": "Page",
+                "category": "Category",
+                "priority": "Priority",
+                "performance_score": "Score",
+                "performance_score_change": "Score Δ",
+                "lcp_lab_ms": "LCP Lab (ms)",
+                "inp_field_ms": "INP Field (ms)",
+                "cls_field": "CLS Field",
+            }
+        )}
+    </div>
+
+    <div class="section">
+        <h2>Desktop Results</h2>
+        {html_table_from_df(desktop,
+            ["page", "category", "priority", "performance_score", "performance_score_change", "lcp_lab_ms", "tbt_lab_ms", "cls_lab"],
+            {
+                "page": "Page",
+                "category": "Category",
+                "priority": "Priority",
+                "performance_score": "Score",
+                "performance_score_change": "Score Δ",
+                "lcp_lab_ms": "LCP Lab (ms)",
+                "tbt_lab_ms": "TBT Lab (ms)",
+                "cls_lab": "CLS Lab",
+            }
+        )}
+        <div class="footer-note">Prepared for internal weekly monitoring.</div>
+    </div>
 </div>
-
-<div class="panel">
-<h2>AI Executive Analysis</h2>
-<div class="ai-block">{html.escape(ai_analysis)}</div>
-</div>
-
-<div class="grid">
-{card("Tracked URLs", str(comparison_df['page'].nunique()), "mobile + desktop tested")}
-{card("Mobile Avg Score", format_num(mobile['performance_score'].mean(), 1), "PageSpeed performance")}
-{card("Desktop Avg Score", format_num(desktop['performance_score'].mean(), 1), "PageSpeed performance")}
-{card("Poor Mobile LCP", str((mobile['lcp_field_category'] == 'SLOW').sum()), "field data pages")}
-</div>
-
-<h2>Mobile Results</h2>
-{html_table_from_df(
-    mobile,
-    ["page", "category", "priority", "performance_score", "performance_score_change", "lcp_lab_ms", "inp_field_ms", "cls_field"],
-    {
-        "page": "Page",
-        "category": "Category",
-        "priority": "Priority",
-        "performance_score": "Score",
-        "performance_score_change": "Score Δ",
-        "lcp_lab_ms": "LCP Lab (ms)",
-        "inp_field_ms": "INP Field (ms)",
-        "cls_field": "CLS Field",
-    }
-)}
-
-<h2>Desktop Results</h2>
-{html_table_from_df(
-    desktop,
-    ["page", "category", "priority", "performance_score", "performance_score_change", "lcp_lab_ms", "tbt_lab_ms", "cls_lab"],
-    {
-        "page": "Page",
-        "category": "Category",
-        "priority": "Priority",
-        "performance_score": "Score",
-        "performance_score_change": "Score Δ",
-        "lcp_lab_ms": "LCP Lab (ms)",
-        "tbt_lab_ms": "TBT Lab (ms)",
-        "cls_lab": "CLS Lab",
-    }
-)}
 </div>
 </body>
 </html>
@@ -426,13 +499,11 @@ def generate_pdf():
 
 def persist_snapshots(current_df):
     current_df.to_csv(SNAPSHOT_FILE, index=False)
-
     if os.path.exists(HISTORY_FILE):
         history_df = pd.read_csv(HISTORY_FILE)
         history_df = pd.concat([history_df, current_df], ignore_index=True)
     else:
         history_df = current_df.copy()
-
     history_df.to_csv(HISTORY_FILE, index=False)
 
 
@@ -498,8 +569,8 @@ def main():
     current_df.to_csv("site_speed_current_snapshot.csv", index=False)
     comparison_df.to_csv("site_speed_comparison.csv", index=False)
 
-    ai_analysis = build_ai_analysis(comparison_df)
-    write_html_summary(comparison_df, ai_analysis)
+    commentary = build_commentary(comparison_df)
+    write_html_summary(comparison_df, commentary)
     generate_pdf()
     persist_snapshots(current_df)
 
