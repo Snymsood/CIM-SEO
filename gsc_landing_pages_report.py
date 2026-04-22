@@ -523,7 +523,7 @@ def write_markdown_summary(comparison_df, executive_commentary, current_start, c
                 "impressions_current": "Current Impressions",
             }
         ),
-    ]
+    ])
 
     with open("landing_pages_summary.md", "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
