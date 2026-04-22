@@ -5,3 +5,4 @@ openai
 requests
 weasyprint
 beautifulsoup4
+google-analytics-data
