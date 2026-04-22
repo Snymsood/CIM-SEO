@@ -811,7 +811,7 @@ def write_html_summary(comparison_df, executive_commentary, current_start, curre
         {html_table_from_df(
             top_pages,
             ["page", "category", "priority", "clicks_current", "impressions_current", "ctr_current", "position_current", "clicks_change"],
-            {{
+            {
                 "page": "Page",
                 "category": "Category",
                 "priority": "Priority",
@@ -820,7 +820,7 @@ def write_html_summary(comparison_df, executive_commentary, current_start, curre
                 "ctr_current": "CTR",
                 "position_current": "Current Position",
                 "clicks_change": "WoW Clicks Δ",
-            }}
+            }
         )}
     </div>
 
@@ -830,13 +830,13 @@ def write_html_summary(comparison_df, executive_commentary, current_start, curre
         {html_table_from_df(
             biggest_gainers,
             ["page", "clicks_previous", "clicks_current", "clicks_change", "impressions_current"],
-            {{
+            {
                 "page": "Page",
                 "clicks_previous": "Prev Clicks",
                 "clicks_current": "Current Clicks",
                 "clicks_change": "Δ",
                 "impressions_current": "Impressions",
-            }}
+            }
         )}
     </div>
 
@@ -846,13 +846,13 @@ def write_html_summary(comparison_df, executive_commentary, current_start, curre
         {html_table_from_df(
             biggest_losers,
             ["page", "clicks_previous", "clicks_current", "clicks_change", "impressions_current"],
-            {{
+            {
                 "page": "Page",
                 "clicks_previous": "Prev Clicks",
                 "clicks_current": "Current Clicks",
                 "clicks_change": "Δ",
                 "impressions_current": "Impressions",
-            }}
+            }
         )}
     </div>
 
@@ -862,13 +862,13 @@ def write_html_summary(comparison_df, executive_commentary, current_start, curre
         {html_table_from_df(
             position_gainers,
             ["page", "position_previous", "position_current", "position_change", "clicks_current"],
-            {{
+            {
                 "page": "Page",
                 "position_previous": "Prev Position",
                 "position_current": "Current Position",
                 "position_change": "Position Δ",
                 "clicks_current": "Clicks",
-            }}
+            }
         )}
     </div>
 
@@ -878,13 +878,13 @@ def write_html_summary(comparison_df, executive_commentary, current_start, curre
         {html_table_from_df(
             position_losers,
             ["page", "position_previous", "position_current", "position_change", "clicks_current"],
-            {{
+            {
                 "page": "Page",
                 "position_previous": "Prev Position",
                 "position_current": "Current Position",
                 "position_change": "Position Δ",
                 "clicks_current": "Clicks",
-            }}
+            }
         )}
     </div>
 
@@ -894,13 +894,13 @@ def write_html_summary(comparison_df, executive_commentary, current_start, curre
         {html_table_from_df(
             lost_visibility,
             ["page", "category", "priority", "impressions_previous", "impressions_current"],
-            {{
+            {
                 "page": "Page",
                 "category": "Category",
                 "priority": "Priority",
                 "impressions_previous": "Prev Impressions",
                 "impressions_current": "Current Impressions",
-            }}
+            }
         )}
     </div>
 </div>
