@@ -1,0 +1,49 @@
+name: Internal Linking Audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 14 * * 1"
+
+jobs:
+  internal-linking-audit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run internal linking audit
+        run: python -u internal_linking_audit.py
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_ITEM_ID: "11404488802"
+
+      - name: Upload internal linking artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: internal-linking-audit
+          path: |
+            internal_linking_config.csv
+            internal_linking_crawled_pages.csv
+            internal_linking_discovered_links.csv
+            internal_linking_page_summary.csv
+            internal_linking_flagged_pages.csv
+            internal_linking_priority_targets.csv
+            internal_linking_generic_anchor_examples.csv
+            internal_linking_opportunities.csv
+            internal_linking_low_outlinks.png
+            internal_linking_low_inlinks.png
+            internal_linking_priority_targets.png
+            internal_linking_audit_summary.md
+            internal_linking_audit_summary.html
+            internal_linking_audit_summary.pdf
