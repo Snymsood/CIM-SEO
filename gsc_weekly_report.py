@@ -700,72 +700,72 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
     <div class=\"section-note\">Highest-click query terms during the current week.</div>
     {html_table_from_df(top_queries,
         ["query", "clicks_current", "clicks_change", "impressions_current", "ctr_current", "position_current"],
-        {{
+        {
             "query": "Query",
             "clicks_current": "Clicks",
             "clicks_change": "WoW Clicks Δ",
             "impressions_current": "Impressions",
             "ctr_current": "CTR",
             "position_current": "Position",
-        }}
+        }
     )}
 
     <div class=\"section-title\">Query Gainers</div>
     {html_table_from_df(gainers,
         ["query", "clicks_previous", "clicks_current", "clicks_change"],
-        {{
+        {
             "query": "Query",
             "clicks_previous": "Prev Clicks",
             "clicks_current": "Current Clicks",
             "clicks_change": "Δ",
-        }}
+        }
     )}
 
     <div class=\"section-title\">Query Losers</div>
     {html_table_from_df(losers,
         ["query", "clicks_previous", "clicks_current", "clicks_change"],
-        {{
+        {
             "query": "Query",
             "clicks_previous": "Prev Clicks",
             "clicks_current": "Current Clicks",
             "clicks_change": "Δ",
-        }}
+        }
     )}
 
     <div class=\"section-title\">Top Pages</div>
     <div class=\"section-note\">Highest-click landing pages during the current week.</div>
     {html_table_from_df(top_pages,
         ["page", "clicks_current", "clicks_change", "impressions_current", "ctr_current", "position_current"],
-        {{
+        {
             "page": "Page",
             "clicks_current": "Clicks",
             "clicks_change": "WoW Clicks Δ",
             "impressions_current": "Impressions",
             "ctr_current": "CTR",
             "position_current": "Position",
-        }}
+        }
     )}
 
     <div class=\"section-title\">Page Gainers</div>
     {html_table_from_df(page_gainers,
         ["page", "clicks_previous", "clicks_current", "clicks_change"],
-        {{
+        {
             "page": "Page",
             "clicks_previous": "Prev Clicks",
             "clicks_current": "Current Clicks",
             "clicks_change": "Δ",
-        }}
+        }
     )}
 
     <div class=\"section-title\">Page Losers</div>
     {html_table_from_df(page_losers,
         ["page", "clicks_previous", "clicks_current", "clicks_change"],
-        {{
+        {
             "page": "Page",
             "clicks_previous": "Prev Clicks",
             "clicks_current": "Current Clicks",
             "clicks_change": "Δ",
-        }}
+        }
     )}
 </div>
 </body>
