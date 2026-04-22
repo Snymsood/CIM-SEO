@@ -6,3 +6,4 @@ requests
 weasyprint
 beautifulsoup4
 google-analytics-data
+matplotlib
