@@ -1,0 +1,503 @@
+from datetime import date, timedelta
+from openai import OpenAI
+from weasyprint import HTML
+import pandas as pd
+import requests
+import os
+import html
+import json
+
+from google.oauth2 import service_account
+from google.analytics.data_v1beta import BetaAnalyticsDataClient
+from google.analytics.data_v1beta.types import (
+    DateRange,
+    Dimension,
+    Metric,
+    RunReportRequest,
+)
+
+SCOPES = ["https://www.googleapis.com/auth/analytics.readonly"]
+KEY_FILE = "gsc-key.json"
+PROPERTY_ID = os.environ["GA4_PROPERTY_ID"]
+
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
+MONDAY_ITEM_ID = os.getenv("MONDAY_ITEM_ID")
+
+MONDAY_API_URL = "https://api.monday.com/v2"
+MONDAY_FILE_API_URL = "https://api.monday.com/v2/file"
+
+
+def get_ga4_client():
+    credentials = service_account.Credentials.from_service_account_file(
+        KEY_FILE,
+        scopes=SCOPES,
+    )
+    return BetaAnalyticsDataClient(credentials=credentials)
+
+
+def run_report(client, dimensions, metrics, start_date, end_date, limit=100):
+    request = RunReportRequest(
+        property=f"properties/{PROPERTY_ID}",
+        dimensions=[Dimension(name=d) for d in dimensions],
+        metrics=[Metric(name=m) for m in metrics],
+        date_ranges=[DateRange(start_date=start_date, end_date=end_date)],
+        limit=limit,
+    )
+    return client.run_report(request)
+
+
+def response_to_df(response, dimensions, metrics):
+    rows = []
+    for row in response.rows:
+        record = {}
+        for i, dim in enumerate(dimensions):
+            record[dim] = row.dimension_values[i].value
+        for i, met in enumerate(metrics):
+            record[met] = row.metric_values[i].value
+        rows.append(record)
+    return pd.DataFrame(rows)
+
+
+def get_summary_metrics(client, start_date, end_date):
+    metrics = [
+        "activeUsers",
+        "sessions",
+        "engagedSessions",
+        "engagementRate",
+        "averageSessionDuration",
+        "eventCount",
+    ]
+    response = run_report(
+        client,
+        dimensions=[],
+        metrics=metrics,
+        start_date=start_date,
+        end_date=end_date,
+        limit=1,
+    )
+
+    if not response.rows:
+        return {m: 0 for m in metrics}
+
+    row = response.rows[0]
+    values = {}
+    for i, metric in enumerate(metrics):
+        values[metric] = row.metric_values[i].value
+    return values
+
+
+def get_top_landing_pages(client, start_date, end_date):
+    dimensions = ["landingPage"]
+    metrics = ["sessions", "activeUsers", "engagementRate", "averageSessionDuration", "eventCount"]
+    response = run_report(client, dimensions, metrics, start_date, end_date, limit=25)
+    return response_to_df(response, dimensions, metrics)
+
+
+def get_top_channels(client, start_date, end_date):
+    dimensions = ["sessionDefaultChannelGroup"]
+    metrics = ["sessions", "activeUsers", "engagementRate"]
+    response = run_report(client, dimensions, metrics, start_date, end_date, limit=15)
+    return response_to_df(response, dimensions, metrics)
+
+
+def get_device_split(client, start_date, end_date):
+    dimensions = ["deviceCategory"]
+    metrics = ["sessions", "activeUsers", "engagementRate"]
+    response = run_report(client, dimensions, metrics, start_date, end_date, limit=10)
+    return response_to_df(response, dimensions, metrics)
+
+
+def get_country_split(client, start_date, end_date):
+    dimensions = ["country"]
+    metrics = ["sessions", "activeUsers", "engagementRate"]
+    response = run_report(client, dimensions, metrics, start_date, end_date, limit=15)
+    return response_to_df(response, dimensions, metrics)
+
+
+def prepare_summary_comparison(current_summary, previous_summary):
+    rows = []
+    for metric in current_summary.keys():
+        current_value = float(current_summary[metric])
+        previous_value = float(previous_summary.get(metric, 0))
+        rows.append({
+            "metric": metric,
+            "current": current_value,
+            "previous": previous_value,
+            "change": current_value - previous_value,
+        })
+    return pd.DataFrame(rows)
+
+
+def safe_pct_change(current, previous):
+    if previous == 0:
+        return None
+    return ((current - previous) / previous) * 100
+
+
+def format_pct_change(current, previous):
+    pct = safe_pct_change(current, previous)
+    if pct is None:
+        return "n/a"
+    return f"{pct:+.1f}%"
+
+
+def build_executive_read(summary_df):
+    metric_map = {row["metric"]: row for _, row in summary_df.iterrows()}
+
+    sessions_current = metric_map["sessions"]["current"]
+    sessions_previous = metric_map["sessions"]["previous"]
+    users_current = metric_map["activeUsers"]["current"]
+    users_previous = metric_map["activeUsers"]["previous"]
+    engagement_rate_current = metric_map["engagementRate"]["current"]
+    engagement_rate_previous = metric_map["engagementRate"]["previous"]
+    engaged_sessions_current = metric_map["engagedSessions"]["current"]
+    engaged_sessions_previous = metric_map["engagedSessions"]["previous"]
+
+    lines = []
+
+    if sessions_current > sessions_previous:
+        lines.append("Sessions increased week over week.")
+    elif sessions_current < sessions_previous:
+        lines.append("Sessions declined week over week.")
+    else:
+        lines.append("Sessions were flat week over week.")
+
+    if users_current > users_previous:
+        lines.append("Active users increased week over week.")
+    elif users_current < users_previous:
+        lines.append("Active users declined week over week.")
+    else:
+        lines.append("Active users were flat week over week.")
+
+    if engagement_rate_current > engagement_rate_previous:
+        lines.append("Engagement rate improved versus the prior period.")
+    elif engagement_rate_current < engagement_rate_previous:
+        lines.append("Engagement rate declined versus the prior period.")
+    else:
+        lines.append("Engagement rate was flat versus the prior period.")
+
+    if engaged_sessions_current > engaged_sessions_previous:
+        lines.append("Engaged sessions increased week over week.")
+    elif engaged_sessions_current < engaged_sessions_previous:
+        lines.append("Engaged sessions declined week over week.")
+    else:
+        lines.append("Engaged sessions were flat week over week.")
+
+    return lines
+
+
+def build_ai_analysis(summary_df, top_pages_df, top_channels_df, current_start, current_end, previous_start, previous_end):
+    if not GROQ_API_KEY:
+        return "AI executive analysis was skipped because GROQ_API_KEY is not configured."
+
+    prompt = f"""
+You are writing a concise corporate GA4 weekly performance summary for stakeholders.
+
+Write:
+1. Executive Summary
+2. Positive Signals
+3. Risks / Watchouts
+4. Recommended Actions
+
+Requirements:
+- professional corporate tone
+- under 350 words
+- do not invent data
+- focus on actual weekly movement
+
+Current period: {current_start} to {current_end}
+Previous period: {previous_start} to {previous_end}
+
+Summary metrics:
+{summary_df.to_csv(index=False)}
+
+Top landing pages:
+{top_pages_df.head(10).to_csv(index=False)}
+
+Top channels:
+{top_channels_df.head(10).to_csv(index=False)}
+"""
+
+    try:
+        client = OpenAI(
+            api_key=GROQ_API_KEY,
+            base_url="https://api.groq.com/openai/v1"
+        )
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": "You write precise weekly GA4 stakeholder summaries."},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.2,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"AI executive analysis failed, so the report fell back to deterministic output only. Error: {str(e)}"
+
+
+def html_table_from_df(df, columns, rename_map=None):
+    work = df[columns].copy()
+    if rename_map:
+        work = work.rename(columns=rename_map)
+
+    for col in work.columns:
+        lower_col = col.lower()
+        if "rate" in lower_col:
+            work[col] = pd.to_numeric(work[col], errors="coerce").map(
+                lambda x: f"{x:.2%}" if pd.notnull(x) else ""
+            )
+        elif "duration" in lower_col:
+            work[col] = pd.to_numeric(work[col], errors="coerce").map(
+                lambda x: f"{x:.1f}" if pd.notnull(x) else ""
+            )
+        else:
+            numeric = pd.to_numeric(work[col], errors="coerce")
+            if numeric.notna().any():
+                work[col] = numeric.map(lambda x: f"{x:.0f}" if pd.notnull(x) else "")
+            else:
+                work[col] = work[col].fillna("").astype(str)
+
+    header_html = "".join(f"<th>{html.escape(str(col))}</th>" for col in work.columns)
+    body_rows = []
+    for row in work.values.tolist():
+        cells = "".join(f"<td>{html.escape(str(v))}</td>" for v in row)
+        body_rows.append(f"<tr>{cells}</tr>")
+
+    return f"<table><thead><tr>{header_html}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
+
+
+def write_html_summary(summary_df, top_pages_df, top_channels_df, device_df, country_df, ai_analysis, current_start, current_end, previous_start, previous_end):
+    executive_read = build_executive_read(summary_df)
+
+    metric_map = {row["metric"]: row for _, row in summary_df.iterrows()}
+
+    def card(title, current, previous):
+        return f"""
+        <div class="card">
+            <div class="label">{html.escape(title)}</div>
+            <div class="value">{html.escape(current)}</div>
+            <div class="sub">Previous: {html.escape(previous)}</div>
+        </div>
+        """
+
+    html_output = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GA4 Weekly Report</title>
+<style>
+body {{ font-family: Arial, sans-serif; margin: 0; padding: 32px; background: #f5f7fb; color: #1f2937; }}
+.container {{ max-width: 1200px; margin: 0 auto; }}
+h2 {{ margin-top: 32px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }}
+.grid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin:20px 0 28px 0; }}
+.card, .panel {{ background:white; border-radius:12px; padding:18px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }}
+.panel {{ margin-bottom:20px; }}
+.label {{ font-size:12px; text-transform:uppercase; color:#6b7280; margin-bottom:10px; }}
+.value {{ font-size:28px; font-weight:700; margin-bottom:6px; }}
+.sub {{ font-size:13px; color:#6b7280; }}
+table {{ width:100%; border-collapse:collapse; background:white; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08); margin-bottom:24px; }}
+th, td {{ text-align:left; padding:12px 14px; border-bottom:1px solid #e5e7eb; vertical-align:top; word-break:break-word; }}
+th {{ background:#111827; color:white; font-size:13px; }}
+tr:nth-child(even) td {{ background:#f9fafb; }}
+.ai-block {{ white-space:pre-wrap; line-height:1.5; }}
+.muted {{ color:#6b7280; margin-bottom:20px; }}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>GA4 Weekly Report</h1>
+<div class="muted">Current period: {current_start} to {current_end} | Previous period: {previous_start} to {previous_end}</div>
+
+<div class="panel">
+<h2>Executive Read</h2>
+<ul>{''.join(f"<li>{html.escape(line)}</li>" for line in executive_read)}</ul>
+</div>
+
+<div class="panel">
+<h2>AI Executive Analysis</h2>
+<div class="ai-block">{html.escape(ai_analysis)}</div>
+</div>
+
+<div class="grid">
+{card("Active Users", f"{metric_map['activeUsers']['current']:.0f}", f"{metric_map['activeUsers']['previous']:.0f}")}
+{card("Sessions", f"{metric_map['sessions']['current']:.0f}", f"{metric_map['sessions']['previous']:.0f}")}
+{card("Engaged Sessions", f"{metric_map['engagedSessions']['current']:.0f}", f"{metric_map['engagedSessions']['previous']:.0f}")}
+{card("Engagement Rate", f"{metric_map['engagementRate']['current']:.2%}", f"{metric_map['engagementRate']['previous']:.2%}")}
+</div>
+
+<h2>Top Landing Pages</h2>
+{html_table_from_df(
+    top_pages_df,
+    ["landingPage", "sessions", "activeUsers", "engagementRate", "averageSessionDuration", "eventCount"],
+    {
+        "landingPage": "Landing Page",
+        "sessions": "Sessions",
+        "activeUsers": "Active Users",
+        "engagementRate": "Engagement Rate",
+        "averageSessionDuration": "Avg Session Duration",
+        "eventCount": "Event Count",
+    }
+)}
+
+<h2>Top Channels</h2>
+{html_table_from_df(
+    top_channels_df,
+    ["sessionDefaultChannelGroup", "sessions", "activeUsers", "engagementRate"],
+    {
+        "sessionDefaultChannelGroup": "Channel",
+        "sessions": "Sessions",
+        "activeUsers": "Active Users",
+        "engagementRate": "Engagement Rate",
+    }
+)}
+
+<h2>Device Split</h2>
+{html_table_from_df(
+    device_df,
+    ["deviceCategory", "sessions", "activeUsers", "engagementRate"],
+    {
+        "deviceCategory": "Device",
+        "sessions": "Sessions",
+        "activeUsers": "Active Users",
+        "engagementRate": "Engagement Rate",
+    }
+)}
+
+<h2>Country Split</h2>
+{html_table_from_df(
+    country_df,
+    ["country", "sessions", "activeUsers", "engagementRate"],
+    {
+        "country": "Country",
+        "sessions": "Sessions",
+        "activeUsers": "Active Users",
+        "engagementRate": "Engagement Rate",
+    }
+)}
+</div>
+</body>
+</html>
+"""
+    with open("ga4_weekly_summary.html", "w", encoding="utf-8") as f:
+        f.write(html_output)
+
+
+def generate_pdf():
+    HTML("ga4_weekly_summary.html").write_pdf("ga4_weekly_summary.pdf")
+    print("Saved ga4_weekly_summary.pdf")
+
+
+def upload_pdf_to_monday(pdf_path):
+    if not MONDAY_API_TOKEN or not MONDAY_ITEM_ID:
+        print("Skipping monday file upload: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.")
+        return
+
+    update_query = """
+    mutation ($item_id: ID!, $body: String!) {
+      create_update(item_id: $item_id, body: $body) {
+        id
+      }
+    }
+    """
+    update_variables = {
+        "item_id": str(MONDAY_ITEM_ID),
+        "body": "GA4 weekly PDF report attached.",
+    }
+
+    update_response = requests.post(
+        MONDAY_API_URL,
+        headers={"Authorization": MONDAY_API_TOKEN, "Content-Type": "application/json"},
+        json={"query": update_query, "variables": update_variables},
+        timeout=60,
+    )
+    update_response.raise_for_status()
+    update_id = update_response.json()["data"]["create_update"]["id"]
+
+    file_query = """
+    mutation ($update_id: ID!, $file: File!) {
+      add_file_to_update(update_id: $update_id, file: $file) {
+        id
+      }
+    }
+    """
+
+    with open(pdf_path, "rb") as f:
+        response = requests.post(
+            MONDAY_FILE_API_URL,
+            headers={"Authorization": MONDAY_API_TOKEN},
+            data={
+                "query": file_query,
+                "variables": json.dumps({"update_id": str(update_id), "file": None}),
+                "map": json.dumps({"pdf": ["variables.file"]}),
+            },
+            files={"pdf": ("ga4-weekly-report.pdf", f, "application/pdf")},
+            timeout=120,
+        )
+
+    print("monday file upload status:", response.status_code)
+    print("monday file upload response:", response.text)
+    response.raise_for_status()
+    print("Uploaded PDF to monday update.")
+
+
+def main():
+    client = get_ga4_client()
+
+    current_end = date.today() - timedelta(days=1)
+    current_start = current_end - timedelta(days=6)
+
+    previous_end = current_start - timedelta(days=1)
+    previous_start = previous_end - timedelta(days=6)
+
+    current_summary = get_summary_metrics(client, current_start.isoformat(), current_end.isoformat())
+    previous_summary = get_summary_metrics(client, previous_start.isoformat(), previous_end.isoformat())
+    summary_df = prepare_summary_comparison(current_summary, previous_summary)
+
+    top_pages_df = get_top_landing_pages(client, current_start.isoformat(), current_end.isoformat())
+    top_channels_df = get_top_channels(client, current_start.isoformat(), current_end.isoformat())
+    device_df = get_device_split(client, current_start.isoformat(), current_end.isoformat())
+    country_df = get_country_split(client, current_start.isoformat(), current_end.isoformat())
+
+    summary_df.to_csv("ga4_summary_comparison.csv", index=False)
+    top_pages_df.to_csv("ga4_top_landing_pages.csv", index=False)
+    top_channels_df.to_csv("ga4_top_channels.csv", index=False)
+    device_df.to_csv("ga4_device_split.csv", index=False)
+    country_df.to_csv("ga4_country_split.csv", index=False)
+
+    ai_analysis = build_ai_analysis(
+        summary_df,
+        top_pages_df,
+        top_channels_df,
+        current_start,
+        current_end,
+        previous_start,
+        previous_end,
+    )
+
+    write_html_summary(
+        summary_df,
+        top_pages_df,
+        top_channels_df,
+        device_df,
+        country_df,
+        ai_analysis,
+        current_start,
+        current_end,
+        previous_start,
+        previous_end,
+    )
+    generate_pdf()
+
+    try:
+        upload_pdf_to_monday("ga4_weekly_summary.pdf")
+    except Exception as e:
+        print(f"monday upload step failed: {e}")
+
+    print("Saved GA4 outputs.")
+
+
+if __name__ == "__main__":
+    main()
