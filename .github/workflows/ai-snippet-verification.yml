@@ -1,0 +1,39 @@
+name: AI Snippet Verification
+
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+jobs:
+  ai-snippet-verification:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium
+
+      - name: Run AI snippet verification
+        env:
+          MONDAY_API_KEY: ${{ secrets.MONDAY_API_KEY }}
+          MONDAY_AI_SNIPPET_ITEM_ID: ${{ secrets.MONDAY_AI_SNIPPET_ITEM_ID }}
+        run: python ai_snippet_verification.py
+
+      - name: Upload report artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-snippet-verification-report
+          path: |
+            reports/
+            screenshots/
+            evidence/
