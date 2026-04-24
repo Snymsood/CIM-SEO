@@ -310,44 +310,93 @@ def create_monday_update(body):
 
 
 def upload_pdf_to_monday(update_id):
+
     api_key = os.getenv("MONDAY_API_KEY")
 
     if not api_key or not update_id:
+
         print("PDF upload skipped.")
+
         return
 
     mutation = """
+
     mutation ($file: File!, $update_id: ID!) {
+
       add_file_to_update (file: $file, update_id: $update_id) {
+
         id
+
       }
+
     }
+
     """
 
     with open(PDF_PATH, "rb") as file_handle:
-        files = {
-            "variables[file]": (
-                PDF_PATH.name,
-                file_handle,
-                "application/pdf",
-            )
-        }
 
         data = {
+
             "query": mutation,
-            "variables": json.dumps({"update_id": str(update_id), "file": None}),
-            "map": json.dumps({"variables[file]": ["variables.file"]}),
+
+            "variables": json.dumps({
+
+                "file": None,
+
+                "update_id": str(update_id)
+
+            }),
+
+            "map": json.dumps({
+
+                "0": ["variables.file"]
+
+            }),
+
+        }
+
+        files = {
+
+            "0": (
+
+                PDF_PATH.name,
+
+                file_handle,
+
+                "application/pdf"
+
+            )
+
         }
 
         response = requests.post(
+
             "https://api.monday.com/v2/file",
-            headers={"Authorization": api_key},
+
+            headers={
+
+                "Authorization": api_key
+
+            },
+
             data=data,
+
             files=files,
+
             timeout=60,
+
         )
 
-    response.raise_for_status()
+    if not response.ok:
+
+        print("Monday file upload failed.")
+
+        print("Status:", response.status_code)
+
+        print("Response:", response.text)
+
+        response.raise_for_status()
+
     print("PDF uploaded to Monday update.")
 
 
