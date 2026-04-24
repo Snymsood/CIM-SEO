@@ -29,11 +29,32 @@ jobs:
           MONDAY_AI_SNIPPET_ITEM_ID: ${{ secrets.MONDAY_AI_SNIPPET_ITEM_ID }}
         run: python ai_snippet_verification.py
 
+      - name: Generate PDF report and upload to Monday
+
+        env:
+
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+
+          GROQ_MODEL: llama-3.1-8b-instant
+
+          MONDAY_API_KEY: ${{ secrets.MONDAY_API_KEY }}
+
+          MONDAY_AI_SNIPPET_ITEM_ID: ${{ secrets.MONDAY_AI_SNIPPET_ITEM_ID }}
+
+        run: python ai_snippet_pdf_report.py
+
       - name: Upload report artifacts
+
         uses: actions/upload-artifact@v4
+
         with:
+
           name: ai-snippet-verification-report
+
           path: |
+
             reports/
+
             screenshots/
+
             evidence/
