@@ -25,7 +25,7 @@ jobs:
 
       - name: Run AI snippet verification
         env:
-          MONDAY_API_KEY: ${{ secrets.MONDAY_API_KEY }}
+          MONDAY_API_KEY: ${{ secrets.MONDAY_API_TOKEN }}
           MONDAY_AI_SNIPPET_ITEM_ID: ${{ secrets.MONDAY_AI_SNIPPET_ITEM_ID }}
         run: python ai_snippet_verification.py
 
@@ -37,7 +37,7 @@ jobs:
 
           GROQ_MODEL: llama-3.1-8b-instant
 
-          MONDAY_API_KEY: ${{ secrets.MONDAY_API_KEY }}
+          MONDAY_API_KEY: ${{ secrets.MONDAY_API_TOKEN }}
 
           MONDAY_AI_SNIPPET_ITEM_ID: ${{ secrets.MONDAY_AI_SNIPPET_ITEM_ID }}
 
