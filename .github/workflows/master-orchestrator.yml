@@ -1,0 +1,58 @@
+name: Master Orchestrator
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 15 * * 1" # Runs at 15:00 UTC on Mondays
+
+jobs:
+  master-orchestrator:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium
+
+      - name: Download previous site speed history
+        uses: actions/download-artifact@v4
+        with:
+          name: site-speed-monitoring
+          path: .
+        continue-on-error: true
+
+      - name: Write service account key
+        run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
+
+      - name: Run Master Orchestrator
+        env:
+          PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          MONDAY_GSC_ITEM_ID: ${{ secrets.MONDAY_ITEM_ID }}
+          MONDAY_AI_SNIPPET_ITEM_ID: ${{ secrets.MONDAY_AI_SNIPPET_ITEM_ID }}
+          MONDAY_MASTER_ITEM_ID: ${{ secrets.MONDAY_MASTER_ITEM_ID }}
+        run: python -u master_orchestrator.py
+
+      - name: Upload Master Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-orchestrator-artifacts
+          path: |
+            *.csv
+            *.html
+            *.pdf
+            reports/
+            screenshots/
+            evidence/
+            charts/
