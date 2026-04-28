@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 from google_sheets_db import append_to_sheet
-from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
+from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card, safe_pct_change, format_pct_change
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt

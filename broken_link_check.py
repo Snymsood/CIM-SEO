@@ -379,39 +379,39 @@ def write_html_summary(results_df, ai_analysis):
     {html_table_from_df(
         broken_df,
         ["source_url", "target_url", "anchor_text", "status_code", "issue_type"],
-        {{
+        {
             "source_url": "Source URL",
             "target_url": "Broken Target",
             "anchor_text": "Anchor Text",
             "status_code": "Status",
             "issue_type": "Issue Type",
-        }}
+        }
     )}
 
     <h2>Other 4xx Links</h2>
     {html_table_from_df(
         client_df,
         ["source_url", "target_url", "anchor_text", "status_code", "issue_type"],
-        {{
+        {
             "source_url": "Source URL",
             "target_url": "Target URL",
             "anchor_text": "Anchor Text",
             "status_code": "Status",
             "issue_type": "Issue Type",
-        }}
+        }
     )}
 
     <h2>5xx Links</h2>
     {html_table_from_df(
         server_df,
         ["source_url", "target_url", "anchor_text", "status_code", "issue_type"],
-        {{
+        {
             "source_url": "Source URL",
             "target_url": "Target URL",
             "anchor_text": "Anchor Text",
             "status_code": "Status",
             "issue_type": "Issue Type",
-        }}
+        }
     )}
 
     <div class="break-before"></div>
@@ -419,25 +419,25 @@ def write_html_summary(results_df, ai_analysis):
     {html_table_from_df(
         redirect_df,
         ["source_url", "target_url", "final_url", "redirect_count", "status_code"],
-        {{
+        {
             "source_url": "Source URL",
             "target_url": "Original Target",
             "final_url": "Final URL",
             "redirect_count": "Redirects",
             "status_code": "Final Status",
-        }}
+        }
     )}
 
     <h2>Request Errors</h2>
     {html_table_from_df(
         error_df,
         ["source_url", "target_url", "error", "issue_type"],
-        {{
+        {
             "source_url": "Source URL",
             "target_url": "Target URL",
             "error": "Error",
             "issue_type": "Issue Type",
-        }}
+        }
     )}
 </body>
 </html>

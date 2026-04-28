@@ -566,7 +566,7 @@ def write_html_summary(comparison_df, executive_commentary, current_start, curre
     {html_table_from_df(
         top_pages,
         ["page", "category", "priority", "clicks_current", "impressions_current", "ctr_current", "position_current", "clicks_change"],
-        {{
+        {
             "page": "Page",
             "category": "Category",
             "priority": "Priority",
@@ -575,33 +575,33 @@ def write_html_summary(comparison_df, executive_commentary, current_start, curre
             "ctr_current": "CTR",
             "position_current": "Pos",
             "clicks_change": "Clicks Δ",
-        }}
+        }
     )}
 
     <h2>Biggest Traffic Gainers</h2>
     {html_table_from_df(
         biggest_gainers,
         ["page", "clicks_previous", "clicks_current", "clicks_change", "impressions_current"],
-        {{
+        {
             "page": "Page",
             "clicks_previous": "Prev Clicks",
             "clicks_current": "Curr Clicks",
             "clicks_change": "Δ",
             "impressions_current": "Impr",
-        }}
+        }
     )}
 
     <h2>Biggest Traffic Losers</h2>
     {html_table_from_df(
         biggest_losers,
         ["page", "clicks_previous", "clicks_current", "clicks_change", "impressions_current"],
-        {{
+        {
             "page": "Page",
             "clicks_previous": "Prev Clicks",
             "clicks_current": "Curr Clicks",
             "clicks_change": "Δ",
             "impressions_current": "Impr",
-        }}
+        }
     )}
 
     <div class="break-before"></div>
@@ -609,26 +609,26 @@ def write_html_summary(comparison_df, executive_commentary, current_start, curre
     {html_table_from_df(
         position_gainers,
         ["page", "position_previous", "position_current", "position_change", "clicks_current"],
-        {{
+        {
             "page": "Page",
             "position_previous": "Prev Pos",
             "position_current": "Curr Pos",
             "position_change": "Pos Δ",
             "clicks_current": "Clicks",
-        }}
+        }
     )}
 
     <h2>Biggest Position Declines</h2>
     {html_table_from_df(
         position_losers,
         ["page", "position_previous", "position_current", "position_change", "clicks_current"],
-        {{
+        {
             "page": "Page",
             "position_previous": "Prev Pos",
             "position_current": "Curr Pos",
             "position_change": "Pos Δ",
             "clicks_current": "Clicks",
-        }}
+        }
     )}
 
     <div class="break-before"></div>
@@ -636,13 +636,13 @@ def write_html_summary(comparison_df, executive_commentary, current_start, curre
     {html_table_from_df(
         lost_visibility,
         ["page", "category", "priority", "impressions_previous", "impressions_current"],
-        {{
+        {
             "page": "Page",
             "category": "Category",
             "priority": "Priority",
             "impressions_previous": "Prev Impr",
             "impressions_current": "Curr Impr",
-        }}
+        }
     )}
 </body>
 </html>

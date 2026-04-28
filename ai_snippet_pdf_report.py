@@ -159,14 +159,14 @@ def build_pdf(df, ai_summary):
     {html_table_from_df(
         df,
         ["page_name", "access_score", "summary_score", "cta_score", "hallucination_flag", "recommendation"],
-        {{
+        {
             "page_name": "Page Name",
             "access_score": "Access",
             "summary_score": "Summary",
             "cta_score": "CTA",
             "hallucination_flag": "Risk",
             "recommendation": "Recommendation"
-        }}
+        }
     )}
 </body>
 </html>

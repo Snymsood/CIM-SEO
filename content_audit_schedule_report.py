@@ -11,7 +11,7 @@ import html
 import json
 import math
 
-from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
+from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card, safe_pct_change
 
 SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly"]
 KEY_FILE = "gsc-key.json"

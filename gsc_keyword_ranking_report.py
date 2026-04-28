@@ -524,7 +524,7 @@ def write_html_summary(comparison_df, commentary, current_start, current_end, pr
     {html_table_from_df(
         top_keywords,
         ["keyword", "category", "priority", "clicks_current", "impressions_current", "position_current", "position_change"],
-        {{
+        {
             "keyword": "Keyword",
             "category": "Category",
             "priority": "Priority",
@@ -532,33 +532,33 @@ def write_html_summary(comparison_df, commentary, current_start, current_end, pr
             "impressions_current": "Impr",
             "position_current": "Pos",
             "position_change": "Pos Δ"
-        }}
+        }
     )}
 
     <h2>Biggest Ranking Improvements</h2>
     {html_table_from_df(
         biggest_gainers,
         ["keyword", "position_previous", "position_current", "position_change", "clicks_current"],
-        {{
+        {
             "keyword": "Keyword",
             "position_previous": "Prev Pos",
             "position_current": "Curr Pos",
             "position_change": "Pos Δ",
             "clicks_current": "Clicks"
-        }}
+        }
     )}
 
     <h2>Biggest Ranking Declines</h2>
     {html_table_from_df(
         biggest_losers,
         ["keyword", "position_previous", "position_current", "position_change", "clicks_current"],
-        {{
+        {
             "keyword": "Keyword",
             "position_previous": "Prev Pos",
             "position_current": "Curr Pos",
             "position_change": "Pos Δ",
             "clicks_current": "Clicks"
-        }}
+        }
     )}
 
     <div class="break-before"></div>
@@ -566,39 +566,39 @@ def write_html_summary(comparison_df, commentary, current_start, current_end, pr
     {html_table_from_df(
         entered_top_3,
         ["keyword", "category", "priority", "position_previous", "position_current"],
-        {{
+        {
             "keyword": "Keyword",
             "category": "Category",
             "priority": "Priority",
             "position_previous": "Prev Pos",
             "position_current": "Curr Pos"
-        }}
+        }
     )}
 
     <h2>Entered Top 10</h2>
     {html_table_from_df(
         entered_top_10,
         ["keyword", "category", "priority", "position_previous", "position_current"],
-        {{
+        {
             "keyword": "Keyword",
             "category": "Category",
             "priority": "Priority",
             "position_previous": "Prev Pos",
             "position_current": "Curr Pos"
-        }}
+        }
     )}
 
     <h2>Lost Visibility</h2>
     {html_table_from_df(
         lost_visibility,
         ["keyword", "category", "priority", "impressions_previous", "impressions_current"],
-        {{
+        {
             "keyword": "Keyword",
             "category": "Category",
             "priority": "Priority",
             "impressions_previous": "Prev Impr",
             "impressions_current": "Curr Impr"
-        }}
+        }
     )}
 </body>
 </html>
