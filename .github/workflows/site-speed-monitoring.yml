@@ -21,6 +21,13 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Download previous site speed history
+        uses: actions/download-artifact@v4
+        with:
+          name: site-speed-monitoring
+          path: .
+        continue-on-error: true
+
       - name: Run site speed monitoring
         env:
           PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
