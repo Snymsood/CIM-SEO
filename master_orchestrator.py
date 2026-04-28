@@ -92,14 +92,19 @@ async def run_all_scripts():
         "MONDAY_ITEM_ID": os.getenv("MONDAY_INTERNAL_LINK_ITEM_ID", ""),
     }
     content_audit_env = {
+        "GSC_PROPERTY": "https://www.cim.org/",
         "MONDAY_ITEM_ID": os.getenv("MONDAY_CONTENT_AUDIT_ITEM_ID", ""),
+    }
+    content_perf_env = {
+        "GSC_PROPERTY": "https://www.cim.org/",
+        "GA4_PROPERTY_ID": "341629008",
     }
 
     print("--- Starting crawl-based pipelines (sequential) ---")
     await run_script("broken_link_check.py", broken_link_env)
     await run_script("internal_linking_audit.py", internal_link_env)
     await run_script("content_audit_schedule_report.py", content_audit_env)
-    await run_script("content_category_performance.py", {})
+    await run_script("content_category_performance.py", content_perf_env)
 
 def generate_unified_insights():
     if not GROQ_API_KEY:
