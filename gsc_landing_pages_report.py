@@ -11,6 +11,7 @@ import html
 import base64
 from io import BytesIO
 import matplotlib
+from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
@@ -145,33 +146,7 @@ def prepare_comparison(current_df, previous_df):
     return merged
 
 
-def safe_pct_change(current, previous):
-    if previous == 0:
-        return None
-    return ((current - previous) / previous) * 100
 
-
-def format_pct_change(current, previous):
-    pct = safe_pct_change(current, previous)
-    if pct is None:
-        return "n/a"
-    return f"{pct:+.1f}%"
-
-
-def format_delta(value):
-    if pd.isna(value):
-        return ""
-    if value > 0:
-        return f"+{value:.2f}"
-    return f"{value:.2f}"
-
-
-def format_delta_int(value):
-    if pd.isna(value):
-        return ""
-    if value > 0:
-        return f"+{value:.0f}"
-    return f"{value:.0f}"
 
 
 def short_page_label(url, max_len=52):
@@ -286,38 +261,6 @@ def md_table_from_df(df, columns, rename_map=None):
     return work.to_markdown(index=False)
 
 
-def html_table_from_df(df, columns, rename_map=None):
-    work = df[columns].copy()
-    if rename_map:
-        work = work.rename(columns=rename_map)
-
-    for col in work.columns:
-        lower_col = col.lower()
-        if "ctr" in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: f"{x:.2%}" if pd.notnull(x) else "")
-        elif "position" in lower_col and "change" not in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: f"{x:.2f}" if pd.notnull(x) and x != 0 else "")
-        elif "position" in lower_col and "change" in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: format_delta(x) if pd.notnull(x) else "")
-        elif "change" in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: format_delta_int(x) if pd.notnull(x) else "")
-        elif any(token in lower_col for token in ["click", "impression"]):
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: f"{x:.0f}" if pd.notnull(x) else "")
-        else:
-            work[col] = work[col].fillna("").astype(str)
-
-    header_html = "".join(f"<th>{html.escape(str(col))}</th>" for col in work.columns)
-    body_rows = []
-    for row in work.values.tolist():
-        cells = "".join(f"<td>{html.escape(str(v))}</td>" for v in row)
-        body_rows.append(f"<tr>{cells}</tr>")
-
-    return f"""
-    <table>
-      <thead><tr>{header_html}</tr></thead>
-      <tbody>{''.join(body_rows)}</tbody>
-    </table>
-    """
 
 
 def fig_to_base64(fig):
@@ -555,16 +498,6 @@ def write_html_summary(comparison_df, executive_commentary, current_start, curre
         "position_changes": create_position_change_chart(position_gainers, position_losers),
     }
 
-    def card(title, value, sub, accent):
-        return f"""
-        <div class="card">
-            <div class="card-accent" style="background:{accent};"></div>
-            <div class="label">{html.escape(title)}</div>
-            <div class="value">{html.escape(str(value))}</div>
-            <div class="sub">{html.escape(sub)}</div>
-        </div>
-        """
-
     html_output = f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -572,338 +505,145 @@ def write_html_summary(comparison_df, executive_commentary, current_start, curre
 <meta charset="utf-8">
 <title>Critical Landing Pages to Monitor</title>
 <style>
-    @page {{
-        size: A4;
-        margin: 0.55in 0.55in 0.6in 0.55in;
-        @bottom-right {{
-            content: "Page " counter(page);
-            font-size: 9pt;
-            color: #475569;
-            font-family: "Times New Roman", Times, serif;
-        }}
-    }}
-    body {{
-        font-family: "Times New Roman", Times, serif;
-        margin: 0;
-        padding: 0;
-        background: #f8fafc;
-        color: #10233f;
-        font-size: 11.5pt;
-        line-height: 1.45;
-    }}
-    .container {{
-        width: 100%;
-    }}
-    .hero {{
-        background: linear-gradient(135deg, #10233f 0%, #1d4ed8 55%, #0f766e 100%);
-        color: white;
-        border-radius: 18px;
-        padding: 28px 30px 24px 30px;
-        margin-bottom: 24px;
-    }}
-    .eyebrow {{
-        font-size: 10pt;
-        letter-spacing: 0.12em;
-        text-transform: uppercase;
-        opacity: 0.92;
-        margin-bottom: 10px;
-    }}
-    .hero h1 {{
-        margin: 0 0 10px 0;
-        font-size: 27pt;
-        line-height: 1.06;
-        font-weight: 700;
-    }}
-    .hero-meta {{
-        font-size: 11pt;
-        opacity: 0.95;
-    }}
-    .section {{
-        background: white;
-        border-radius: 16px;
-        padding: 22px 24px 20px 24px;
-        margin-bottom: 20px;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-    }}
-    .section h2 {{
-        margin: 0 0 6px 0;
-        font-size: 18pt;
-        color: #0f172a;
-    }}
-    .section-note {{
-        margin: 0 0 14px 0;
-        color: #64748b;
-        font-size: 10pt;
-    }}
-    .commentary {{
-        background: linear-gradient(180deg, #f8fbff 0%, #eef6ff 100%);
-        border-left: 5px solid #2563eb;
-        padding: 16px 18px;
-        border-radius: 12px;
-        white-space: pre-wrap;
-    }}
-    .exec-list {{
-        margin: 8px 0 0 18px;
-        padding: 0;
-    }}
-    .exec-list li {{
-        margin: 0 0 8px 0;
-        padding-left: 2px;
-    }}
-    .kpi-grid {{
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 16px;
-        margin-top: 8px;
-    }}
-    .card {{
-        position: relative;
-        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
-        border: 1px solid #dbeafe;
-        border-radius: 14px;
-        padding: 18px 16px 16px 16px;
-        min-height: 116px;
-    }}
-    .card-accent {{
-        width: 44px;
-        height: 5px;
-        border-radius: 999px;
-        margin-bottom: 14px;
-    }}
-    .label {{
-        font-size: 10pt;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #64748b;
-        margin-bottom: 10px;
-    }}
-    .value {{
-        font-size: 23pt;
-        font-weight: 700;
-        color: #0f172a;
-        line-height: 1.05;
-        margin-bottom: 8px;
-    }}
-    .sub {{
-        font-size: 10.3pt;
-        color: #475569;
-    }}
-    .chart-card {{
-        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-        border: 1px solid #e2e8f0;
-        border-radius: 14px;
-        padding: 18px;
-        margin-top: 14px;
-        page-break-inside: avoid;
-    }}
-    .chart-card img {{
-        width: 100%;
-        display: block;
-        border-radius: 10px;
-    }}
-    table {{
-        width: 100%;
-        border-collapse: collapse;
-        background: white;
-        border-radius: 14px;
-        overflow: hidden;
-        margin-top: 12px;
-        font-size: 9.5pt;
-    }}
-    th, td {{
-        text-align: left;
-        padding: 11px 12px;
-        border-bottom: 1px solid #e5e7eb;
-        vertical-align: top;
-        word-break: break-word;
-    }}
-    th {{
-        background: #12325a;
-        color: white;
-        font-size: 9.3pt;
-        letter-spacing: 0.03em;
-    }}
-    tr:nth-child(even) td {{
-        background: #f8fbff;
-    }}
-    .pagebreak {{
-        page-break-before: always;
-    }}
+{get_pdf_css()}
+.chart-card {{
+    background: #fff;
+    border: 1px solid #E2E8F0;
+    border-radius: 6px;
+    padding: 12px;
+    margin: 0 0 16px 0;
+    page-break-inside: avoid;
+}}
+.chart-card img {{
+    width: 100%;
+    display: block;
+}}
 </style>
 </head>
 <body>
-<div class="container">
-    <div class="hero">
-        <div class="eyebrow">CIM SEO Performance Review</div>
-        <h1>Critical Landing Pages to Monitor</h1>
-        <div class="hero-meta">
-            Reporting window: {current_start} to {current_end} &nbsp;|&nbsp; Prior period: {previous_start} to {previous_end}<br>
-            Property: {html.escape(SITE_URL)}
-        </div>
-    </div>
+    <h1>Critical Landing Pages to Monitor</h1>
+    <div class="muted">Reporting window: {current_start} to {current_end} | Prior period: {previous_start} to {previous_end}</div>
 
-    <div class="section">
+    <div class="panel">
         <h2>Executive Summary</h2>
-        <p class="section-note">Primary observations from this week's landing page review.</p>
-        <ul class="exec-list">{''.join(f"<li>{html.escape(line)}</li>" for line in executive_read)}</ul>
-    </div>
-
-    <div class="section">
+        <ul>{''.join(f"<li>{html.escape(line)}</li>" for line in executive_read)}</ul>
+        
         <h2>Executive Commentary</h2>
-        <p class="section-note">Narrative interpretation prepared for stakeholder review.</p>
-        <div class="commentary">{html.escape(executive_commentary)}</div>
+        <div class="ai-block">{html.escape(executive_commentary)}</div>
     </div>
 
-    <div class="section">
-        <h2>KPI Snapshot</h2>
-        <p class="section-note">Current period performance across the tracked landing page set.</p>
-        <div class="kpi-grid">
-            {card("Visible Pages", visible_now, "Tracked pages with impressions", "#2563eb")}
-            {card("Total Clicks", total_clicks, "Across tracked landing pages", "#0f766e")}
-            {card("Weighted CTR", f"{weighted_ctr:.2%}", "Current reporting window", "#7c3aed")}
-            {card("Avg Position", f"{avg_position:.2f}", "Lower values are better", "#ea580c")}
-        </div>
-        <div class="kpi-grid" style="margin-top:16px;">
-            {card("Position Improvements", improved_count, "Pages with better average position", "#059669")}
-            {card("Position Declines", declined_count, "Pages with weaker average position", "#dc2626")}
-            {card("Newly Visible", int(comparison_df["newly_visible"].sum()), "Pages visible after prior zero-impression week", "#0891b2")}
-            {card("Lost Visibility", int(comparison_df["lost_visibility"].sum()), "Pages with no current impressions", "#be123c")}
-        </div>
+    <h2>KPI Snapshot</h2>
+    <div class="grid">
+        {build_card("Visible Pages", visible_now, None)}
+        {build_card("Total Clicks", total_clicks, None)}
+        {build_card("Weighted CTR", weighted_ctr, None, is_pct=True)}
+        {build_card("Avg Position", avg_position, None, decimals=2)}
+    </div>
+    <div class="grid" style="margin-top:16px;">
+        {build_card("Position Improvements", improved_count, None)}
+        {build_card("Position Declines", declined_count, None)}
+        {build_card("Newly Visible", int(comparison_df["newly_visible"].sum()), None)}
+        {build_card("Lost Visibility", int(comparison_df["lost_visibility"].sum()), None)}
     </div>
 
-    <div class="section">
-        <h2>Performance Overview</h2>
-        <p class="section-note">Current week versus prior week across the primary executive KPIs.</p>
-        <div class="chart-card">
-            <img src="{charts['kpi']}" alt="Current Week vs Previous Week">
-        </div>
-    </div>
+    <h2>Performance Overview</h2>
+    <div class="chart-card"><img src="{charts['kpi']}" alt="Current Week vs Previous Week"></div>
 
-    <div class="section">
-        <h2>Top Demand Drivers</h2>
-        <p class="section-note">Highest-click landing pages among the tracked set.</p>
-        <div class="chart-card">
-            <img src="{charts['top_pages']}" alt="Top landing pages by clicks">
-        </div>
-    </div>
+    <div class="break-before"></div>
+    <h2>Top Demand Drivers</h2>
+    <div class="chart-card"><img src="{charts['top_pages']}" alt="Top landing pages by clicks"></div>
 
-    <div class="section">
-        <h2>Traffic Winners and Losers</h2>
-        <p class="section-note">Largest week-over-week movement in click volume.</p>
-        <div class="chart-card">
-            <img src="{charts['traffic_changes']}" alt="Traffic winners and losers">
-        </div>
-    </div>
+    <div class="break-before"></div>
+    <h2>Traffic Winners and Losers</h2>
+    <div class="chart-card"><img src="{charts['traffic_changes']}" alt="Traffic winners and losers"></div>
 
-    <div class="section">
-        <h2>Position Movement</h2>
-        <p class="section-note">Week-over-week change in average position for the most meaningful movers.</p>
-        <div class="chart-card">
-            <img src="{charts['position_changes']}" alt="Position movement">
-        </div>
-    </div>
+    <div class="break-before"></div>
+    <h2>Position Movement</h2>
+    <div class="chart-card"><img src="{charts['position_changes']}" alt="Position movement"></div>
 
-    <div class="pagebreak"></div>
+    <div class="break-before"></div>
+    <h2>Tracked Landing Pages</h2>
+    {html_table_from_df(
+        top_pages,
+        ["page", "category", "priority", "clicks_current", "impressions_current", "ctr_current", "position_current", "clicks_change"],
+        {{
+            "page": "Page",
+            "category": "Category",
+            "priority": "Priority",
+            "clicks_current": "Clicks",
+            "impressions_current": "Impr",
+            "ctr_current": "CTR",
+            "position_current": "Pos",
+            "clicks_change": "Clicks Δ",
+        }}
+    )}
 
-    <div class="section">
-        <h2>Tracked Landing Pages</h2>
-        <p class="section-note">Current-period performance for the monitored page set.</p>
-        {html_table_from_df(
-            top_pages,
-            ["page", "category", "priority", "clicks_current", "impressions_current", "ctr_current", "position_current", "clicks_change"],
-            {
-                "page": "Page",
-                "category": "Category",
-                "priority": "Priority",
-                "clicks_current": "Clicks",
-                "impressions_current": "Impressions",
-                "ctr_current": "CTR",
-                "position_current": "Current Position",
-                "clicks_change": "WoW Clicks Δ",
-            }
-        )}
-    </div>
+    <h2>Biggest Traffic Gainers</h2>
+    {html_table_from_df(
+        biggest_gainers,
+        ["page", "clicks_previous", "clicks_current", "clicks_change", "impressions_current"],
+        {{
+            "page": "Page",
+            "clicks_previous": "Prev Clicks",
+            "clicks_current": "Curr Clicks",
+            "clicks_change": "Δ",
+            "impressions_current": "Impr",
+        }}
+    )}
 
-    <div class="section">
-        <h2>Biggest Traffic Gainers</h2>
-        <p class="section-note">Pages with the strongest week-over-week click growth.</p>
-        {html_table_from_df(
-            biggest_gainers,
-            ["page", "clicks_previous", "clicks_current", "clicks_change", "impressions_current"],
-            {
-                "page": "Page",
-                "clicks_previous": "Prev Clicks",
-                "clicks_current": "Current Clicks",
-                "clicks_change": "Δ",
-                "impressions_current": "Impressions",
-            }
-        )}
-    </div>
+    <h2>Biggest Traffic Losers</h2>
+    {html_table_from_df(
+        biggest_losers,
+        ["page", "clicks_previous", "clicks_current", "clicks_change", "impressions_current"],
+        {{
+            "page": "Page",
+            "clicks_previous": "Prev Clicks",
+            "clicks_current": "Curr Clicks",
+            "clicks_change": "Δ",
+            "impressions_current": "Impr",
+        }}
+    )}
 
-    <div class="section">
-        <h2>Biggest Traffic Losers</h2>
-        <p class="section-note">Pages that lost the most click volume versus the prior period.</p>
-        {html_table_from_df(
-            biggest_losers,
-            ["page", "clicks_previous", "clicks_current", "clicks_change", "impressions_current"],
-            {
-                "page": "Page",
-                "clicks_previous": "Prev Clicks",
-                "clicks_current": "Current Clicks",
-                "clicks_change": "Δ",
-                "impressions_current": "Impressions",
-            }
-        )}
-    </div>
+    <div class="break-before"></div>
+    <h2>Best Position Improvements</h2>
+    {html_table_from_df(
+        position_gainers,
+        ["page", "position_previous", "position_current", "position_change", "clicks_current"],
+        {{
+            "page": "Page",
+            "position_previous": "Prev Pos",
+            "position_current": "Curr Pos",
+            "position_change": "Pos Δ",
+            "clicks_current": "Clicks",
+        }}
+    )}
 
-    <div class="section">
-        <h2>Best Position Improvements</h2>
-        <p class="section-note">Pages with the strongest positive movement in average position.</p>
-        {html_table_from_df(
-            position_gainers,
-            ["page", "position_previous", "position_current", "position_change", "clicks_current"],
-            {
-                "page": "Page",
-                "position_previous": "Prev Position",
-                "position_current": "Current Position",
-                "position_change": "Position Δ",
-                "clicks_current": "Clicks",
-            }
-        )}
-    </div>
+    <h2>Biggest Position Declines</h2>
+    {html_table_from_df(
+        position_losers,
+        ["page", "position_previous", "position_current", "position_change", "clicks_current"],
+        {{
+            "page": "Page",
+            "position_previous": "Prev Pos",
+            "position_current": "Curr Pos",
+            "position_change": "Pos Δ",
+            "clicks_current": "Clicks",
+        }}
+    )}
 
-    <div class="section">
-        <h2>Biggest Position Declines</h2>
-        <p class="section-note">Pages where visibility weakened versus the prior period.</p>
-        {html_table_from_df(
-            position_losers,
-            ["page", "position_previous", "position_current", "position_change", "clicks_current"],
-            {
-                "page": "Page",
-                "position_previous": "Prev Position",
-                "position_current": "Current Position",
-                "position_change": "Position Δ",
-                "clicks_current": "Clicks",
-            }
-        )}
-    </div>
-
-    <div class="section">
-        <h2>Lost Visibility</h2>
-        <p class="section-note">Tracked pages with prior impressions but no current-period visibility.</p>
-        {html_table_from_df(
-            lost_visibility,
-            ["page", "category", "priority", "impressions_previous", "impressions_current"],
-            {
-                "page": "Page",
-                "category": "Category",
-                "priority": "Priority",
-                "impressions_previous": "Prev Impressions",
-                "impressions_current": "Current Impressions",
-            }
-        )}
-    </div>
-</div>
+    <div class="break-before"></div>
+    <h2>Lost Visibility</h2>
+    {html_table_from_df(
+        lost_visibility,
+        ["page", "category", "priority", "impressions_previous", "impressions_current"],
+        {{
+            "page": "Page",
+            "category": "Category",
+            "priority": "Priority",
+            "impressions_previous": "Prev Impr",
+            "impressions_current": "Curr Impr",
+        }}
+    )}
 </body>
 </html>
 """

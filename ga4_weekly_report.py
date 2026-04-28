@@ -8,7 +8,7 @@ import html
 import json
 
 from google_sheets_db import append_to_sheet
-
+from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
 from google.oauth2 import service_account
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import (
@@ -131,19 +131,6 @@ def prepare_summary_comparison(current_summary, previous_summary):
     return pd.DataFrame(rows)
 
 
-def safe_pct_change(current, previous):
-    if previous == 0:
-        return None
-    return ((current - previous) / previous) * 100
-
-
-def format_pct_change(current, previous):
-    pct = safe_pct_change(current, previous)
-    if pct is None:
-        return "n/a"
-    return f"{pct:+.1f}%"
-
-
 def build_executive_read(summary_df):
     metric_map = {row["metric"]: row for _, row in summary_df.iterrows()}
 
@@ -239,50 +226,10 @@ Top channels:
         return f"AI executive analysis failed, so the report fell back to deterministic output only. Error: {str(e)}"
 
 
-def html_table_from_df(df, columns, rename_map=None):
-    work = df[columns].copy()
-    if rename_map:
-        work = work.rename(columns=rename_map)
-
-    for col in work.columns:
-        lower_col = col.lower()
-        if "rate" in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(
-                lambda x: f"{x:.2%}" if pd.notnull(x) else ""
-            )
-        elif "duration" in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(
-                lambda x: f"{x:.1f}" if pd.notnull(x) else ""
-            )
-        else:
-            numeric = pd.to_numeric(work[col], errors="coerce")
-            if numeric.notna().any():
-                work[col] = numeric.map(lambda x: f"{x:.0f}" if pd.notnull(x) else "")
-            else:
-                work[col] = work[col].fillna("").astype(str)
-
-    header_html = "".join(f"<th>{html.escape(str(col))}</th>" for col in work.columns)
-    body_rows = []
-    for row in work.values.tolist():
-        cells = "".join(f"<td>{html.escape(str(v))}</td>" for v in row)
-        body_rows.append(f"<tr>{cells}</tr>")
-
-    return f"<table><thead><tr>{header_html}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
-
-
 def write_html_summary(summary_df, top_pages_df, top_channels_df, device_df, country_df, ai_analysis, current_start, current_end, previous_start, previous_end):
     executive_read = build_executive_read(summary_df)
 
     metric_map = {row["metric"]: row for _, row in summary_df.iterrows()}
-
-    def card(title, current, previous):
-        return f"""
-        <div class="card">
-            <div class="label">{html.escape(title)}</div>
-            <div class="value">{html.escape(current)}</div>
-            <div class="sub">Previous: {html.escape(previous)}</div>
-        </div>
-        """
 
     html_output = f"""
 <!DOCTYPE html>
@@ -291,25 +238,10 @@ def write_html_summary(summary_df, top_pages_df, top_channels_df, device_df, cou
 <meta charset="utf-8">
 <title>GA4 Weekly Report</title>
 <style>
-body {{ font-family: Arial, sans-serif; margin: 0; padding: 32px; background: #f5f7fb; color: #1f2937; }}
-.container {{ max-width: 1200px; margin: 0 auto; }}
-h2 {{ margin-top: 32px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }}
-.grid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin:20px 0 28px 0; }}
-.card, .panel {{ background:white; border-radius:12px; padding:18px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }}
-.panel {{ margin-bottom:20px; }}
-.label {{ font-size:12px; text-transform:uppercase; color:#6b7280; margin-bottom:10px; }}
-.value {{ font-size:28px; font-weight:700; margin-bottom:6px; }}
-.sub {{ font-size:13px; color:#6b7280; }}
-table {{ width:100%; border-collapse:collapse; background:white; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08); margin-bottom:24px; }}
-th, td {{ text-align:left; padding:12px 14px; border-bottom:1px solid #e5e7eb; vertical-align:top; word-break:break-word; }}
-th {{ background:#111827; color:white; font-size:13px; }}
-tr:nth-child(even) td {{ background:#f9fafb; }}
-.ai-block {{ white-space:pre-wrap; line-height:1.5; }}
-.muted {{ color:#6b7280; margin-bottom:20px; }}
+{get_pdf_css()}
 </style>
 </head>
 <body>
-<div class="container">
 <h1>GA4 Weekly Report</h1>
 <div class="muted">Current period: {current_start} to {current_end} | Previous period: {previous_start} to {previous_end}</div>
 
@@ -324,23 +256,23 @@ tr:nth-child(even) td {{ background:#f9fafb; }}
 </div>
 
 <div class="grid">
-{card("Active Users", f"{metric_map['activeUsers']['current']:.0f}", f"{metric_map['activeUsers']['previous']:.0f}")}
-{card("Sessions", f"{metric_map['sessions']['current']:.0f}", f"{metric_map['sessions']['previous']:.0f}")}
-{card("Engaged Sessions", f"{metric_map['engagedSessions']['current']:.0f}", f"{metric_map['engagedSessions']['previous']:.0f}")}
-{card("Engagement Rate", f"{metric_map['engagementRate']['current']:.2%}", f"{metric_map['engagementRate']['previous']:.2%}")}
+{build_card("Active Users", metric_map['activeUsers']['current'], metric_map['activeUsers']['previous'])}
+{build_card("Sessions", metric_map['sessions']['current'], metric_map['sessions']['previous'])}
+{build_card("Engaged Sessions", metric_map['engagedSessions']['current'], metric_map['engagedSessions']['previous'])}
+{build_card("Engagement Rate", metric_map['engagementRate']['current'], metric_map['engagementRate']['previous'], is_pct=True)}
 </div>
 
 <h2>Top Landing Pages</h2>
 {html_table_from_df(
-    top_pages_df,
+    top_pages_df.head(15),
     ["landingPage", "sessions", "activeUsers", "engagementRate", "averageSessionDuration", "eventCount"],
     {
         "landingPage": "Landing Page",
         "sessions": "Sessions",
-        "activeUsers": "Active Users",
-        "engagementRate": "Engagement Rate",
-        "averageSessionDuration": "Avg Session Duration",
-        "eventCount": "Event Count",
+        "activeUsers": "Users",
+        "engagementRate": "Eng Rate",
+        "averageSessionDuration": "Avg Dur",
+        "eventCount": "Events",
     }
 )}
 
@@ -351,11 +283,12 @@ tr:nth-child(even) td {{ background:#f9fafb; }}
     {
         "sessionDefaultChannelGroup": "Channel",
         "sessions": "Sessions",
-        "activeUsers": "Active Users",
-        "engagementRate": "Engagement Rate",
+        "activeUsers": "Users",
+        "engagementRate": "Eng Rate",
     }
 )}
 
+<div class="break-before"></div>
 <h2>Device Split</h2>
 {html_table_from_df(
     device_df,
@@ -363,23 +296,22 @@ tr:nth-child(even) td {{ background:#f9fafb; }}
     {
         "deviceCategory": "Device",
         "sessions": "Sessions",
-        "activeUsers": "Active Users",
-        "engagementRate": "Engagement Rate",
+        "activeUsers": "Users",
+        "engagementRate": "Eng Rate",
     }
 )}
 
 <h2>Country Split</h2>
 {html_table_from_df(
-    country_df,
+    country_df.head(15),
     ["country", "sessions", "activeUsers", "engagementRate"],
     {
         "country": "Country",
         "sessions": "Sessions",
-        "activeUsers": "Active Users",
-        "engagementRate": "Engagement Rate",
+        "activeUsers": "Users",
+        "engagementRate": "Eng Rate",
     }
 )}
-</div>
 </body>
 </html>
 """

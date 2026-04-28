@@ -11,6 +11,7 @@ import json
 import matplotlib
 
 from google_sheets_db import append_to_sheet
+from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -192,19 +193,6 @@ def prepare_comparison(current_df, previous_df):
     return work
 
 
-# ---------- formatting ----------
-def format_num(value, decimals=0):
-    if pd.isna(value):
-        return ""
-    return f"{value:.{decimals}f}"
-
-
-def format_delta(value, decimals=0):
-    if pd.isna(value):
-        return ""
-    if value > 0:
-        return f"+{value:.{decimals}f}"
-    return f"{value:.{decimals}f}"
 
 
 def shorten_url(url, max_len=70):
@@ -329,35 +317,7 @@ def commentary_to_html(text):
     return "".join(paragraphs)
 
 
-# ---------- tables ----------
-def html_table_from_df(df, columns, rename_map=None):
-    if df.empty:
-        return '<div class="empty-state">No rows were available for this section.</div>'
 
-    work = df[columns].copy()
-    if rename_map:
-        work = work.rename(columns=rename_map)
-
-    for col in work.columns:
-        lower = col.lower()
-        if "score" in lower:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: format_num(x, 1))
-        elif "change" in lower:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: format_delta(x, 1))
-        elif any(token in lower for token in ["lcp", "fcp", "inp", "tbt", "speed_index"]):
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: format_num(x, 0))
-        elif "cls" in lower:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: format_num(x, 3))
-        else:
-            work[col] = work[col].fillna("").astype(str)
-
-    header_html = "".join(f"<th>{html.escape(str(col))}</th>" for col in work.columns)
-    body_rows = []
-    for row in work.values.tolist():
-        cells = "".join(f"<td>{html.escape(str(v))}</td>" for v in row)
-        body_rows.append(f"<tr>{cells}</tr>")
-
-    return f"<table><thead><tr>{header_html}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
 
 
 # ---------- charts ----------
@@ -463,33 +423,11 @@ def write_html_summary(comparison_df, commentary):
     appendix_mobile = mobile.iloc[10:].copy()
     appendix_desktop = desktop.iloc[10:].copy()
 
-    def card(title, value, sub, tone="blue"):
-        tone_map = {
-            "blue": ("#dbeafe", "#1d4ed8"),
-            "teal": ("#ccfbf1", "#0f766e"),
-            "gold": ("#fef3c7", "#b45309"),
-            "rose": ("#ffe4e6", "#be123c"),
-        }
-        bg, accent = tone_map[tone]
-        return f'''
-        <div class="card" style="background:{bg}; border-top:6px solid {accent};">
-            <div class="label">{html.escape(title)}</div>
-            <div class="value">{html.escape(value)}</div>
-            <div class="sub">{html.escape(sub)}</div>
-        </div>
-        '''
-
-    mobile_cols = ["page", "category", "priority", "performance_score", "performance_score_change", "lcp_lab_ms", "inp_field_ms", "cls_field"]
-    mobile_rename = {"page": "Page", "category": "Category", "priority": "Priority", "performance_score": "Score", "performance_score_change": "Score Δ", "lcp_lab_ms": "LCP Lab (ms)", "inp_field_ms": "INP Field (ms)", "cls_field": "CLS Field"}
+    mobile_cols = ["page", "category", "priority", "performance_score", "performance_score_change", "lcp_field_ms", "inp_field_ms", "cls_field"]
+    mobile_rename = {"page": "Page", "category": "Category", "priority": "Priority", "performance_score": "Score", "performance_score_change": "Score Δ", "lcp_field_ms": "LCP (ms)", "inp_field_ms": "INP (ms)", "cls_field": "CLS"}
 
     desktop_cols = ["page", "category", "priority", "performance_score", "performance_score_change", "lcp_lab_ms", "tbt_lab_ms", "cls_lab"]
     desktop_rename = {"page": "Page", "category": "Category", "priority": "Priority", "performance_score": "Score", "performance_score_change": "Score Δ", "lcp_lab_ms": "LCP Lab (ms)", "tbt_lab_ms": "TBT Lab (ms)", "cls_lab": "CLS Lab"}
-
-    app_mobile_cols = ["page", "category", "priority", "performance_score", "lcp_lab_ms", "inp_field_ms", "cls_field"]
-    app_mobile_rename = {"page": "Page", "category": "Category", "priority": "Priority", "performance_score": "Score", "lcp_lab_ms": "LCP Lab (ms)", "inp_field_ms": "INP Field (ms)", "cls_field": "CLS Field"}
-
-    app_desktop_cols = ["page", "category", "priority", "performance_score", "lcp_lab_ms", "tbt_lab_ms", "cls_lab"]
-    app_desktop_rename = {"page": "Page", "category": "Category", "priority": "Priority", "performance_score": "Score", "lcp_lab_ms": "LCP Lab (ms)", "tbt_lab_ms": "TBT Lab (ms)", "cls_lab": "CLS Lab"}
 
     html_output = f"""
 <!DOCTYPE html>
@@ -498,110 +436,56 @@ def write_html_summary(comparison_df, commentary):
 <meta charset="utf-8">
 <title>Site Speed Monitoring</title>
 <style>
-@page {{
-    size: A4;
-    margin: 0.55in;
-}}
-body {{ font-family: 'Times New Roman', Times, serif; margin: 0; padding: 0; background: #eef2ff; color: #1f2937; }}
-.page {{ padding: 0; }}
-.container {{ max-width: 1180px; margin: 0 auto; }}
-.hero {{ background: linear-gradient(135deg, #1d4ed8 0%, #0f766e 100%); color: white; border-radius: 24px; padding: 32px 34px; margin-bottom: 26px; }}
-.hero h1 {{ margin: 0 0 8px 0; font-size: 34px; }}
-.hero p {{ margin: 0; font-size: 16px; line-height: 1.6; }}
-h2 {{ margin: 0 0 14px 0; font-size: 24px; color: #0f172a; }}
-.section {{ background: #ffffff; border-radius: 22px; padding: 26px 28px; margin-bottom: 24px; box-shadow: 0 10px 28px rgba(15, 23, 42, 0.07); page-break-inside: avoid; }}
-.grid {{ display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-top: 18px; margin-bottom: 8px; }}
-.card {{ border-radius: 18px; padding: 18px 18px 20px 18px; min-height: 116px; }}
-.label {{ font-size: 13px; text-transform: uppercase; letter-spacing: 0.08em; color: #475569; margin-bottom: 10px; }}
-.value {{ font-size: 30px; font-weight: 700; color: #0f172a; margin-bottom: 8px; }}
-.sub {{ font-size: 14px; color: #334155; line-height: 1.5; }}
-.two-col {{ display:grid; grid-template-columns: 0.95fr 1.05fr; gap: 22px; align-items: start; }}
-ul {{ margin: 0; padding-left: 22px; line-height: 1.8; }}
-.commentary {{ line-height: 1.75; font-size: 15px; color:#1e293b; background: #eff6ff; border-left: 6px solid #2563eb; border-radius: 16px; padding: 18px 20px; }}
-.commentary p {{ margin: 0 0 12px 0; }}
-.commentary p:last-child {{ margin-bottom: 0; }}
-.commentary ul {{ margin: 8px 0 0 0; }}
-.chart-panel {{ background: #f8fafc; border: 1px solid #dbe4f0; border-radius: 18px; padding: 16px; margin-top: 16px; page-break-inside: avoid; }}
-.chart-row {{ margin-bottom: 22px; }}
-table {{ width:100%; border-collapse:collapse; background:white; border-radius:18px; overflow:hidden; margin-top: 12px; table-layout: fixed; }}
-th, td {{ text-align:left; padding:14px 12px; border-bottom:1px solid #e2e8f0; vertical-align:top; word-break:break-word; font-size: 13px; }}
-th {{ background:#1e3a8a; color:white; font-size:12px; letter-spacing:0.05em; text-transform:uppercase; }}
-tr:nth-child(even) td {{ background:#f8fafc; }}
-thead {{ display: table-header-group; }}
-tr {{ page-break-inside: avoid; }}
-.footer-note {{ color:#64748b; font-size:12px; text-align:right; margin-top: 10px; }}
-.empty-state {{ color:#64748b; font-style: italic; padding: 10px 0; }}
-.page-break {{ page-break-before: always; }}
+{get_pdf_css()}
+.chart-panel {{ background: #f8fafc; border: 1px solid #dbe4f0; border-radius: 6px; padding: 12px; margin-top: 12px; margin-bottom: 20px; page-break-inside: avoid; }}
+.chart-row {{ margin-bottom: 12px; }}
+.two-col {{ display: block; }}
 </style>
 </head>
 <body>
-<div class="page">
-<div class="container">
-    <div class="hero">
-        <h1>Site Speed Monitoring</h1>
-        <p>Weekly technical performance review across tracked priority pages and subdomains.</p>
-        <p>Prepared for stakeholder review • Generated {date.today().isoformat()}</p>
+    <h1>Site Speed Monitoring</h1>
+    <div class="muted">Prepared for stakeholder review • Generated {date.today().isoformat()}</div>
+
+    <div class="panel">
+        <h2>Executive Overview</h2>
+        <ul>{''.join(f'<li>{html.escape(line)}</li>' for line in executive_read)}</ul>
+        
+        <h2>Executive Commentary</h2>
+        <div class="ai-block">{commentary_html}</div>
     </div>
 
-    <div class="section">
-        <div class="two-col">
-            <div>
-                <h2>Executive Overview</h2>
-                <ul>{''.join(f'<li>{html.escape(line)}</li>' for line in executive_read)}</ul>
-            </div>
-            <div>
-                <h2>Executive Commentary</h2>
-                <div class="commentary">{commentary_html}</div>
-            </div>
-        </div>
-        <div class="grid">
-            {card("Tracked URLs", str(comparison_df['page'].nunique()), "mobile and desktop measurements collected", "blue")}
-            {card("Mobile Avg Score", format_num(mobile['performance_score'].mean(), 1), "PageSpeed performance benchmark", "teal")}
-            {card("Desktop Avg Score", format_num(desktop['performance_score'].mean(), 1), "PageSpeed performance benchmark", "gold")}
-            {card("Poor Mobile LCP", str((mobile['lcp_field_category'] == 'SLOW').sum()), "pages with slow field LCP", "rose")}
-        </div>
+    <div class="grid">
+        {build_card("Tracked URLs", comparison_df['page'].nunique(), None, decimals=0)}
+        {build_card("Mobile Avg Score", mobile['performance_score'].mean(), None, decimals=1)}
+        {build_card("Desktop Avg Score", desktop['performance_score'].mean(), None, decimals=1)}
+        {build_card("Poor Mobile LCP", (mobile['lcp_field_category'] == 'SLOW').sum(), None, decimals=0)}
     </div>
 
-    <div class="section">
-        <h2>Performance Overview</h2>
-        <div class="chart-row chart-panel">{img_tag(charts['overview'], 'Site speed overview')}</div>
-    </div>
+    <h2>Performance Overview</h2>
+    <div class="chart-row chart-panel">{img_tag(charts['overview'], 'Site speed overview')}</div>
 
-    <div class="section">
-        <h2>Top Mobile Performance Scores</h2>
-        <div class="chart-row chart-panel">{img_tag(charts['top_mobile'], 'Top mobile scores')}</div>
-    </div>
+    <h2>Top Mobile Performance Scores</h2>
+    <div class="chart-row chart-panel">{img_tag(charts['top_mobile'], 'Top mobile scores')}</div>
 
-    <div class="section">
-        <h2>Highest Mobile LCP Pages</h2>
-        <div class="chart-row chart-panel">{img_tag(charts['worst_lcp'], 'Highest mobile LCP')}</div>
-    </div>
+    <h2>Highest Mobile LCP Pages</h2>
+    <div class="chart-row chart-panel">{img_tag(charts['worst_lcp'], 'Highest mobile LCP')}</div>
 
-    <div class="section">
-        <h2>Mobile Score Movement</h2>
-        <div class="chart-row chart-panel">{img_tag(charts['score_change'], 'Mobile score winners and losers')}</div>
-    </div>
+    <div class="break-before"></div>
+    <h2>Mobile Score Movement</h2>
+    <div class="chart-row chart-panel">{img_tag(charts['score_change'], 'Mobile score winners and losers')}</div>
 
-    <div class="section page-break">
-        <h2>Mobile Results</h2>
-        {html_table_from_df(mobile_main, mobile_cols, mobile_rename)}
-    </div>
+    <h2>Mobile Results</h2>
+    {html_table_from_df(mobile_main, mobile_cols, mobile_rename)}
 
-    <div class="section">
-        <h2>Desktop Results</h2>
-        {html_table_from_df(desktop_main, desktop_cols, desktop_rename)}
-    </div>
+    <h2>Desktop Results</h2>
+    {html_table_from_df(desktop_main, desktop_cols, desktop_rename)}
 
-    <div class="section">
-        <h2>Appendix</h2>
-        <h3>Additional Mobile Rows</h3>
-        {html_table_from_df(appendix_mobile, app_mobile_cols, app_mobile_rename)}
-        <h3 style="margin-top:24px;">Additional Desktop Rows</h3>
-        {html_table_from_df(appendix_desktop, app_desktop_cols, app_desktop_rename)}
-        <div class="footer-note">Prepared for internal weekly monitoring.</div>
-    </div>
-</div>
-</div>
+    <div class="break-before"></div>
+    <h2>Appendix: Additional Mobile Rows</h2>
+    {html_table_from_df(appendix_mobile, mobile_cols, mobile_rename)}
+    
+    <h2>Appendix: Additional Desktop Rows</h2>
+    {html_table_from_df(appendix_desktop, desktop_cols, desktop_rename)}
 </body>
 </html>
 """

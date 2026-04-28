@@ -10,6 +10,7 @@ import html
 import base64
 from io import BytesIO
 import matplotlib
+from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -161,33 +162,6 @@ def prepare_comparison(current_df, previous_df):
     )
 
 
-def safe_pct_change(current, previous):
-    if previous == 0:
-        return None
-    return ((current - previous) / previous) * 100
-
-
-def format_pct_change(current, previous):
-    pct = safe_pct_change(current, previous)
-    if pct is None:
-        return "n/a"
-    return f"{pct:+.1f}%"
-
-
-def format_delta(value):
-    if pd.isna(value):
-        return ""
-    if value > 0:
-        return f"+{value:.2f}"
-    return f"{value:.2f}"
-
-
-def format_delta_int(value):
-    if pd.isna(value):
-        return ""
-    if value > 0:
-        return f"+{value:.0f}"
-    return f"{value:.0f}"
 
 
 def build_executive_read(comparison_df):
@@ -301,38 +275,6 @@ def md_table_from_df(df, columns, rename_map=None):
     return "\n".join([header, separator] + rows)
 
 
-def html_table_from_df(df, columns, rename_map=None):
-    work = df[columns].copy()
-    if rename_map:
-        work = work.rename(columns=rename_map)
-
-    for col in work.columns:
-        lower_col = col.lower()
-        if "ctr" in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: f"{x:.2%}" if pd.notnull(x) else "")
-        elif "position" in lower_col and "change" not in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: f"{x:.2f}" if pd.notnull(x) and x != 0 else "")
-        elif "position" in lower_col and "change" in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: format_delta(x) if pd.notnull(x) else "")
-        elif "change" in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: format_delta_int(x) if pd.notnull(x) else "")
-        elif any(token in lower_col for token in ["click", "impression"]):
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: f"{x:.0f}" if pd.notnull(x) else "")
-        else:
-            work[col] = work[col].fillna("").astype(str)
-
-    header_html = "".join(f"<th>{html.escape(str(col))}</th>" for col in work.columns)
-    body_rows = []
-    for row in work.values.tolist():
-        cells = "".join(f"<td>{html.escape(str(v))}</td>" for v in row)
-        body_rows.append(f"<tr>{cells}</tr>")
-
-    return f"""
-    <table>
-      <thead><tr>{header_html}</tr></thead>
-      <tbody>{''.join(body_rows)}</tbody>
-    </table>
-    """
 
 
 def fig_to_base64(fig):
@@ -520,16 +462,6 @@ def write_html_summary(comparison_df, commentary, current_start, current_end, pr
         "keyword", "delta", "Ranking Winners and Losers"
     )
 
-    def card(title, value, sub, tone="blue"):
-        tone_class = f"tone-{tone}"
-        return f"""
-        <div class=\"card {tone_class}\">
-            <div class=\"label\">{html.escape(title)}</div>
-            <div class=\"value\">{html.escape(value)}</div>
-            <div class=\"sub\">{html.escape(sub)}</div>
-        </div>
-        """
-
     html_output = f"""
 <!DOCTYPE html>
 <html lang=\"en\">
@@ -537,303 +469,137 @@ def write_html_summary(comparison_df, commentary, current_start, current_end, pr
 <meta charset=\"utf-8\">
 <title>Weekly Keyword Ranking Review</title>
 <style>
-    @page {{
-        size: A4;
-        margin: 16mm 14mm 16mm 14mm;
-        @bottom-right {{
-            content: "Page " counter(page);
-            color: #6b7280;
-            font-size: 10px;
-        }}
-    }}
-    body {{
-        font-family: "Times New Roman", Times, serif;
-        margin: 0;
-        background: {BG};
-        color: {TEXT};
-        font-size: 12pt;
-        line-height: 1.45;
-    }}
-    .container {{
-        max-width: 1120px;
-        margin: 0 auto;
-        padding: 8px 0 18px 0;
-    }}
-    .hero {{
-        background: linear-gradient(135deg, {ACCENT} 0%, #1d6596 55%, {ACCENT_2} 100%);
-        color: white;
-        border-radius: 18px;
-        padding: 28px 30px;
-        margin-bottom: 22px;
-        box-shadow: 0 10px 24px rgba(15, 76, 129, 0.18);
-    }}
-    .hero h1 {{
-        margin: 0 0 8px 0;
-        font-size: 28px;
-        font-weight: 700;
-    }}
-    .hero .subhead {{
-        font-size: 13px;
-        opacity: 0.94;
-        margin-bottom: 8px;
-    }}
-    .hero .window {{
-        font-size: 12px;
-        opacity: 0.95;
-    }}
-    .section {{
-        background: {CARD};
-        border: 1px solid {BORDER};
-        border-radius: 16px;
-        padding: 22px 24px;
-        margin: 0 0 18px 0;
-        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
-    }}
-    .section h2 {{
-        margin: 0 0 8px 0;
-        font-size: 20px;
-        color: {ACCENT};
-    }}
-    .section-note {{
-        color: {MUTED};
-        font-size: 11px;
-        margin-bottom: 16px;
-    }}
-    .grid {{
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 16px;
-        margin-top: 12px;
-    }}
-    .card {{
-        border-radius: 14px;
-        padding: 18px 18px 16px 18px;
-        color: white;
-        min-height: 100px;
-        box-sizing: border-box;
-    }}
-    .tone-blue {{ background: linear-gradient(135deg, {ACCENT}, #265f97); }}
-    .tone-teal {{ background: linear-gradient(135deg, {ACCENT_2}, #4d9da1); }}
-    .tone-orange {{ background: linear-gradient(135deg, {ACCENT_3}, #dc8a63); }}
-    .tone-slate {{ background: linear-gradient(135deg, {ACCENT_4}, #8ca5c4); }}
-    .label {{
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        opacity: 0.92;
-        margin-bottom: 12px;
-    }}
-    .value {{
-        font-size: 28px;
-        font-weight: 700;
-        line-height: 1.05;
-        margin-bottom: 8px;
-    }}
-    .sub {{
-        font-size: 11.5px;
-        opacity: 0.96;
-    }}
-    .commentary {{
-        background: linear-gradient(180deg, #f8fbff 0%, #eef5fb 100%);
-        border-left: 6px solid {ACCENT};
-        padding: 18px 18px 18px 20px;
-        border-radius: 12px;
-        white-space: pre-wrap;
-    }}
-    .exec-list {{
-        margin: 0;
-        padding-left: 22px;
-    }}
-    .exec-list li {{
-        margin: 0 0 8px 0;
-    }}
-    .chart-wrap {{
-        background: #fff;
-        border: 1px solid {BORDER};
-        border-radius: 16px;
-        padding: 18px 18px 12px 18px;
-        margin: 0 0 18px 0;
-        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
-        page-break-inside: avoid;
-    }}
-    .chart-wrap img {{
-        width: 100%;
-        display: block;
-    }}
-    table {{
-        width: 100%;
-        border-collapse: collapse;
-        background: white;
-        border-radius: 12px;
-        overflow: hidden;
-        margin-top: 12px;
-    }}
-    th, td {{
-        text-align: left;
-        padding: 11px 12px;
-        border-bottom: 1px solid #e5e7eb;
-        vertical-align: top;
-        word-break: break-word;
-        font-size: 10.5px;
-    }}
-    th {{
-        background: {ACCENT};
-        color: white;
-        font-size: 10.5px;
-        letter-spacing: 0.02em;
-    }}
-    tr:nth-child(even) td {{
-        background: #f9fbfd;
-    }}
-    .page-break {{
-        page-break-before: always;
-    }}
+{get_pdf_css()}
+.chart-wrap {{
+    background: #fff;
+    border: 1px solid #E2E8F0;
+    border-radius: 6px;
+    padding: 12px;
+    margin: 0 0 16px 0;
+    page-break-inside: avoid;
+}}
+.chart-wrap img {{
+    width: 100%;
+    display: block;
+}}
+.two-col {{
+    display: block;
+}}
 </style>
 </head>
 <body>
-<div class=\"container\">
-    <div class=\"hero\">
-        <h1>Weekly Keyword Ranking Review</h1>
-        <div class=\"subhead\">Search performance review for tracked priority keyword set</div>
-        <div class=\"window\">Current period: {current_start} to {current_end} &nbsp;|&nbsp; Previous period: {previous_start} to {previous_end}</div>
-    </div>
+    <h1>Weekly Keyword Ranking Review</h1>
+    <div class="muted">Current period: {current_start} to {current_end} | Previous period: {previous_start} to {previous_end}</div>
 
-    <div class=\"section\">
+    <div class="panel">
         <h2>Executive Read</h2>
-        <div class=\"section-note\">Weekly summary of visibility, ranking movement, and threshold entries across the monitored keyword set.</div>
-        <ul class=\"exec-list\">{''.join(f'<li>{html.escape(line)}</li>' for line in executive_read)}</ul>
-    </div>
-
-    <div class=\"section\">
+        <ul>{''.join(f'<li>{html.escape(line)}</li>' for line in executive_read)}</ul>
+        
         <h2>Executive Commentary</h2>
-        <div class=\"commentary\">{html.escape(commentary)}</div>
+        <div class="ai-block">{html.escape(commentary)}</div>
     </div>
 
-    <div class=\"section\">
-        <h2>Key Performance Indicators</h2>
-        <div class=\"section-note\">Current-period performance and ranking movement across the tracked keyword list.</div>
-        <div class=\"grid\">
-            {card('Visible Keywords', str(visible_now), f'Previous: {visible_prev}', 'blue')}
-            {card('Ranking Improvements', str(improved_count), 'Keywords with stronger average position', 'teal')}
-            {card('Ranking Declines', str(declined_count), 'Keywords with weaker average position', 'orange')}
-            {card('Entered Top 10', str(top_10_count), f'Entered Top 3: {top_3_count}', 'slate')}
-        </div>
+    <div class="grid">
+        {build_card("Visible Keywords", visible_now, visible_prev)}
+        {build_card("Ranking Improvements", improved_count, None)}
+        {build_card("Ranking Declines", declined_count, None)}
+        {build_card("Avg Pos (High Priority)", avg_pos_current, avg_pos_previous, decimals=2)}
     </div>
 
-    <div class=\"section\">
-        <h2>Performance Overview</h2>
-        <div class=\"section-note\">Current week versus prior week across the primary executive ranking indicators.</div>
-        <div class=\"chart-wrap\"><img src=\"data:image/png;base64,{kpi_chart}\"></div>
-        <div class=\"grid\" style=\"grid-template-columns: repeat(2, 1fr);\">
-            {card('Avg Position (High Priority)', f'{avg_pos_current:.2f}', f'Previous: {avg_pos_previous:.2f}', 'blue')}
-            {card('Top 3 Entries', str(top_3_count), f'Top 10 Entries: {top_10_count}', 'teal')}
-        </div>
-    </div>
+    <h2>Performance Overview</h2>
+    <div class="chart-wrap"><img src="data:image/png;base64,{kpi_chart}"></div>
 
-    <div class=\"section\">
-        <h2>Top Demand Drivers</h2>
-        <div class=\"section-note\">Tracked keywords contributing the strongest click and impression volume in the current week.</div>
-        <div class=\"chart-wrap\"><img src=\"data:image/png;base64,{top_keywords_chart}\"></div>
-        <div class=\"chart-wrap\"><img src=\"data:image/png;base64,{visibility_chart}\"></div>
-    </div>
+    <div class="break-before"></div>
+    <h2>Top Demand Drivers</h2>
+    <div class="chart-wrap"><img src="data:image/png;base64,{top_keywords_chart}"></div>
+    <div class="chart-wrap"><img src="data:image/png;base64,{visibility_chart}"></div>
 
-    <div class=\"section\">
-        <h2>Winners and Losers</h2>
-        <div class=\"section-note\">Largest ranking improvements and declines across the monitored keyword set.</div>
-        <div class=\"chart-wrap\"><img src=\"data:image/png;base64,{winners_losers_chart}\"></div>
-        <div class=\"chart-wrap\"><img src=\"data:image/png;base64,{position_gainers_chart}\"></div>
-    </div>
+    <div class="break-before"></div>
+    <h2>Winners and Losers</h2>
+    <div class="chart-wrap"><img src="data:image/png;base64,{winners_losers_chart}"></div>
+    <div class="chart-wrap"><img src="data:image/png;base64,{position_gainers_chart}"></div>
 
-    <div class=\"section page-break\">
-        <h2>Top Tracked Keywords</h2>
-        <div class=\"section-note\">Current-period ranking and traffic performance for the highest-impact tracked search terms.</div>
-        {html_table_from_df(
-            top_keywords,
-            ["keyword", "category", "priority", "clicks_current", "impressions_current", "position_current", "position_change"],
-            {
-                "keyword": "Keyword",
-                "category": "Category",
-                "priority": "Priority",
-                "clicks_current": "Clicks",
-                "impressions_current": "Impressions",
-                "position_current": "Current Position",
-                "position_change": "WoW Position Δ",
-            }
-        )}
-    </div>
+    <div class="break-before"></div>
+    <h2>Top Tracked Keywords</h2>
+    {html_table_from_df(
+        top_keywords,
+        ["keyword", "category", "priority", "clicks_current", "impressions_current", "position_current", "position_change"],
+        {{
+            "keyword": "Keyword",
+            "category": "Category",
+            "priority": "Priority",
+            "clicks_current": "Clicks",
+            "impressions_current": "Impr",
+            "position_current": "Pos",
+            "position_change": "Pos Δ"
+        }}
+    )}
 
-    <div class=\"section\">
-        <h2>Biggest Ranking Improvements</h2>
-        {html_table_from_df(
-            biggest_gainers,
-            ["keyword", "position_previous", "position_current", "position_change", "clicks_current"],
-            {
-                "keyword": "Keyword",
-                "position_previous": "Prev Position",
-                "position_current": "Current Position",
-                "position_change": "Position Δ",
-                "clicks_current": "Clicks",
-            }
-        )}
-    </div>
+    <h2>Biggest Ranking Improvements</h2>
+    {html_table_from_df(
+        biggest_gainers,
+        ["keyword", "position_previous", "position_current", "position_change", "clicks_current"],
+        {{
+            "keyword": "Keyword",
+            "position_previous": "Prev Pos",
+            "position_current": "Curr Pos",
+            "position_change": "Pos Δ",
+            "clicks_current": "Clicks"
+        }}
+    )}
 
-    <div class=\"section\">
-        <h2>Biggest Ranking Declines</h2>
-        {html_table_from_df(
-            biggest_losers,
-            ["keyword", "position_previous", "position_current", "position_change", "clicks_current"],
-            {
-                "keyword": "Keyword",
-                "position_previous": "Prev Position",
-                "position_current": "Current Position",
-                "position_change": "Position Δ",
-                "clicks_current": "Clicks",
-            }
-        )}
-    </div>
+    <h2>Biggest Ranking Declines</h2>
+    {html_table_from_df(
+        biggest_losers,
+        ["keyword", "position_previous", "position_current", "position_change", "clicks_current"],
+        {{
+            "keyword": "Keyword",
+            "position_previous": "Prev Pos",
+            "position_current": "Curr Pos",
+            "position_change": "Pos Δ",
+            "clicks_current": "Clicks"
+        }}
+    )}
 
-    <div class=\"section\">
-        <h2>Threshold Entries</h2>
-        <div class=\"section-note\">Keywords crossing key ranking milestones in the current week.</div>
-        {html_table_from_df(
-            entered_top_3,
-            ["keyword", "category", "priority", "position_previous", "position_current"],
-            {
-                "keyword": "Entered Top 3 Keyword",
-                "category": "Category",
-                "priority": "Priority",
-                "position_previous": "Prev Position",
-                "position_current": "Current Position",
-            }
-        )}
-        {html_table_from_df(
-            entered_top_10,
-            ["keyword", "category", "priority", "position_previous", "position_current"],
-            {
-                "keyword": "Entered Top 10 Keyword",
-                "category": "Category",
-                "priority": "Priority",
-                "position_previous": "Prev Position",
-                "position_current": "Current Position",
-            }
-        )}
-    </div>
+    <div class="break-before"></div>
+    <h2>Entered Top 3</h2>
+    {html_table_from_df(
+        entered_top_3,
+        ["keyword", "category", "priority", "position_previous", "position_current"],
+        {{
+            "keyword": "Keyword",
+            "category": "Category",
+            "priority": "Priority",
+            "position_previous": "Prev Pos",
+            "position_current": "Curr Pos"
+        }}
+    )}
 
-    <div class=\"section\">
-        <h2>Lost Visibility</h2>
-        {html_table_from_df(
-            lost_visibility,
-            ["keyword", "category", "priority", "impressions_previous", "impressions_current"],
-            {
-                "keyword": "Keyword",
-                "category": "Category",
-                "priority": "Priority",
-                "impressions_previous": "Prev Impressions",
-                "impressions_current": "Current Impressions",
-            }
-        )}
-    </div>
-</div>
+    <h2>Entered Top 10</h2>
+    {html_table_from_df(
+        entered_top_10,
+        ["keyword", "category", "priority", "position_previous", "position_current"],
+        {{
+            "keyword": "Keyword",
+            "category": "Category",
+            "priority": "Priority",
+            "position_previous": "Prev Pos",
+            "position_current": "Curr Pos"
+        }}
+    )}
+
+    <h2>Lost Visibility</h2>
+    {html_table_from_df(
+        lost_visibility,
+        ["keyword", "category", "priority", "impressions_previous", "impressions_current"],
+        {{
+            "keyword": "Keyword",
+            "category": "Category",
+            "priority": "Priority",
+            "impressions_previous": "Prev Impr",
+            "impressions_current": "Curr Impr"
+        }}
+    )}
 </body>
 </html>
 """

@@ -12,6 +12,8 @@ import html
 import json
 import time
 
+from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
 MONDAY_ITEM_ID = os.getenv("MONDAY_ITEM_ID")
@@ -388,27 +390,7 @@ def generate_charts(page_summary_df, priority_target_df):
 def build_table_html(df, columns, rename_map=None):
     if df.empty:
         return '<div class="empty-state">No rows to display.</div>'
-
-    work = df[columns].copy()
-    if rename_map:
-        work = work.rename(columns=rename_map)
-
-    for col in work.columns:
-        lower = col.lower()
-        if any(token in lower for token in ["outlink", "inlink", "count"]):
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(
-                lambda x: f"{x:.0f}" if pd.notnull(x) else ""
-            )
-        else:
-            work[col] = work[col].fillna("").astype(str)
-
-    header_html = "".join(f"<th>{html.escape(str(col))}</th>" for col in work.columns)
-    body_rows = []
-    for row in work.values.tolist():
-        cells = "".join(f"<td>{html.escape(str(v))}</td>" for v in row)
-        body_rows.append(f"<tr>{cells}</tr>")
-
-    return f"<table><thead><tr>{header_html}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
+    return html_table_from_df(df, columns, rename_map)
 
 
 def write_markdown_summary(commentary_text, page_summary_df, flagged_pages_df, priority_target_df, opportunities_df):
@@ -453,15 +435,6 @@ def write_html_summary(commentary_text, page_summary_df, flagged_pages_df, prior
     low_outlinks = int(page_summary_df["flag_low_outlinks"].sum()) if not page_summary_df.empty else 0
     orphan_like = int(page_summary_df["flag_zero_inlinks"].sum()) if not page_summary_df.empty else 0
     weak_targets = int(priority_target_df["flag_low_inlinks"].sum()) if not priority_target_df.empty else 0
-
-    def card(title, value, sub):
-        return f"""
-        <div class="card">
-            <div class="label">{html.escape(title)}</div>
-            <div class="value">{html.escape(str(value))}</div>
-            <div class="sub">{html.escape(sub)}</div>
-        </div>
-        """
 
     flagged_table = build_table_html(
         flagged_pages_df.head(20),
@@ -511,206 +484,68 @@ def write_html_summary(commentary_text, page_summary_df, flagged_pages_df, prior
 <meta charset="utf-8">
 <title>Internal Linking Audit</title>
 <style>
-    @page {{
-        size: A4;
-        margin: 0.55in;
-    }}
-    body {{
-        font-family: "Times New Roman", Times, serif;
-        margin: 0;
-        padding: 0;
-        background: #f4f6fb;
-        color: #1f2937;
-        line-height: 1.45;
-    }}
-    .container {{
-        max-width: 1180px;
-        margin: 0 auto;
-        padding: 26px 24px 40px 24px;
-    }}
-    .hero {{
-        background: linear-gradient(135deg, #153e75 0%, #1e5aa8 55%, #5b8bd9 100%);
-        color: white;
-        border-radius: 20px;
-        padding: 34px 34px 28px 34px;
-        margin-bottom: 28px;
-        box-shadow: 0 10px 28px rgba(21, 62, 117, 0.22);
-    }}
-    .hero-title {{
-        font-size: 30px;
-        margin: 0 0 10px 0;
-        font-weight: 700;
-    }}
-    .hero-subtitle {{
-        font-size: 15px;
-        margin: 0;
-        opacity: 0.95;
-    }}
-    .section {{
-        background: white;
-        border-radius: 18px;
-        padding: 24px 24px 22px 24px;
-        margin-bottom: 24px;
-        box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
-    }}
-    h2 {{
-        margin: 0 0 14px 0;
-        font-size: 22px;
-        color: #153e75;
-        border-bottom: 2px solid #dbe7fb;
-        padding-bottom: 10px;
-    }}
-    .commentary-box {{
-        background: linear-gradient(180deg, #f8fbff 0%, #edf4ff 100%);
-        border-left: 6px solid #1e5aa8;
-        border-radius: 16px;
-        padding: 20px 22px;
-        margin-top: 8px;
-    }}
-    .commentary-box p {{
-        margin: 0 0 12px 0;
-        font-size: 16px;
-    }}
-    .grid {{
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 18px;
-        margin-top: 6px;
-    }}
-    .card {{
-        background: linear-gradient(180deg, #ffffff 0%, #f6f9ff 100%);
-        border: 1px solid #d7e3f8;
-        border-radius: 16px;
-        padding: 20px 18px;
-        min-height: 118px;
-    }}
-    .label {{
-        font-size: 12px;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #58749e;
-        margin-bottom: 12px;
-        font-weight: 700;
-    }}
-    .value {{
-        font-size: 30px;
-        color: #153e75;
-        font-weight: 700;
-        margin-bottom: 10px;
-    }}
-    .sub {{
-        font-size: 14px;
-        color: #5b6474;
-    }}
-    .chart-block {{
-        background: #ffffff;
-        border: 1px solid #deebff;
-        border-radius: 16px;
-        padding: 18px;
-        margin-top: 18px;
-    }}
-    .chart-block img {{
-        width: 100%;
-        height: auto;
-        display: block;
-        border-radius: 12px;
-    }}
-    table {{
-        width: 100%;
-        border-collapse: collapse;
-        background: white;
-        margin-top: 10px;
-        border-radius: 14px;
-        overflow: hidden;
-    }}
-    th, td {{
-        text-align: left;
-        padding: 14px 16px;
-        border-bottom: 1px solid #e6edf8;
-        vertical-align: top;
-        word-break: break-word;
-    }}
-    th {{
-        background: #214f8f;
-        color: white;
-        font-size: 13px;
-        letter-spacing: 0.02em;
-    }}
-    tr:nth-child(even) td {{
-        background: #f8fbff;
-    }}
-    .empty-state {{
-        color: #6b7280;
-        font-style: italic;
-        padding: 8px 0 2px 0;
-    }}
+{get_pdf_css()}
+.chart-block {{
+    background: #fff;
+    border: 1px solid #E2E8F0;
+    border-radius: 6px;
+    padding: 12px;
+    margin: 0 0 16px 0;
+    page-break-inside: avoid;
+}}
+.chart-block img {{
+    width: 100%;
+    height: auto;
+    display: block;
+}}
+.empty-state {{ color: #6b7280; font-style: italic; padding: 8px 0; }}
 </style>
 </head>
 <body>
-<div class="container">
-    <div class="hero">
-        <div class="hero-title">Internal Linking Audit</div>
-        <div class="hero-subtitle">Weekly review of internal navigation structure, link support, and link opportunity coverage.</div>
-    </div>
+    <h1>Internal Linking Audit</h1>
+    <div class="muted">Generated: {date.today().isoformat()}</div>
 
-    <div class="section">
+    <div class="panel">
         <h2>Executive Commentary</h2>
-        <div class="commentary-box">
-            {''.join(f'<p>{html.escape(line)}</p>' for line in commentary_lines)}
-        </div>
+        <div class="ai-block">{''.join(f'<p>{html.escape(line)}</p>' for line in commentary_lines)}</div>
     </div>
 
-    <div class="section">
-        <h2>Linking Snapshot</h2>
-        <div class="grid">
-            {card("Crawled Pages", total_pages, "HTML pages reviewed")}
-            {card("Low Outlinks", low_outlinks, "pages below outlink threshold")}
-            {card("Orphan-Like Pages", orphan_like, "pages with zero detected inlinks")}
-            {card("Weak Priority Targets", weak_targets, "priority destinations with low support")}
-        </div>
+    <h2>Linking Snapshot</h2>
+    <div class="grid">
+        {build_card("Crawled Pages", total_pages, None)}
+        {build_card("Low Outlinks", low_outlinks, None)}
+        {build_card("Orphan-Like Pages", orphan_like, None)}
+        {build_card("Weak Priority Targets", weak_targets, None)}
     </div>
 
-    <div class="section">
-        <h2>Low Outlink Coverage</h2>
-        <div class="chart-block">
-            <img src="internal_linking_low_outlinks.png" alt="Low outlink pages">
-        </div>
+    <h2>Low Outlink Coverage</h2>
+    <div class="chart-block">
+        <img src="internal_linking_low_outlinks.png" alt="Low outlink pages">
     </div>
 
-    <div class="section">
-        <h2>Low Inlink Coverage</h2>
-        <div class="chart-block">
-            <img src="internal_linking_low_inlinks.png" alt="Low inlink pages">
-        </div>
+    <h2>Low Inlink Coverage</h2>
+    <div class="chart-block">
+        <img src="internal_linking_low_inlinks.png" alt="Low inlink pages">
     </div>
 
-    <div class="section">
-        <h2>Priority Target Support</h2>
-        <div class="chart-block">
-            <img src="internal_linking_priority_targets.png" alt="Priority target support">
-        </div>
+    <h2>Priority Target Support</h2>
+    <div class="chart-block">
+        <img src="internal_linking_priority_targets.png" alt="Priority target support">
     </div>
 
-    <div class="section">
-        <h2>Flagged Pages</h2>
-        {flagged_table}
-    </div>
+    <div class="break-before"></div>
+    <h2>Flagged Pages</h2>
+    {flagged_table}
 
-    <div class="section">
-        <h2>Priority Target Review</h2>
-        {priority_table}
-    </div>
+    <h2>Priority Target Review</h2>
+    {priority_table}
 
-    <div class="section">
-        <h2>Generic Anchor Text Examples</h2>
-        {generic_anchor_table}
-    </div>
+    <h2>Generic Anchor Text Examples</h2>
+    {generic_anchor_table}
 
-    <div class="section">
-        <h2>Suggested Link Opportunities</h2>
-        {opportunity_table}
-    </div>
-</div>
+    <div class="break-before"></div>
+    <h2>Suggested Link Opportunities</h2>
+    {opportunity_table}
 </body>
 </html>
 """

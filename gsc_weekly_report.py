@@ -11,7 +11,7 @@ import json
 from pathlib import Path
 
 from google_sheets_db import append_to_sheet
-
+from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -108,26 +108,6 @@ def prepare_comparison(current_df, previous_df, key_column):
 
     return merged_df.sort_values(by="clicks_current", ascending=False)
 
-
-def safe_pct_change(current, previous):
-    if previous == 0:
-        return None
-    return ((current - previous) / previous) * 100
-
-
-def format_pct_change(current, previous):
-    pct = safe_pct_change(current, previous)
-    if pct is None:
-        return "n/a"
-    return f"{pct:+.1f}%"
-
-
-def format_delta(value, decimals=0):
-    if pd.isna(value):
-        return ""
-    if value > 0:
-        return f"+{value:.{decimals}f}"
-    return f"{value:.{decimals}f}"
 
 
 def short_url(url, max_len=58):
@@ -257,33 +237,6 @@ Top pages:
     except Exception as e:
         return "Executive commentary is temporarily unavailable for this run."
 
-
-def html_table_from_df(df, columns, rename_map=None):
-    work = df[columns].copy()
-    if rename_map:
-        work = work.rename(columns=rename_map)
-
-    for col in work.columns:
-        lower_col = col.lower()
-        if "ctr" in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: f"{x:.2%}" if pd.notnull(x) else "")
-        elif "position" in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: f"{x:.2f}" if pd.notnull(x) else "")
-        elif "change" in lower_col or col.strip() == "Δ" or "delta" in lower_col:
-            decimals = 2 if "position" in lower_col or "ctr" in lower_col else 0
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: format_delta(x, decimals) if pd.notnull(x) else "")
-        elif any(token in lower_col for token in ["click", "impression", "prev", "current"]):
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: f"{x:.0f}" if pd.notnull(x) else "")
-        else:
-            work[col] = work[col].fillna("").astype(str)
-
-    header_html = "".join(f"<th>{html.escape(str(col))}</th>" for col in work.columns)
-    body_rows = []
-    for row in work.values.tolist():
-        cells = "".join(f"<td>{html.escape(str(v))}</td>" for v in row)
-        body_rows.append(f"<tr>{cells}</tr>")
-
-    return f"<table><thead><tr>{header_html}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
 
 
 def plot_metric_comparison(total_clicks_current, total_clicks_previous,
@@ -479,17 +432,6 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
         avg_position_current, avg_position_previous,
     )
 
-    def card(title, current, previous, delta_text, footer=""):
-        return f"""
-        <div class=\"card\">
-            <div class=\"label\">{html.escape(title)}</div>
-            <div class=\"value\">{html.escape(current)}</div>
-            <div class=\"sub\">Previous: {html.escape(previous)}</div>
-            <div class=\"delta\">{html.escape(delta_text)}</div>
-            <div class=\"foot\">{html.escape(footer)}</div>
-        </div>
-        """
-
     highlights = "".join(f"<li>{html.escape(line)}</li>" for line in executive_read)
 
     html_output = f"""
@@ -499,278 +441,124 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
 <meta charset=\"utf-8\">
 <title>Weekly GSC Summary</title>
 <style>
-    @page {{
-        size: A4;
-        margin: 20mm 14mm 18mm 14mm;
-        @bottom-right {{
-            content: "Page " counter(page);
-            color: #6B7280;
-            font-size: 10px;
-        }}
-    }}
-    body {{
-        font-family: "Times New Roman", Times, serif;
-        margin: 0;
-        background: {BG};
-        color: {TEXT};
-    }}
-    .container {{
-        width: 100%;
-        max-width: 1120px;
-        margin: 0 auto;
-    }}
-    .hero {{
-        background: linear-gradient(135deg, #0F4C81 0%, #1D3557 42%, #2A9D8F 100%);
-        color: white;
-        padding: 34px 36px;
-        border-radius: 18px;
-        margin-bottom: 20px;
-    }}
-    .hero h1 {{
-        margin: 0 0 8px 0;
-        font-size: 32px;
-    }}
-    .hero .subline {{
-        font-size: 14px;
-        opacity: 0.95;
-    }}
-    .hero .meta {{
-        margin-top: 12px;
-        font-size: 12px;
-        opacity: 0.9;
-    }}
-    .section-title {{
-        margin: 24px 0 10px 0;
-        font-size: 20px;
-        color: #102A43;
-    }}
-    .section-note {{
-        color: #667085;
-        margin-bottom: 14px;
-        font-size: 13px;
-    }}
-    .grid-4 {{
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 18px;
-        margin-bottom: 24px;
-    }}
-    .grid-2 {{
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 22px;
-        margin-bottom: 24px;
-    }}
-    .card, .panel, .chart-card {{
-        background: linear-gradient(180deg, #FFFFFF 0%, #FDFEFE 100%);
-        border: 1px solid #E5EEF5;
-        border-radius: 16px;
-        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
-        padding: 22px 24px;
-    }}
-    .label {{
-        font-size: 11px;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: #5B7083;
-        margin-bottom: 8px;
-    }}
-    .value {{
-        font-size: 28px;
-        font-weight: 700;
-        color: #102A43;
-    }}
-    .sub {{
-        font-size: 12px;
-        color: #5B7083;
-        margin-top: 6px;
-    }}
-    .delta {{
-        margin-top: 10px;
-        font-size: 16px;
-        font-weight: 700;
-        color: #C84C09;
-    }}
-    .foot {{
-        margin-top: 6px;
-        font-size: 11px;
-        color: #94A3B8;
-    }}
-    .panel h2, .chart-card h2 {{
-        margin: 0 0 10px 0;
-        font-size: 18px;
-    }}
-    .highlight-list {{
-        margin: 0;
-        padding-left: 18px;
-        line-height: 1.55;
-    }}
-    .ai-block {{
-        white-space: pre-wrap;
-        line-height: 1.55;
-        font-size: 14px;
-    }}
-    .chart-card img {{
-        width: 100%;
-        height: auto;
-        display: block;
-    }}
-    .callout {{
-        border-left: 6px solid #2A9D8F;
-        background: #F7FBFF;
-        padding: 14px 16px;
-        border-radius: 10px;
-        margin-top: 12px;
-        font-size: 14px;
-        color: #3D5166;
-    }}
-    table {{
-        width: 100%;
-        border-collapse: collapse;
-        background: white;
-        border-radius: 14px;
-        overflow: hidden;
-        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
-        margin-bottom: 18px;
-        font-size: 12px;
-    }}
-    th, td {{
-        text-align: left;
-        padding: 10px 12px;
-        border-bottom: 1px solid #E5E7EB;
-        vertical-align: top;
-        word-break: break-word;
-    }}
-    th {{
-        background: #1D3557;
-        color: white;
-        font-size: 12px;
-    }}
-    tr:nth-child(even) td {{
-        background: #F8FBFD;
-    }}
-    .break-before {{
-        page-break-before: always;
-    }}
+{get_pdf_css()}
+.chart-card img {{
+    width: 100%;
+    height: auto;
+    display: block;
+    margin-bottom: 20px;
+    border: 1px solid #E2E8F0;
+    border-radius: 6px;
+}}
 </style>
 </head>
 <body>
-<div class=\"container\">
-    <div class=\"hero\">
-        <h1>Google Search Console Weekly Report</h1>
-        <div class=\"subline\">Corporate SEO performance summary for {html.escape(SITE_URL)}</div>
-        <div class=\"meta\">Current period: {current_start} to {current_end} | Previous period: {previous_start} to {previous_end}</div>
+    <h1>GSC Weekly Report</h1>
+    <div class=\"muted\">Current period: {current_start} to {current_end} | Previous period: {previous_start} to {previous_end}</div>
+
+    <div class=\"panel\">
+        <h2>Executive Read</h2>
+        <ul>{highlights}</ul>
     </div>
 
-    <div class=\"grid-4\">
-        {card("Clicks", f"{total_clicks_current:.0f}", f"{total_clicks_previous:.0f}", format_pct_change(total_clicks_current, total_clicks_previous), "Week over week")}
-        {card("Impressions", f"{total_impressions_current:.0f}", f"{total_impressions_previous:.0f}", format_pct_change(total_impressions_current, total_impressions_previous), "Week over week")}
-        {card("CTR", f"{weighted_ctr_current:.2%}", f"{weighted_ctr_previous:.2%}", format_delta((weighted_ctr_current - weighted_ctr_previous) * 100, 2) + " pts", "Search-result efficiency")}
-        {card("Avg Position", f"{avg_position_current:.2f}", f"{avg_position_previous:.2f}", format_delta(avg_position_previous - avg_position_current, 2), "Positive means improved")}
+    <div class=\"panel\">
+        <h2>Executive Commentary</h2>
+        <div class=\"ai-block\">{html.escape(ai_analysis)}</div>
     </div>
 
-    <div class=\"grid-2\">
-        <div class=\"panel\">
-            <h2>Executive Read</h2>
-            <ul class=\"highlight-list\">{highlights}</ul>
-            <div class=\"callout\">This report consolidates weekly Search Console performance into an executive-ready format, with KPI summaries, visual trends, and key demand drivers presented for rapid stakeholder review.</div>
-        </div>
-        <div class=\"panel\">
-            <h2>Executive Commentary</h2>
-            <div class=\"ai-block\">{html.escape(ai_analysis)}</div>
-        </div>
+    <div class=\"grid\">
+        {build_card("Clicks", total_clicks_current, total_clicks_previous)}
+        {build_card("Impressions", total_impressions_current, total_impressions_previous)}
+        {build_card("CTR", weighted_ctr_current, weighted_ctr_previous, is_pct=True)}
+        {build_card("Avg Position", avg_position_current, avg_position_previous, decimals=2)}
     </div>
 
-    <div class=\"section-title\">Performance Overview</div>
-    <div class=\"section-note\">Current week versus prior week across the primary executive KPIs.</div>
+    <h2>Performance Overview</h2>
     {image_block(chart_paths['kpi'], 'KPI comparison chart')}
 
-    <div class=\"section-title\">Top Demand Drivers</div>
-    <div class=\"grid-2\">
-        {image_block(chart_paths['top_queries'], 'Top queries by clicks')}
-        {image_block(chart_paths['top_pages'], 'Top pages by clicks')}
-    </div>
+    <div class="break-before"></div>
+    <h2>Top Demand Drivers</h2>
+    {image_block(chart_paths['top_queries'], 'Top queries by clicks')}
+    {image_block(chart_paths['top_pages'], 'Top pages by clicks')}
 
-    <div class=\"section-title\">Winners and Losers</div>
-    <div class=\"grid-2\">
-        {image_block(chart_paths['query_moves'], 'Query winners and losers')}
-        {image_block(chart_paths['page_moves'], 'Page winners and losers')}
-    </div>
+    <div class="break-before"></div>
+    <h2>Winners and Losers</h2>
+    {image_block(chart_paths['query_moves'], 'Query winners and losers')}
+    {image_block(chart_paths['page_moves'], 'Page winners and losers')}
 
-    <div class=\"break-before\"></div>
+    <div class="break-before"></div>
 
-    <div class=\"section-title\">Top Queries</div>
-    <div class=\"section-note\">Highest-click query terms during the current week.</div>
+    <h2>Top Queries</h2>
     {html_table_from_df(top_queries,
         ["query", "clicks_current", "clicks_change", "impressions_current", "ctr_current", "position_current"],
         {
             "query": "Query",
             "clicks_current": "Clicks",
-            "clicks_change": "WoW Clicks Δ",
-            "impressions_current": "Impressions",
+            "clicks_change": "Clicks Δ",
+            "impressions_current": "Impr",
             "ctr_current": "CTR",
-            "position_current": "Position",
+            "position_current": "Pos",
         }
     )}
 
-    <div class=\"section-title\">Query Gainers</div>
+    <h2>Query Gainers</h2>
     {html_table_from_df(gainers,
         ["query", "clicks_previous", "clicks_current", "clicks_change"],
         {
             "query": "Query",
             "clicks_previous": "Prev Clicks",
-            "clicks_current": "Current Clicks",
+            "clicks_current": "Curr Clicks",
             "clicks_change": "Δ",
         }
     )}
 
-    <div class=\"section-title\">Query Losers</div>
+    <h2>Query Losers</h2>
     {html_table_from_df(losers,
         ["query", "clicks_previous", "clicks_current", "clicks_change"],
         {
             "query": "Query",
             "clicks_previous": "Prev Clicks",
-            "clicks_current": "Current Clicks",
+            "clicks_current": "Curr Clicks",
             "clicks_change": "Δ",
         }
     )}
 
-    <div class=\"section-title\">Top Pages</div>
-    <div class=\"section-note\">Highest-click landing pages during the current week.</div>
+    <div class="break-before"></div>
+
+    <h2>Top Pages</h2>
     {html_table_from_df(top_pages,
         ["page", "clicks_current", "clicks_change", "impressions_current", "ctr_current", "position_current"],
         {
             "page": "Page",
             "clicks_current": "Clicks",
-            "clicks_change": "WoW Clicks Δ",
-            "impressions_current": "Impressions",
+            "clicks_change": "Clicks Δ",
+            "impressions_current": "Impr",
             "ctr_current": "CTR",
-            "position_current": "Position",
+            "position_current": "Pos",
         }
     )}
 
-    <div class=\"section-title\">Page Gainers</div>
+    <h2>Page Gainers</h2>
     {html_table_from_df(page_gainers,
         ["page", "clicks_previous", "clicks_current", "clicks_change"],
         {
             "page": "Page",
             "clicks_previous": "Prev Clicks",
-            "clicks_current": "Current Clicks",
+            "clicks_current": "Curr Clicks",
             "clicks_change": "Δ",
         }
     )}
 
-    <div class=\"section-title\">Page Losers</div>
+    <h2>Page Losers</h2>
     {html_table_from_df(page_losers,
         ["page", "clicks_previous", "clicks_current", "clicks_change"],
         {
             "page": "Page",
             "clicks_previous": "Prev Clicks",
-            "clicks_current": "Current Clicks",
+            "clicks_current": "Curr Clicks",
             "clicks_change": "Δ",
         }
     )}
-</div>
 </body>
 </html>
 """

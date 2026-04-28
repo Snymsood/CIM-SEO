@@ -11,6 +11,8 @@ import html
 import json
 import time
 
+from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
 MONDAY_ITEM_ID = os.getenv("MONDAY_ITEM_ID")
@@ -326,21 +328,6 @@ Issue sample:
         return f"AI executive analysis failed, so the report fell back to deterministic output only. Error: {str(e)}"
 
 
-def html_table_from_df(df, columns, rename_map=None):
-    work = df[columns].copy()
-    if rename_map:
-        work = work.rename(columns=rename_map)
-
-    for col in work.columns:
-        work[col] = work[col].fillna("").astype(str)
-
-    header_html = "".join(f"<th>{html.escape(str(col))}</th>" for col in work.columns)
-    body_rows = []
-    for row in work.values.tolist():
-        cells = "".join(f"<td>{html.escape(str(v))}</td>" for v in row)
-        body_rows.append(f"<tr>{cells}</tr>")
-
-    return f"<table><thead><tr>{header_html}</tr></thead><tbody>{''.join(body_rows)}</tbody></table>"
 
 
 def write_html_summary(results_df, ai_analysis):
@@ -353,14 +340,11 @@ def write_html_summary(results_df, ai_analysis):
 
     executive_read = build_executive_read(results_df)
 
-    def card(title, value, sub):
-        return f"""
-        <div class="card">
-            <div class="label">{html.escape(title)}</div>
-            <div class="value">{html.escape(str(value))}</div>
-            <div class="sub">{html.escape(sub)}</div>
-        </div>
-        """
+    broken_count = int((results_df["issue_type"] == "broken").sum())
+    client_error_count = int((results_df["issue_type"] == "client_error").sum())
+    server_error_count = int((results_df["issue_type"] == "server_error").sum())
+    redirect_count = int((results_df["issue_type"] == "redirect").sum())
+    source_count = int(results_df["source_url"].nunique())
 
     html_output = f"""
 <!DOCTYPE html>
@@ -369,108 +353,92 @@ def write_html_summary(results_df, ai_analysis):
 <meta charset="utf-8">
 <title>Broken Link Check</title>
 <style>
-body {{ font-family: Arial, sans-serif; margin: 0; padding: 32px; background: #f5f7fb; color: #1f2937; }}
-.container {{ max-width: 1200px; margin: 0 auto; }}
-h2 {{ margin-top: 32px; border-bottom: 2px solid #e5e7eb; padding-bottom: 8px; }}
-.grid {{ display:grid; grid-template-columns:repeat(5,1fr); gap:16px; margin:20px 0 28px 0; }}
-.card, .panel {{ background:white; border-radius:12px; padding:18px; box-shadow:0 1px 3px rgba(0,0,0,0.08); }}
-.panel {{ margin-bottom:20px; }}
-.label {{ font-size:12px; text-transform:uppercase; color:#6b7280; margin-bottom:10px; }}
-.value {{ font-size:28px; font-weight:700; margin-bottom:6px; }}
-.sub {{ font-size:13px; color:#6b7280; }}
-table {{ width:100%; border-collapse:collapse; background:white; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08); margin-bottom:24px; }}
-th, td {{ text-align:left; padding:12px 14px; border-bottom:1px solid #e5e7eb; vertical-align:top; word-break:break-word; }}
-th {{ background:#111827; color:white; font-size:13px; }}
-tr:nth-child(even) td {{ background:#f9fafb; }}
-.ai-block {{ white-space:pre-wrap; line-height:1.5; }}
+{get_pdf_css()}
 </style>
 </head>
 <body>
-<div class="container">
-<h1>Broken Link Check</h1>
+    <h1>Broken Link Check</h1>
+    <div class="muted">Generated: {date.today().isoformat()}</div>
 
-<div class="panel">
-<h2>Executive Read</h2>
-<ul>{''.join(f"<li>{html.escape(line)}</li>" for line in executive_read)}</ul>
-</div>
+    <div class="panel">
+        <h2>Executive Read</h2>
+        <ul>{''.join(f"<li>{html.escape(line)}</li>" for line in executive_read)}</ul>
 
-<div class="panel">
-<h2>AI Executive Analysis</h2>
-<div class="ai-block">{html.escape(ai_analysis)}</div>
-</div>
+        <h2>Executive Analysis</h2>
+        <div class="ai-block">{html.escape(ai_analysis)}</div>
+    </div>
 
-<div class="grid">
-{card("Source Pages", results_df["source_url"].nunique(), "pages crawled with internal links")}
-{card("Broken", (results_df["issue_type"] == "broken").sum(), "404/410 links")}
-{card("4xx Other", (results_df["issue_type"] == "client_error").sum(), "other client errors")}
-{card("5xx", (results_df["issue_type"] == "server_error").sum(), "server errors")}
-{card("Redirects", (results_df["issue_type"] == "redirect").sum(), "internal redirects")}
-</div>
+    <div class="grid">
+        {build_card("Source Pages", source_count, None)}
+        {build_card("Broken (404/410)", broken_count, None)}
+        {build_card("4xx Other", client_error_count, None)}
+        {build_card("5xx Errors", server_error_count, None)}
+    </div>
 
-<h2>Broken Links</h2>
-{html_table_from_df(
-    broken_df,
-    ["source_url", "target_url", "anchor_text", "status_code", "issue_type"],
-    {
-        "source_url": "Source URL",
-        "target_url": "Broken Target",
-        "anchor_text": "Anchor Text",
-        "status_code": "Status",
-        "issue_type": "Issue Type",
-    }
-)}
+    <h2>Broken Links</h2>
+    {html_table_from_df(
+        broken_df,
+        ["source_url", "target_url", "anchor_text", "status_code", "issue_type"],
+        {{
+            "source_url": "Source URL",
+            "target_url": "Broken Target",
+            "anchor_text": "Anchor Text",
+            "status_code": "Status",
+            "issue_type": "Issue Type",
+        }}
+    )}
 
-<h2>Other 4xx Links</h2>
-{html_table_from_df(
-    client_df,
-    ["source_url", "target_url", "anchor_text", "status_code", "issue_type"],
-    {
-        "source_url": "Source URL",
-        "target_url": "Target URL",
-        "anchor_text": "Anchor Text",
-        "status_code": "Status",
-        "issue_type": "Issue Type",
-    }
-)}
+    <h2>Other 4xx Links</h2>
+    {html_table_from_df(
+        client_df,
+        ["source_url", "target_url", "anchor_text", "status_code", "issue_type"],
+        {{
+            "source_url": "Source URL",
+            "target_url": "Target URL",
+            "anchor_text": "Anchor Text",
+            "status_code": "Status",
+            "issue_type": "Issue Type",
+        }}
+    )}
 
-<h2>5xx Links</h2>
-{html_table_from_df(
-    server_df,
-    ["source_url", "target_url", "anchor_text", "status_code", "issue_type"],
-    {
-        "source_url": "Source URL",
-        "target_url": "Target URL",
-        "anchor_text": "Anchor Text",
-        "status_code": "Status",
-        "issue_type": "Issue Type",
-    }
-)}
+    <h2>5xx Links</h2>
+    {html_table_from_df(
+        server_df,
+        ["source_url", "target_url", "anchor_text", "status_code", "issue_type"],
+        {{
+            "source_url": "Source URL",
+            "target_url": "Target URL",
+            "anchor_text": "Anchor Text",
+            "status_code": "Status",
+            "issue_type": "Issue Type",
+        }}
+    )}
 
-<h2>Redirected Internal Links</h2>
-{html_table_from_df(
-    redirect_df,
-    ["source_url", "target_url", "final_url", "redirect_count", "status_code"],
-    {
-        "source_url": "Source URL",
-        "target_url": "Original Target",
-        "final_url": "Final URL",
-        "redirect_count": "Redirects",
-        "status_code": "Final Status",
-    }
-)}
+    <div class="break-before"></div>
+    <h2>Redirected Internal Links</h2>
+    {html_table_from_df(
+        redirect_df,
+        ["source_url", "target_url", "final_url", "redirect_count", "status_code"],
+        {{
+            "source_url": "Source URL",
+            "target_url": "Original Target",
+            "final_url": "Final URL",
+            "redirect_count": "Redirects",
+            "status_code": "Final Status",
+        }}
+    )}
 
-<h2>Request Errors</h2>
-{html_table_from_df(
-    error_df,
-    ["source_url", "target_url", "error", "issue_type"],
-    {
-        "source_url": "Source URL",
-        "target_url": "Target URL",
-        "error": "Error",
-        "issue_type": "Issue Type",
-    }
-)}
-</div>
+    <h2>Request Errors</h2>
+    {html_table_from_df(
+        error_df,
+        ["source_url", "target_url", "error", "issue_type"],
+        {{
+            "source_url": "Source URL",
+            "target_url": "Target URL",
+            "error": "Error",
+            "issue_type": "Issue Type",
+        }}
+    )}
 </body>
 </html>
 """
