@@ -36,6 +36,8 @@ jobs:
 
           MONDAY_ITEM_ID: ${{ secrets.MONDAY_ITEM_ID }}
 
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+
         run: python gsc_weekly_report.py
 
       - name: Upload report files
