@@ -50,124 +50,176 @@ def format_num(value, decimals=0, as_percent=False):
 
 def get_pdf_css():
     return """
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+    
     @page {
         size: A4;
-        margin: 18mm 15mm;
+        margin: 15mm;
         @bottom-right {
             content: "Page " counter(page);
-            color: #94A3B8;
-            font-size: 10px;
+            color: #64748B;
+            font-size: 9px;
+            font-family: 'Poppins', sans-serif;
         }
     }
     body {
-        font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-        color: #1E293B;
+        font-family: 'Poppins', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        color: #1A1A1A;
         background: #FFFFFF;
-        line-height: 1.5;
+        line-height: 1.6;
         font-size: 11px;
+        margin: 0;
+        padding: 0;
+    }
+    .header-bar {
+        background: #212878;
+        color: #FFFFFF;
+        padding: 20px 25px;
+        margin: -15mm -15mm 20px -15mm;
+        border-bottom: 4px solid #000000;
+    }
+    .header-bar h1 {
+        margin: 0;
+        font-size: 22px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        color: #FFFFFF;
+    }
+    .header-bar .subtitle {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        opacity: 0.9;
+        margin-top: 4px;
     }
     h1 {
         font-size: 24px;
-        color: #0F172A;
-        margin-bottom: 6px;
+        color: #212878;
+        margin-bottom: 10px;
         font-weight: 700;
-        letter-spacing: -0.5px;
+    }
+    h2 {
+        font-size: 16px;
+        color: #212878;
+        margin-top: 30px;
+        margin-bottom: 12px;
+        font-weight: 600;
+        border-left: 4px solid #212878;
+        padding-left: 10px;
     }
     .muted {
         color: #64748B;
-        font-size: 11px;
+        font-size: 10px;
         margin-bottom: 20px;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    h2 {
-        font-size: 15px;
-        color: #0F172A;
-        margin-top: 28px;
-        margin-bottom: 10px;
-        border-bottom: 1px solid #E2E8F0;
-        padding-bottom: 4px;
+        font-weight: 500;
     }
     .panel {
         background: #F8FAFC;
-        border-radius: 6px;
-        padding: 14px;
-        margin-bottom: 20px;
+        border-radius: 4px;
+        padding: 16px;
+        margin-bottom: 24px;
         border: 1px solid #E2E8F0;
+        border-top: 3px solid #212878;
     }
     .panel h2 {
         margin-top: 0;
-        border: none;
-        padding: 0;
+        border-left: none;
+        padding-left: 0;
+        color: #1A1A1A;
+        font-size: 14px;
+        margin-bottom: 8px;
     }
     .grid {
         display: block;
-        margin-bottom: 20px;
+        margin-bottom: 24px;
+        width: 100%;
+        clear: both;
     }
     .card {
         display: inline-block;
         width: 22%;
-        margin-right: 2%;
+        margin-right: 2.5%;
         background: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-radius: 6px;
-        padding: 14px;
+        border-radius: 4px;
+        padding: 16px;
         vertical-align: top;
-        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 4px rgba(33, 40, 120, 0.05);
+        border-bottom: 3px solid #E2E8F0;
+        transition: border-color 0.3s;
     }
+    .card:last-child { margin-right: 0; }
     .label {
         font-size: 9px;
         text-transform: uppercase;
         color: #64748B;
         font-weight: 600;
-        margin-bottom: 6px;
+        margin-bottom: 8px;
+        letter-spacing: 0.5px;
     }
     .value {
-        font-size: 20px;
+        font-size: 22px;
         font-weight: 700;
-        color: #0F172A;
-        margin-bottom: 4px;
+        color: #212878;
+        margin-bottom: 6px;
     }
     .sub {
         font-size: 10px;
-        color: #64748B;
+        color: #94A3B8;
+        margin-bottom: 4px;
     }
     .delta {
         font-weight: 600;
-        margin-top: 4px;
         font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 3px;
+        display: inline-block;
     }
-    .delta.pos { color: #10B981; }
-    .delta.neg { color: #EF4444; }
-    .delta.neu { color: #64748B; }
+    .delta.pos { background: #ECFDF5; color: #059669; }
+    .delta.neg { background: #FEF2F2; color: #DC2626; }
+    .delta.neu { background: #F8FAFC; color: #64748B; }
     
     table {
         width: 100%;
         border-collapse: collapse;
-        margin-bottom: 20px;
+        margin-bottom: 24px;
         font-size: 10px;
     }
     th, td {
         text-align: left;
-        padding: 8px 10px;
+        padding: 10px 12px;
         border-bottom: 1px solid #E2E8F0;
     }
     th {
-        background: #F1F5F9;
-        color: #475569;
+        background: #212878;
+        color: #FFFFFF;
         font-weight: 600;
         text-transform: uppercase;
         font-size: 9px;
+        letter-spacing: 0.5px;
     }
     tr:nth-child(even) td {
         background: #F8FAFC;
     }
+    tr:hover td {
+        background: #F1F5F9;
+    }
     .ai-block {
         white-space: pre-wrap;
-        color: #334155;
+        color: #1E293B;
+        font-size: 11px;
+        line-height: 1.7;
     }
     .break-before {
         page-break-before: always;
+    }
+    .chart-card {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 4px;
+        padding: 16px;
+        margin-bottom: 24px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
     }
     """
 
@@ -196,7 +248,7 @@ def html_table_from_df(df, columns, rename_map=None):
                     if pd.isna(f): return "-"
                     if f == 0: return "-"
                     return format_num(f, 0)
-                except:
+                except Exception:
                     val_str = str(x)
                     if val_str == "nan" or val_str == "None": return "-"
                     if len(val_str) > 60: return val_str[:57] + "..."

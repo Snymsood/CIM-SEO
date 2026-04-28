@@ -7,9 +7,6 @@ import requests
 import json
 import html
 from datetime import date
-from openai import OpenAI
-import requests
-import json
 
 # Environment variables
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
@@ -42,42 +39,67 @@ async def run_script(script_name, env_vars=None):
         raise RuntimeError(f"{script_name} failed with exit code {process.returncode}")
 
 async def run_all_scripts():
-    tasks = []
-    
-    # GA4
+    # ------------------------------------------------------------------ #
+    # Group 1 — API-based pipelines: run fully concurrently              #
+    # ------------------------------------------------------------------ #
     ga4_env = {
         "GA4_PROPERTY_ID": "341629008",
-        "MONDAY_ITEM_ID": "11818936551"
+        "MONDAY_ITEM_ID": "11818936551",
     }
-    tasks.append(run_script("ga4_weekly_report.py", ga4_env))
-    
-    # GSC
-    gsc_env = {
+    gsc_weekly_env = {
         "GSC_PROPERTY": "https://www.cim.org/",
-        "MONDAY_ITEM_ID": os.getenv("MONDAY_GSC_ITEM_ID", "")
+        "MONDAY_ITEM_ID": os.getenv("MONDAY_GSC_ITEM_ID", ""),
     }
-    tasks.append(run_script("gsc_weekly_report.py", gsc_env))
-    
-    # Site Speed
+    gsc_keyword_env = {
+        "GSC_PROPERTY": "https://www.cim.org/",
+        "MONDAY_ITEM_ID": os.getenv("MONDAY_GSC_KEYWORD_ITEM_ID", ""),
+    }
+    gsc_landing_env = {
+        "GSC_PROPERTY": "https://www.cim.org/",
+        "MONDAY_ITEM_ID": os.getenv("MONDAY_GSC_LANDING_ITEM_ID", ""),
+    }
     speed_env = {
-        "MONDAY_ITEM_ID": "11404492774"
+        "MONDAY_ITEM_ID": "11404492774",
     }
-    tasks.append(run_script("site_speed_monitoring.py", speed_env))
-    
-    # AI Snippet (runs two scripts sequentially inside one async task)
+
     async def run_snippet_pipeline():
         snippet_env = {
             "MONDAY_API_KEY": MONDAY_API_TOKEN or "",
             "MONDAY_AI_SNIPPET_ITEM_ID": os.getenv("MONDAY_AI_SNIPPET_ITEM_ID", ""),
-            "GROQ_MODEL": "llama-3.1-8b-instant"
+            "GROQ_MODEL": "llama-3.1-8b-instant",
         }
         await run_script("ai_snippet_verification.py", snippet_env)
         await run_script("ai_snippet_pdf_report.py", snippet_env)
-        
-    tasks.append(run_snippet_pipeline())
-    
-    # Run all 4 pipelines concurrently!
-    await asyncio.gather(*tasks)
+
+    print("--- Starting API-based pipelines (concurrent) ---")
+    await asyncio.gather(
+        run_script("ga4_weekly_report.py", ga4_env),
+        run_script("gsc_weekly_report.py", gsc_weekly_env),
+        run_script("gsc_keyword_ranking_report.py", gsc_keyword_env),
+        run_script("gsc_landing_pages_report.py", gsc_landing_env),
+        run_script("site_speed_monitoring.py", speed_env),
+        run_snippet_pipeline(),
+    )
+
+    # ------------------------------------------------------------------ #
+    # Group 2 — Crawl-based pipelines: run sequentially to avoid         #
+    # overloading cim.org with two concurrent crawlers                   #
+    # ------------------------------------------------------------------ #
+    broken_link_env = {
+        "MONDAY_ITEM_ID": os.getenv("MONDAY_BROKEN_LINK_ITEM_ID", ""),
+    }
+    internal_link_env = {
+        "MONDAY_ITEM_ID": os.getenv("MONDAY_INTERNAL_LINK_ITEM_ID", ""),
+    }
+    content_audit_env = {
+        "MONDAY_ITEM_ID": os.getenv("MONDAY_CONTENT_AUDIT_ITEM_ID", ""),
+    }
+
+    print("--- Starting crawl-based pipelines (sequential) ---")
+    await run_script("broken_link_check.py", broken_link_env)
+    await run_script("internal_linking_audit.py", internal_link_env)
+    await run_script("content_audit_schedule_report.py", content_audit_env)
+    await run_script("content_category_performance.py", {})
 
 def generate_unified_insights():
     if not GROQ_API_KEY:
@@ -86,25 +108,35 @@ def generate_unified_insights():
     # Read CSVs safely
     try:
         ga4 = pd.read_csv("ga4_summary_comparison.csv").to_csv(index=False)
-    except:
+    except Exception as e:
+        print(f"Warning: GA4 data loading failed: {e}")
         ga4 = "GA4 Data Unavailable"
         
     try:
         gsc = pd.read_csv("weekly_comparison.csv").sort_values(by="clicks_current", ascending=False).head(10).to_csv(index=False)
-    except:
+    except Exception as e:
+        print(f"Warning: GSC data loading failed: {e}")
         gsc = "GSC Data Unavailable"
         
     try:
         speed = pd.read_csv("site_speed_comparison.csv")
         speed = speed[speed["strategy"] == "mobile"].head(10).to_csv(index=False)
-    except:
+    except Exception as e:
+        print(f"Warning: Site Speed data loading failed: {e}")
         speed = "Site Speed Data Unavailable"
+
+    try:
+        content_pillars = pd.read_csv("content_category_performance.csv").to_csv(index=False)
+    except Exception as e:
+        print(f"Warning: Content Category data loading failed: {e}")
+        content_pillars = "Content Pillar Data Unavailable"
 
     prompt = f"""
 You are the Master Agentic SEO Analyst writing a unified executive summary.
-Look at the data from GA4, GSC, and Core Web Vitals (Site Speed) and draw correlations.
-Write an Executive Summary and Action Items.
-Format exactly as requested: no markdown asterisks, use simple bullets, and keep it under 300 words.
+Look at the data from GA4, GSC, Core Web Vitals, and Content Category performance.
+Draw correlations: e.g., is the Technical Library driving impressions but not sessions? Are Events spiking in engagement?
+Write an Executive Summary and Action Items focused on growth.
+Format exactly as requested: no markdown asterisks, use simple bullets, and keep it under 350 words.
 
 [GA4 Data]
 {ga4}
@@ -114,6 +146,9 @@ Format exactly as requested: no markdown asterisks, use simple bullets, and keep
 
 [Site Speed Top 10 Pages (Mobile)]
 {speed}
+
+[Content Category / Pillar Performance]
+{content_pillars}
 """
 
     client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
@@ -171,6 +206,7 @@ def generate_html_dashboard(ai_text):
     ga4_pages = load_data("ga4_top_landing_pages.csv").head(10)
     gsc_queries = load_data("top_queries.csv").head(10)
     speed = load_data("site_speed_comparison.csv")
+    content_cat = load_data("content_category_performance.csv").sort_values(by="sessions", ascending=False)
     
     metrics = {
         "sessions": {"val": 0, "change": 0},
@@ -230,74 +266,208 @@ def generate_html_dashboard(ai_text):
     
     speed_mobile = speed[speed['strategy'] == 'mobile'].head(10) if not speed.empty else pd.DataFrame()
     speed_table = build_table(speed_mobile, ["page", "performance_score", "lcp_field_ms", "cls_field"], ["Page", "Mobile Score", "LCP (ms)", "CLS"])
+    
+    content_cat_table = build_table(content_cat, 
+        ["category", "sessions", "clicks", "engagement_rate", "avg_duration"], 
+        ["Category", "Sessions", "Clicks", "Eng Rate", "Avg Dur"])
 
     dashboard_html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CIM SEO Agentic Dashboard</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <title>CIM SEO Performance Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {{ --bg: #0F172A; --surface: #1E293B; --primary: #3B82F6; --accent: #10B981; --text: #F8FAFC; --text-muted: #94A3B8; --border: #334155; }}
+        :root {{ 
+            --primary: #212878; 
+            --primary-dark: #000000;
+            --bg: #F1F5F9; 
+            --surface: #FFFFFF; 
+            --text: #1A1A1A; 
+            --text-muted: #64748B; 
+            --border: #E2E8F0; 
+            --pos: #059669;
+            --neg: #DC2626;
+        }}
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-        body {{ font-family: 'Inter', sans-serif; background-color: var(--bg); color: var(--text); line-height: 1.6; padding: 2rem; }}
-        .container {{ max-width: 1400px; margin: 0 auto; }}
-        header {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 3rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border); }}
-        h1 {{ font-family: 'Outfit', sans-serif; font-size: 2.5rem; font-weight: 800; background: linear-gradient(to right, #3B82F6, #10B981); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }}
-        .kpi-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; margin-bottom: 3rem; }}
-        .kpi-card {{ background: var(--surface); border-radius: 16px; padding: 1.5rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06); border: 1px solid var(--border); transition: transform 0.2s; }}
-        .kpi-card:hover {{ transform: translateY(-5px); border-color: var(--primary); }}
-        .kpi-title {{ font-size: 0.875rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 0.5rem; font-weight: 600; }}
-        .kpi-value {{ font-family: 'Outfit', sans-serif; font-size: 2.5rem; font-weight: 800; margin-bottom: 0.5rem; }}
-        .ai-summary {{ background: linear-gradient(145deg, var(--surface), #1A2235); border-left: 4px solid var(--primary); padding: 2.5rem; border-radius: 12px; margin-bottom: 3rem; border: 1px solid var(--border); }}
-        .ai-summary h2 {{ font-family: 'Outfit', sans-serif; margin-bottom: 1.5rem; color: #60A5FA; display: flex; align-items: center; gap: 12px; font-size: 1.75rem; }}
-        .ai-text {{ font-size: 1.05rem; white-space: pre-wrap; color: #E2E8F0; line-height: 1.7; }}
-        .tables-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 2rem; }}
-        .table-container {{ background: var(--surface); border-radius: 16px; padding: 1.5rem; border: 1px solid var(--border); overflow-x: auto; }}
-        .table-container h3 {{ font-family: 'Outfit', sans-serif; margin-bottom: 1.5rem; font-size: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; color: #E2E8F0; }}
-        table {{ width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem; }}
-        th {{ color: var(--text-muted); font-weight: 600; padding: 12px 16px; border-bottom: 1px solid var(--border); }}
-        td {{ padding: 16px; border-bottom: 1px solid rgba(51, 65, 85, 0.5); }}
-        tr:last-child td {{ border-bottom: none; }}
-        tr:hover td {{ background: rgba(255,255,255,0.02); }}
+        body {{ 
+            font-family: 'Poppins', sans-serif; 
+            background-color: var(--bg); 
+            color: var(--text); 
+            line-height: 1.6; 
+        }}
+        .header-bar {{
+            background: var(--primary);
+            color: #FFFFFF;
+            padding: 2rem 5%;
+            margin-bottom: 2rem;
+            border-bottom: 4px solid var(--primary-dark);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }}
+        .header-bar h1 {{ 
+            font-size: 2.2rem; 
+            font-weight: 700; 
+            margin-bottom: 0.5rem;
+        }}
+        .header-bar p {{
+            opacity: 0.9;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }}
+        .container {{ max-width: 1400px; margin: 0 auto; padding: 0 2rem 4rem 2rem; }}
+        
+        .kpi-grid {{ 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+            gap: 1.5rem; 
+            margin-bottom: 3rem; 
+        }}
+        .kpi-card {{ 
+            background: var(--surface); 
+            border-radius: 4px; 
+            padding: 1.5rem; 
+            box-shadow: 0 2px 4px rgba(33, 40, 120, 0.05); 
+            border: 1px solid var(--border); 
+            border-bottom: 4px solid var(--border);
+            transition: all 0.3s ease;
+        }}
+        .kpi-card:hover {{ transform: translateY(-3px); border-bottom-color: var(--primary); }}
+        .kpi-title {{ 
+            font-size: 0.8rem; 
+            text-transform: uppercase; 
+            color: var(--text-muted); 
+            letter-spacing: 0.05em; 
+            margin-bottom: 0.75rem; 
+            font-weight: 600; 
+        }}
+        .kpi-value {{ 
+            font-size: 2.5rem; 
+            font-weight: 700; 
+            color: var(--primary);
+            margin-bottom: 0.5rem; 
+        }}
+        .kpi-delta {{
+            font-size: 0.9rem;
+            font-weight: 600;
+        }}
+
+        .ai-summary {{ 
+            background: var(--surface); 
+            border-top: 5px solid var(--primary); 
+            padding: 2.5rem; 
+            border-radius: 4px; 
+            margin-bottom: 3rem; 
+            border: 1px solid var(--border); 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        }}
+        .ai-summary h2 {{ 
+            color: var(--primary); 
+            margin-bottom: 1.5rem; 
+            font-size: 1.75rem; 
+            font-weight: 700;
+            border-bottom: 2px solid var(--bg);
+            padding-bottom: 1rem;
+        }}
+        .ai-text {{ 
+            font-size: 1.1rem; 
+            white-space: pre-wrap; 
+            color: #334155; 
+            line-height: 1.8; 
+        }}
+        
+        .tables-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 2rem; }}
+        .table-container {{ 
+            background: var(--surface); 
+            border-radius: 4px; 
+            padding: 1.5rem; 
+            border: 1px solid var(--border); 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }}
+        .table-container h3 {{ 
+            margin-bottom: 1.5rem; 
+            font-size: 1.25rem; 
+            color: var(--primary);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+        }}
+        .table-container h3::before {{
+            content: '';
+            width: 4px;
+            height: 1.25rem;
+            background: var(--primary);
+            margin-right: 12px;
+            display: inline-block;
+        }}
+        
+        table {{ width: 100%; border-collapse: collapse; font-size: 0.85rem; }}
+        th {{ 
+            background: var(--primary); 
+            color: #FFFFFF; 
+            font-weight: 600; 
+            padding: 12px 16px; 
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.5px;
+        }}
+        td {{ padding: 14px 16px; border-bottom: 1px solid var(--border); color: #334155; }}
+        tr:nth-child(even) {{ background: #F8FAFC; }}
+        tr:hover {{ background: #F1F5F9; }}
     </style>
 </head>
 <body>
+    <div class="header-bar">
+        <div class="container" style="padding: 0;">
+            <h1>CIM SEO Performance Hub</h1>
+            <p>Agentic Intelligence Dashboard • Generated {date.today().strftime('%B %d, %Y')}</p>
+        </div>
+    </div>
     <div class="container">
-        <header>
-            <div>
-                <h1>CIM SEO Dashboard</h1>
-                <p style="color: var(--text-muted); margin-top: 0.5rem;">Agentic Analytics Hub • Generated on {date.today().isoformat()}</p>
-            </div>
-        </header>
 
         <div class="kpi-grid">
             <div class="kpi-card">
                 <div class="kpi-title">Weekly Sessions</div>
                 <div class="kpi-value">{metrics['sessions']['val']:,.0f}</div>
-                <div>{format_change(metrics['sessions']['change'])} WoW</div>
+                <div class="kpi-delta">{format_change(metrics['sessions']['change'])} WoW</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-title">Active Users</div>
                 <div class="kpi-value">{metrics['users']['val']:,.0f}</div>
-                <div>{format_change(metrics['users']['change'])} WoW</div>
+                <div class="kpi-delta">{format_change(metrics['users']['change'])} WoW</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-title">Search Clicks</div>
                 <div class="kpi-value">{metrics['clicks']['val']:,.0f}</div>
-                <div>{format_change(metrics['clicks']['change'])} WoW</div>
+                <div class="kpi-delta">{format_change(metrics['clicks']['change'])} WoW</div>
             </div>
             <div class="kpi-card">
                 <div class="kpi-title">Search Impressions</div>
                 <div class="kpi-value">{metrics['impressions']['val']:,.0f}</div>
-                <div>{format_change(metrics['impressions']['change'])} WoW</div>
+                <div class="kpi-delta">{format_change(metrics['impressions']['change'])} WoW</div>
             </div>
         </div>
 
         <div class="ai-summary">
-            <h2>✨ AI Executive Summary</h2>
+            <h2>Executive Performance Analysis</h2>
             <div class="ai-text">{html.escape(ai_text)}</div>
+        </div>
+
+        <div class="ai-summary" style="border-top-color: #059669; margin-top: -1rem; background: #F8FAFC;">
+            <h2 style="color: #059669;">Content Strategic Analysis</h2>
+            <p style="margin-bottom: 2rem; color: var(--text-muted);">Mapping CIM's digital ecosystem by pillar (Reach vs. Quality).</p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+                <div class="table-container" style="padding: 1rem; border-top: 3px solid #059669;">
+                    <img src="charts/content_ecosystem_map.png" style="width: 100%; border-radius: 8px;">
+                </div>
+                <div class="table-container" style="padding: 1rem; border-top: 3px solid #059669;">
+                    <img src="charts/content_share_of_voice.png" style="width: 100%; border-radius: 8px;">
+                </div>
+            </div>
+            
+            {content_cat_table}
         </div>
 
         <div class="tables-grid">

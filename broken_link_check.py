@@ -4,6 +4,8 @@ from openai import OpenAI
 from weasyprint import HTML
 from urllib.parse import urljoin, urlparse, urldefrag
 from bs4 import BeautifulSoup
+import asyncio
+import aiohttp
 import pandas as pd
 import requests
 import os
@@ -12,6 +14,7 @@ import json
 import time
 
 from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
+from monday_utils import upload_pdf_to_monday as _upload_pdf
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
@@ -123,32 +126,6 @@ def extract_links_from_html(base_url, html_text, allowed_hosts):
     return links
 
 
-def check_link_status(url):
-    try:
-        response = SESSION.head(url, timeout=REQUEST_TIMEOUT, allow_redirects=True)
-        status_code = response.status_code
-
-        if status_code == 405 or status_code >= 500:
-            response = SESSION.get(url, timeout=REQUEST_TIMEOUT, allow_redirects=True, stream=True)
-            status_code = response.status_code
-
-        final_url = response.url
-        redirect_count = len(response.history)
-        return {
-            "status_code": status_code,
-            "final_url": final_url,
-            "redirect_count": redirect_count,
-            "error": None,
-        }
-    except Exception as e:
-        return {
-            "status_code": None,
-            "final_url": None,
-            "redirect_count": None,
-            "error": str(e),
-        }
-
-
 def classify_status(status_code, error, redirect_count):
     if error:
         return "error"
@@ -221,37 +198,73 @@ def crawl_site(seed_df):
     return pd.DataFrame(discovered_links).drop_duplicates()
 
 
-def evaluate_links(links_df):
+async def _check_one_link(session, semaphore, url):
+    """Check a single URL asynchronously, falling back from HEAD to GET on 405/5xx."""
+    async with semaphore:
+        try:
+            timeout = aiohttp.ClientTimeout(total=30)
+            async with session.head(url, timeout=timeout, allow_redirects=True) as resp:
+                status_code = resp.status
+                final_url = str(resp.url)
+                redirect_count = len(resp.history)
+
+            # Some servers reject HEAD — retry with GET
+            if status_code == 405 or status_code >= 500:
+                async with session.get(url, timeout=timeout, allow_redirects=True) as resp2:
+                    status_code = resp2.status
+                    final_url = str(resp2.url)
+                    redirect_count = len(resp2.history)
+
+            return {
+                "target_url": url,
+                "status_code": status_code,
+                "final_url": final_url,
+                "redirect_count": redirect_count,
+                "error": None,
+            }
+        except Exception as exc:
+            return {
+                "target_url": url,
+                "status_code": None,
+                "final_url": None,
+                "redirect_count": None,
+                "error": str(exc),
+            }
+
+
+async def _evaluate_links_async(links_df):
+    """Evaluate all unique link targets concurrently (max 15 in-flight at once)."""
     if links_df.empty:
         return pd.DataFrame(columns=[
             "source_url", "target_url", "anchor_text", "status_code",
-            "final_url", "redirect_count", "error", "issue_type"
+            "final_url", "redirect_count", "error", "issue_type",
         ])
 
-    status_rows = []
     unique_targets = links_df["target_url"].dropna().unique().tolist()
+    semaphore = asyncio.Semaphore(15)
+    connector = aiohttp.TCPConnector(limit=20)
+    headers = {"User-Agent": "CIM-SEO-LinkChecker/1.0"}
 
-    for target in unique_targets:
-        result = check_link_status(target)
+    async with aiohttp.ClientSession(connector=connector, headers=headers) as session:
+        tasks = [_check_one_link(session, semaphore, url) for url in unique_targets]
+        raw_results = await asyncio.gather(*tasks)
+
+    status_rows = []
+    for result in raw_results:
         issue_type = classify_status(
-            result["status_code"],
-            result["error"],
-            result["redirect_count"]
+            result["status_code"], result["error"], result["redirect_count"]
         )
-        status_rows.append({
-            "target_url": target,
-            "status_code": result["status_code"],
-            "final_url": result["final_url"],
-            "redirect_count": result["redirect_count"],
-            "error": result["error"],
-            "issue_type": issue_type,
-        })
-        print(f"Checked {target} -> {issue_type}", flush=True)
-        time.sleep(0.1)
+        result["issue_type"] = issue_type
+        status_rows.append(result)
+        print(f"Checked {result['target_url']} -> {issue_type}", flush=True)
 
     status_df = pd.DataFrame(status_rows)
-    merged = pd.merge(links_df, status_df, on="target_url", how="left")
-    return merged
+    return pd.merge(links_df, status_df, on="target_url", how="left")
+
+
+def evaluate_links(links_df):
+    """Synchronous entry point — runs async evaluation via asyncio.run()."""
+    return asyncio.run(_evaluate_links_async(links_df))
 
 
 def build_executive_read(results_df):
@@ -357,8 +370,10 @@ def write_html_summary(results_df, ai_analysis):
 </style>
 </head>
 <body>
-    <h1>Broken Link Check</h1>
-    <div class="muted">Generated: {date.today().isoformat()}</div>
+    <div class="header-bar">
+        <h1>CIM Broken Link & Technical Audit</h1>
+        <div class="subtitle">Generated: {date.today().strftime('%B %d, %Y')} | Source URLs Audited: {source_count}</div>
+    </div>
 
     <div class="panel">
         <h2>Executive Read</h2>
@@ -452,56 +467,11 @@ def generate_pdf():
 
 
 def upload_pdf_to_monday(pdf_path):
-    if not MONDAY_API_TOKEN or not MONDAY_ITEM_ID:
-        print("Skipping monday file upload: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.", flush=True)
-        return
-
-    update_query = """
-    mutation ($item_id: ID!, $body: String!) {
-      create_update(item_id: $item_id, body: $body) {
-        id
-      }
-    }
-    """
-    update_variables = {
-        "item_id": str(MONDAY_ITEM_ID),
-        "body": "Broken link PDF report attached.",
-    }
-
-    update_response = requests.post(
-        MONDAY_API_URL,
-        headers={"Authorization": MONDAY_API_TOKEN, "Content-Type": "application/json"},
-        json={"query": update_query, "variables": update_variables},
-        timeout=60,
+    _upload_pdf(
+        pdf_path,
+        body_text="Broken link PDF report attached.",
+        pdf_filename="broken-link-check.pdf",
     )
-    update_response.raise_for_status()
-    update_id = update_response.json()["data"]["create_update"]["id"]
-
-    file_query = """
-    mutation ($update_id: ID!, $file: File!) {
-      add_file_to_update(update_id: $update_id, file: $file) {
-        id
-      }
-    }
-    """
-
-    with open(pdf_path, "rb") as f:
-        response = requests.post(
-            MONDAY_FILE_API_URL,
-            headers={"Authorization": MONDAY_API_TOKEN},
-            data={
-                "query": file_query,
-                "variables": json.dumps({"update_id": str(update_id), "file": None}),
-                "map": json.dumps({"pdf": ["variables.file"]}),
-            },
-            files={"pdf": ("broken-link-check.pdf", f, "application/pdf")},
-            timeout=120,
-        )
-
-    print("monday file upload status:", response.status_code, flush=True)
-    print("monday file upload response:", response.text, flush=True)
-    response.raise_for_status()
-    print("Uploaded PDF to monday update.", flush=True)
 
 
 def main():

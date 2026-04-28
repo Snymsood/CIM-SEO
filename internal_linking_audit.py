@@ -11,8 +11,11 @@ import os
 import html
 import json
 import time
+import asyncio
+import aiohttp
 
 from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
+from monday_utils import upload_pdf_to_monday as _upload_pdf
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
@@ -92,14 +95,15 @@ def should_crawl_url(url, allowed_hosts):
     return True
 
 
-def fetch_page(url):
-    response = SESSION.get(url, timeout=REQUEST_TIMEOUT, allow_redirects=True)
-    response.raise_for_status()
-    return response
+async def fetch_page_async(session, url):
+    async with session.get(url, timeout=REQUEST_TIMEOUT, allow_redirects=True) as response:
+        response.raise_for_status()
+        text = await response.text()
+        return response.status, text, response.headers
 
 
-def is_html_response(response):
-    content_type = response.headers.get("Content-Type", "").lower()
+def is_html_response_headers(headers):
+    content_type = headers.get("Content-Type", "").lower()
     return "text/html" in content_type
 
 
@@ -128,7 +132,7 @@ def extract_links_from_html(source_url, html_text, allowed_hosts):
     return discovered
 
 
-def crawl_internal_links(config_df):
+async def _crawl_internal_links_async(config_df):
     seed_urls = get_config_values(config_df, "seed_url")
     allowed_hosts = get_allowed_hosts(seed_urls)
     max_pages_per_domain = get_config_number(config_df, "max_pages_per_domain", 120)
@@ -143,44 +147,63 @@ def crawl_internal_links(config_df):
         if normalized:
             queue.append(normalized)
 
-    while queue:
-        current_url = queue.popleft()
-        if current_url in visited:
-            continue
+    semaphore = asyncio.Semaphore(10)
+    connector = aiohttp.TCPConnector(limit=15)
+    headers = {"User-Agent": "CIM-SEO-InternalLinkAudit/1.0"}
 
-        host = urlparse(current_url).netloc.lower()
-        if host_counts.get(host, 0) >= max_pages_per_domain:
-            continue
+    async with aiohttp.ClientSession(connector=connector, headers=headers) as session:
+        while queue:
+            # Determine how many pages we can fetch in this batch
+            current_batch = []
+            while queue and len(current_batch) < 10:
+                url = queue.popleft()
+                if url in visited:
+                    continue
+                
+                host = urlparse(url).netloc.lower()
+                if host_counts.get(host, 0) >= max_pages_per_domain:
+                    continue
+                
+                visited.add(url)
+                host_counts[host] = host_counts.get(host, 0) + 1
+                current_batch.append(url)
 
-        try:
-            response = fetch_page(current_url)
-            print(f"Crawled {current_url} -> {response.status_code}", flush=True)
-        except Exception as e:
-            print(f"Failed crawl {current_url}: {e}", flush=True)
-            visited.add(current_url)
-            host_counts[host] = host_counts.get(host, 0) + 1
-            continue
+            if not current_batch:
+                break
 
-        visited.add(current_url)
-        host_counts[host] = host_counts.get(host, 0) + 1
+            async def process_url(url):
+                async with semaphore:
+                    try:
+                        status, text, headers = await fetch_page_async(session, url)
+                        print(f"Crawled {url} -> {status}", flush=True)
+                        if "text/html" in headers.get("Content-Type", "").lower():
+                            return url, text
+                    except Exception as e:
+                        print(f"Failed crawl {url}: {e}", flush=True)
+                    return url, None
 
-        if not is_html_response(response):
-            time.sleep(CRAWL_DELAY_SECONDS)
-            continue
+            tasks = [process_url(url) for url in current_batch]
+            results = await asyncio.gather(*tasks)
 
-        extracted = extract_links_from_html(current_url, response.text, allowed_hosts)
-        links.extend(extracted)
+            for url, text in results:
+                if text:
+                    extracted = extract_links_from_html(url, text, allowed_hosts)
+                    links.extend(extracted)
+                    for row in extracted:
+                        target = row["target_url"]
+                        if should_crawl_url(target, allowed_hosts) and target not in visited:
+                            queue.append(target)
+            
+            # Subtle delay to be respectful
+            await asyncio.sleep(0.1)
 
-        for row in extracted:
-            target = row["target_url"]
-            if should_crawl_url(target, allowed_hosts) and target not in visited:
-                queue.append(target)
-
-        time.sleep(CRAWL_DELAY_SECONDS)
-
-    links_df = pd.DataFrame(links).drop_duplicates()
+    links_df = pd.DataFrame(links).drop_duplicates() if links else pd.DataFrame(columns=["source_url", "target_url", "anchor_text"])
     crawled_pages_df = pd.DataFrame({"page": sorted(list(visited))})
     return crawled_pages_df, links_df
+
+
+def crawl_internal_links(config_df):
+    return asyncio.run(_crawl_internal_links_async(config_df))
 
 
 def analyze_internal_links(crawled_pages_df, links_df, config_df):
@@ -485,25 +508,14 @@ def write_html_summary(commentary_text, page_summary_df, flagged_pages_df, prior
 <title>Internal Linking Audit</title>
 <style>
 {get_pdf_css()}
-.chart-block {{
-    background: #fff;
-    border: 1px solid #E2E8F0;
-    border-radius: 6px;
-    padding: 12px;
-    margin: 0 0 16px 0;
-    page-break-inside: avoid;
-}}
-.chart-block img {{
-    width: 100%;
-    height: auto;
-    display: block;
-}}
 .empty-state {{ color: #6b7280; font-style: italic; padding: 8px 0; }}
 </style>
 </head>
 <body>
-    <h1>Internal Linking Audit</h1>
-    <div class="muted">Generated: {date.today().isoformat()}</div>
+    <div class="header-bar">
+        <h1>Internal Linking & Architecture Audit</h1>
+        <div class="subtitle">Generated: {date.today().strftime('%B %d, %Y')} | Analysis of {total_pages} crawled pages</div>
+    </div>
 
     <div class="panel">
         <h2>Executive Commentary</h2>
@@ -559,56 +571,11 @@ def generate_pdf():
 
 
 def upload_pdf_to_monday(pdf_path):
-    if not MONDAY_API_TOKEN or not MONDAY_ITEM_ID:
-        print("Skipping monday file upload: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.", flush=True)
-        return
-
-    update_query = """
-    mutation ($item_id: ID!, $body: String!) {
-      create_update(item_id: $item_id, body: $body) {
-        id
-      }
-    }
-    """
-    update_variables = {
-        "item_id": str(MONDAY_ITEM_ID),
-        "body": "Internal linking PDF report attached.",
-    }
-
-    update_response = requests.post(
-        MONDAY_API_URL,
-        headers={"Authorization": MONDAY_API_TOKEN, "Content-Type": "application/json"},
-        json={"query": update_query, "variables": update_variables},
-        timeout=60,
+    _upload_pdf(
+        pdf_path,
+        body_text="Internal linking PDF report attached.",
+        pdf_filename="internal-linking-audit.pdf",
     )
-    update_response.raise_for_status()
-    update_id = update_response.json()["data"]["create_update"]["id"]
-
-    file_query = """
-    mutation ($update_id: ID!, $file: File!) {
-      add_file_to_update(update_id: $update_id, file: $file) {
-        id
-      }
-    }
-    """
-
-    with open(pdf_path, "rb") as f:
-        response = requests.post(
-            MONDAY_FILE_API_URL,
-            headers={"Authorization": MONDAY_API_TOKEN},
-            data={
-                "query": file_query,
-                "variables": json.dumps({"update_id": str(update_id), "file": None}),
-                "map": json.dumps({"pdf": ["variables.file"]}),
-            },
-            files={"pdf": ("internal-linking-audit.pdf", f, "application/pdf")},
-            timeout=120,
-        )
-
-    print("monday file upload status:", response.status_code, flush=True)
-    print("monday file upload response:", response.text, flush=True)
-    response.raise_for_status()
-    print("Uploaded PDF to monday update.", flush=True)
 
 
 def main():

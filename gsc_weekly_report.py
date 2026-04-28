@@ -11,7 +11,9 @@ import json
 from pathlib import Path
 
 from google_sheets_db import append_to_sheet
-from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card, safe_pct_change, format_pct_change
+from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card, format_pct_change
+from monday_utils import upload_pdf_to_monday as _upload_pdf
+from seo_utils import get_weekly_date_windows, short_url, safe_pct_change
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -110,11 +112,33 @@ def prepare_comparison(current_df, previous_df, key_column):
 
 
 
-def short_url(url, max_len=58):
-    text = str(url)
-    if len(text) <= max_len:
-        return text
-    return text[: max_len - 3] + "..."
+def calculate_kpis(df):
+    """Calculate aggregate KPI metrics from a GSC comparison dataframe."""
+    clicks_curr = df["clicks_current"].sum()
+    clicks_prev = df["clicks_previous"].sum()
+    impr_curr = df["impressions_current"].sum()
+    impr_prev = df["impressions_previous"].sum()
+    
+    ctr_curr = clicks_curr / impr_curr if impr_curr else 0
+    ctr_prev = clicks_prev / impr_prev if impr_prev else 0
+    
+    # Position mean for only those queries that had impressions in that period
+    pos_curr = df.loc[df["impressions_current"] > 0, "position_current"].mean() if not df.loc[df["impressions_current"] > 0].empty else 0
+    pos_prev = df.loc[df["impressions_previous"] > 0, "position_previous"].mean() if not df.loc[df["impressions_previous"] > 0].empty else 0
+    
+    return {
+        "clicks_current": clicks_curr,
+        "clicks_previous": clicks_prev,
+        "impressions_current": impr_curr,
+        "impressions_previous": impr_prev,
+        "ctr_current": ctr_curr,
+        "ctr_previous": ctr_prev,
+        "position_current": pos_curr,
+        "position_previous": pos_prev
+    }
+
+
+
 
 
 def build_executive_read(total_clicks_current, total_clicks_previous,
@@ -180,14 +204,16 @@ def build_ai_analysis(query_df, page_df, current_start, current_end, previous_st
         "page", "clicks_current", "clicks_change", "impressions_current", "ctr_current", "position_current"
     ]]
 
-    total_clicks_current = query_df["clicks_current"].sum()
-    total_clicks_previous = query_df["clicks_previous"].sum()
-    total_impressions_current = query_df["impressions_current"].sum()
-    total_impressions_previous = query_df["impressions_previous"].sum()
-    ctr_current = total_clicks_current / total_impressions_current if total_impressions_current else 0
-    ctr_previous = total_clicks_previous / total_impressions_previous if total_impressions_previous else 0
-    avg_position_current = query_df.loc[query_df["impressions_current"] > 0, "position_current"].mean() if not query_df.loc[query_df["impressions_current"] > 0].empty else 0
-    avg_position_previous = query_df.loc[query_df["impressions_previous"] > 0, "position_previous"].mean() if not query_df.loc[query_df["impressions_previous"] > 0].empty else 0
+    kpis = calculate_kpis(query_df)
+    
+    total_clicks_current = kpis["clicks_current"]
+    total_clicks_previous = kpis["clicks_previous"]
+    total_impressions_current = kpis["impressions_current"]
+    total_impressions_previous = kpis["impressions_previous"]
+    ctr_current = kpis["ctr_current"]
+    ctr_previous = kpis["ctr_previous"]
+    avg_position_current = kpis["position_current"]
+    avg_position_previous = kpis["position_previous"]
 
     prompt = f"""
 You are writing a concise executive SEO analysis for a corporate stakeholder report.
@@ -347,14 +373,16 @@ def image_block(path, alt):
 
 
 def write_markdown_summary(query_df, page_df, ai_analysis, current_start, current_end, previous_start, previous_end):
-    total_clicks_current = query_df["clicks_current"].sum()
-    total_clicks_previous = query_df["clicks_previous"].sum()
-    total_impressions_current = query_df["impressions_current"].sum()
-    total_impressions_previous = query_df["impressions_previous"].sum()
-    weighted_ctr_current = total_clicks_current / total_impressions_current if total_impressions_current else 0
-    weighted_ctr_previous = total_clicks_previous / total_impressions_previous if total_impressions_previous else 0
-    avg_position_current = query_df.loc[query_df["impressions_current"] > 0, "position_current"].mean() if not query_df.loc[query_df["impressions_current"] > 0].empty else 0
-    avg_position_previous = query_df.loc[query_df["impressions_previous"] > 0, "position_previous"].mean() if not query_df.loc[query_df["impressions_previous"] > 0].empty else 0
+    kpis = calculate_kpis(query_df)
+    
+    total_clicks_current = kpis["clicks_current"]
+    total_clicks_previous = kpis["clicks_previous"]
+    total_impressions_current = kpis["impressions_current"]
+    total_impressions_previous = kpis["impressions_previous"]
+    weighted_ctr_current = kpis["ctr_current"]
+    weighted_ctr_previous = kpis["ctr_previous"]
+    avg_position_current = kpis["position_current"]
+    avg_position_previous = kpis["position_previous"]
 
     top_queries = query_df.sort_values(by="clicks_current", ascending=False).head(10)
     top_pages = page_df.sort_values(by="clicks_current", ascending=False).head(10)
@@ -400,14 +428,16 @@ def write_markdown_summary(query_df, page_df, ai_analysis, current_start, curren
 
 
 def write_html_summary(query_df, page_df, ai_analysis, current_start, current_end, previous_start, previous_end):
-    total_clicks_current = query_df["clicks_current"].sum()
-    total_clicks_previous = query_df["clicks_previous"].sum()
-    total_impressions_current = query_df["impressions_current"].sum()
-    total_impressions_previous = query_df["impressions_previous"].sum()
-    weighted_ctr_current = total_clicks_current / total_impressions_current if total_impressions_current else 0
-    weighted_ctr_previous = total_clicks_previous / total_impressions_previous if total_impressions_previous else 0
-    avg_position_current = query_df.loc[query_df["impressions_current"] > 0, "position_current"].mean() if not query_df.loc[query_df["impressions_current"] > 0].empty else 0
-    avg_position_previous = query_df.loc[query_df["impressions_previous"] > 0, "position_previous"].mean() if not query_df.loc[query_df["impressions_previous"] > 0].empty else 0
+    kpis = calculate_kpis(query_df)
+    
+    total_clicks_current = kpis["clicks_current"]
+    total_clicks_previous = kpis["clicks_previous"]
+    total_impressions_current = kpis["impressions_current"]
+    total_impressions_previous = kpis["impressions_previous"]
+    weighted_ctr_current = kpis["ctr_current"]
+    weighted_ctr_previous = kpis["ctr_previous"]
+    avg_position_current = kpis["position_current"]
+    avg_position_previous = kpis["position_previous"]
 
     top_queries = query_df.sort_values(by="clicks_current", ascending=False).head(10)
     gainers = query_df.sort_values(by="clicks_change", ascending=False).head(10)
@@ -442,19 +472,13 @@ def write_html_summary(query_df, page_df, ai_analysis, current_start, current_en
 <title>Weekly GSC Summary</title>
 <style>
 {get_pdf_css()}
-.chart-card img {{
-    width: 100%;
-    height: auto;
-    display: block;
-    margin-bottom: 20px;
-    border: 1px solid #E2E8F0;
-    border-radius: 6px;
-}}
 </style>
 </head>
 <body>
-    <h1>GSC Weekly Report</h1>
-    <div class=\"muted\">Current period: {current_start} to {current_end} | Previous period: {previous_start} to {previous_end}</div>
+    <div class="header-bar">
+        <h1>GSC Weekly Performance Summary</h1>
+        <div class="subtitle">Current window: {current_start} to {current_end} | Comparison: {previous_start} to {previous_end}</div>
+    </div>
 
     <div class=\"panel\">
         <h2>Executive Read</h2>
@@ -572,74 +596,17 @@ def generate_pdf():
 
 
 def upload_pdf_to_monday(pdf_path):
-    if not MONDAY_API_TOKEN or not MONDAY_ITEM_ID:
-        print("Skipping monday file upload: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.")
-        return
-
-    update_query = """
-    mutation ($item_id: ID!, $body: String!) {
-      create_update(item_id: $item_id, body: $body) {
-        id
-      }
-    }
-    """
-    update_variables = {
-        "item_id": str(MONDAY_ITEM_ID),
-        "body": "GSC weekly PDF report attached.",
-    }
-
-    update_response = requests.post(
-        MONDAY_API_URL,
-        headers={"Authorization": MONDAY_API_TOKEN, "Content-Type": "application/json"},
-        json={"query": update_query, "variables": update_variables},
-        timeout=60,
+    _upload_pdf(
+        pdf_path,
+        body_text="GSC weekly PDF report attached.",
+        pdf_filename="google-search-console-audit.pdf",
     )
-    update_response.raise_for_status()
-    update_data = update_response.json()
-
-    if "errors" in update_data:
-        raise RuntimeError(f"monday update creation failed: {update_data['errors']}")
-
-    update_id = update_data["data"]["create_update"]["id"]
-
-    file_query = """
-    mutation ($update_id: ID!, $file: File!) {
-      add_file_to_update(update_id: $update_id, file: $file) {
-        id
-      }
-    }
-    """
-
-    with open(pdf_path, "rb") as f:
-        response = requests.post(
-            MONDAY_FILE_API_URL,
-            headers={"Authorization": MONDAY_API_TOKEN},
-            data={
-                "query": file_query,
-                "variables": json.dumps({"update_id": str(update_id), "file": None}),
-                "map": json.dumps({"pdf": ["variables.file"]}),
-            },
-            files={"pdf": ("google-search-console-audit.pdf", f, "application/pdf")},
-            timeout=120,
-        )
-
-    print("monday file upload status:", response.status_code)
-    print("monday file upload response:", response.text)
-    response.raise_for_status()
-    response_data = response.json()
-    if "errors" in response_data:
-        raise RuntimeError(f"monday file upload failed: {response_data['errors']}")
-    print("Uploaded PDF to monday update.")
 
 
 def main():
     service = get_service()
 
-    current_end = date.today() - timedelta(days=1)
-    current_start = current_end - timedelta(days=6)
-
-    previous_end = current_start - timedelta(days=1)
-    previous_start = previous_end - timedelta(days=6)
+    current_start, current_end, previous_start, previous_end = get_weekly_date_windows()
 
     current_query_df = fetch_dimension_data(service, current_start, current_end, "query", row_limit=250)
     previous_query_df = fetch_dimension_data(service, previous_start, previous_end, "query", row_limit=250)

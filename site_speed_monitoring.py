@@ -12,6 +12,7 @@ import matplotlib
 
 from google_sheets_db import append_to_sheet
 from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
+from monday_utils import upload_pdf_to_monday as _upload_pdf
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -509,56 +510,11 @@ def persist_snapshots(current_df):
 
 
 def upload_pdf_to_monday(pdf_path):
-    if not MONDAY_API_TOKEN or not MONDAY_ITEM_ID:
-        print("Skipping monday file upload: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.")
-        return
-
-    update_query = """
-    mutation ($item_id: ID!, $body: String!) {
-      create_update(item_id: $item_id, body: $body) {
-        id
-      }
-    }
-    """
-    update_variables = {
-        "item_id": str(MONDAY_ITEM_ID),
-        "body": "Site speed PDF report attached.",
-    }
-
-    update_response = requests.post(
-        MONDAY_API_URL,
-        headers={"Authorization": MONDAY_API_TOKEN, "Content-Type": "application/json"},
-        json={"query": update_query, "variables": update_variables},
-        timeout=60,
+    _upload_pdf(
+        pdf_path,
+        body_text="Site speed PDF report attached.",
+        pdf_filename="site-speed-monitoring.pdf",
     )
-    update_response.raise_for_status()
-    update_id = update_response.json()["data"]["create_update"]["id"]
-
-    file_query = """
-    mutation ($update_id: ID!, $file: File!) {
-      add_file_to_update(update_id: $update_id, file: $file) {
-        id
-      }
-    }
-    """
-
-    with open(pdf_path, "rb") as f:
-        response = requests.post(
-            MONDAY_FILE_API_URL,
-            headers={"Authorization": MONDAY_API_TOKEN},
-            data={
-                "query": file_query,
-                "variables": json.dumps({"update_id": str(update_id), "file": None}),
-                "map": json.dumps({"pdf": ["variables.file"]}),
-            },
-            files={"pdf": ("site-speed-monitoring.pdf", f, "application/pdf")},
-            timeout=120,
-        )
-
-    print("monday file upload status:", response.status_code)
-    print("monday file upload response:", response.text)
-    response.raise_for_status()
-    print("Uploaded PDF to monday update.")
 
 
 def main():

@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from weasyprint import HTML
 
 from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
+from monday_utils import upload_pdf_to_monday as _upload_pdf
 
 REPORT_DIR = Path("reports")
 PDF_PATH = REPORT_DIR / "ai_snippet_verification_report.pdf"
@@ -132,8 +133,10 @@ def build_pdf(df, ai_summary):
 </style>
 </head>
 <body>
-    <h1>AI Snippet Verification Report</h1>
-    <div class="muted">Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}</div>
+    <div class="header-bar">
+        <h1>AI Snippet Verification Report</h1>
+        <div class="subtitle">Generated: {datetime.now(timezone.utc).strftime('%B %d, %Y at %H:%M UTC')}</div>
+    </div>
 
     <div class="panel">
         <h2>AI Executive Summary</h2>
@@ -178,91 +181,12 @@ def build_pdf(df, ai_summary):
     print(f"PDF created: {PDF_PATH}")
 
 
-def create_monday_update(body):
-    api_key = os.getenv("MONDAY_API_KEY")
-    item_id = os.getenv("MONDAY_AI_SNIPPET_ITEM_ID")
-
-    if not api_key or not item_id:
-        print("Monday update skipped. Missing MONDAY_API_KEY or MONDAY_AI_SNIPPET_ITEM_ID.")
-        return None
-
-    mutation = """
-    mutation ($item_id: ID!, $body: String!) {
-      create_update (item_id: $item_id, body: $body) {
-        id
-      }
-    }
-    """
-
-    response = requests.post(
-        "https://api.monday.com/v2",
-        headers={
-            "Authorization": api_key,
-            "Content-Type": "application/json",
-        },
-        json={
-            "query": mutation,
-            "variables": {
-                "item_id": str(item_id),
-                "body": body[:60000],
-            },
-        },
-        timeout=30,
+def upload_pdf_to_monday():
+    _upload_pdf(
+        str(PDF_PATH),
+        body_text="AI Snippet Verification PDF report attached.",
+        pdf_filename="ai-snippet-verification-report.pdf"
     )
-
-    response.raise_for_status()
-    return response.json()["data"]["create_update"]["id"]
-
-
-def upload_pdf_to_monday(update_id):
-    api_key = os.getenv("MONDAY_API_KEY")
-
-    if not api_key or not update_id:
-        print("PDF upload skipped.")
-        return
-
-    mutation = """
-    mutation ($file: File!, $update_id: ID!) {
-      add_file_to_update (file: $file, update_id: $update_id) {
-        id
-      }
-    }
-    """
-
-    with open(PDF_PATH, "rb") as file_handle:
-        data = {
-            "query": mutation,
-            "variables": json.dumps({
-                "file": None,
-                "update_id": str(update_id)
-            }),
-            "map": json.dumps({
-                "0": ["variables.file"]
-            }),
-        }
-        files = {
-            "0": (
-                PDF_PATH.name,
-                file_handle,
-                "application/pdf"
-            )
-        }
-        response = requests.post(
-            "https://api.monday.com/v2/file",
-            headers={
-                "Authorization": api_key
-            },
-            data=data,
-            files=files,
-            timeout=60,
-        )
-
-    if not response.ok:
-        print("Monday file upload failed.")
-        print("Status:", response.status_code)
-        print("Response:", response.text)
-        response.raise_for_status()
-    print("PDF uploaded to Monday update.")
 
 
 def main():
@@ -270,19 +194,7 @@ def main():
     ai_summary = groq_summary(df, md_text)
     build_pdf(df, ai_summary)
 
-    monday_body = f"""
-AI Snippet Verification PDF report generated.
-
-Pages checked: {len(df)}
-Average access score: {df['access_score'].mean():.2f}/5
-Average summary score: {df['summary_score'].mean():.2f}/5
-Average CTA score: {df['cta_score'].mean():.2f}/5
-
-{ai_summary}
-"""
-
-    update_id = create_monday_update(monday_body)
-    upload_pdf_to_monday(update_id)
+    upload_pdf_to_monday()
 
 
 if __name__ == "__main__":

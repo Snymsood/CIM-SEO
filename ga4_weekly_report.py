@@ -9,6 +9,8 @@ import json
 
 from google_sheets_db import append_to_sheet
 from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
+from monday_utils import upload_pdf_to_monday as _upload_pdf
+from seo_utils import get_weekly_date_windows
 from google.oauth2 import service_account
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import (
@@ -242,8 +244,10 @@ def write_html_summary(summary_df, top_pages_df, top_channels_df, device_df, cou
 </style>
 </head>
 <body>
-<h1>GA4 Weekly Report</h1>
-<div class="muted">Current period: {current_start} to {current_end} | Previous period: {previous_start} to {previous_end}</div>
+    <div class="header-bar">
+        <h1>GA4 Weekly Performance Report</h1>
+        <div class="subtitle">Current window: {current_start} to {current_end} | Comparison: {previous_start} to {previous_end}</div>
+    </div>
 
 <div class="panel">
 <h2>Executive Read</h2>
@@ -325,66 +329,17 @@ def generate_pdf():
 
 
 def upload_pdf_to_monday(pdf_path):
-    if not MONDAY_API_TOKEN or not MONDAY_ITEM_ID:
-        print("Skipping monday file upload: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.")
-        return
-
-    update_query = """
-    mutation ($item_id: ID!, $body: String!) {
-      create_update(item_id: $item_id, body: $body) {
-        id
-      }
-    }
-    """
-    update_variables = {
-        "item_id": str(MONDAY_ITEM_ID),
-        "body": "GA4 weekly PDF report attached.",
-    }
-
-    update_response = requests.post(
-        MONDAY_API_URL,
-        headers={"Authorization": MONDAY_API_TOKEN, "Content-Type": "application/json"},
-        json={"query": update_query, "variables": update_variables},
-        timeout=60,
+    _upload_pdf(
+        pdf_path,
+        body_text="GA4 weekly PDF report attached.",
+        pdf_filename="ga4-weekly-report.pdf",
     )
-    update_response.raise_for_status()
-    update_id = update_response.json()["data"]["create_update"]["id"]
-
-    file_query = """
-    mutation ($update_id: ID!, $file: File!) {
-      add_file_to_update(update_id: $update_id, file: $file) {
-        id
-      }
-    }
-    """
-
-    with open(pdf_path, "rb") as f:
-        response = requests.post(
-            MONDAY_FILE_API_URL,
-            headers={"Authorization": MONDAY_API_TOKEN},
-            data={
-                "query": file_query,
-                "variables": json.dumps({"update_id": str(update_id), "file": None}),
-                "map": json.dumps({"pdf": ["variables.file"]}),
-            },
-            files={"pdf": ("ga4-weekly-report.pdf", f, "application/pdf")},
-            timeout=120,
-        )
-
-    print("monday file upload status:", response.status_code)
-    print("monday file upload response:", response.text)
-    response.raise_for_status()
-    print("Uploaded PDF to monday update.")
 
 
 def main():
     client = get_ga4_client()
 
-    current_end = date.today() - timedelta(days=1)
-    current_start = current_end - timedelta(days=6)
-
-    previous_end = current_start - timedelta(days=1)
-    previous_start = previous_end - timedelta(days=6)
+    current_start, current_end, previous_start, previous_end = get_weekly_date_windows()
 
     current_summary = get_summary_metrics(client, current_start.isoformat(), current_end.isoformat())
     previous_summary = get_summary_metrics(client, previous_start.isoformat(), previous_end.isoformat())

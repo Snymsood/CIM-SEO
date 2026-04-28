@@ -12,6 +12,7 @@ import json
 import math
 
 from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card, safe_pct_change
+from monday_utils import upload_pdf_to_monday as _upload_pdf
 
 SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly"]
 KEY_FILE = "gsc-key.json"
@@ -514,36 +515,13 @@ def write_html_summary(selected_df, scored_df, commentary_text, current_start, c
 <title>Monthly Content Audit Recommendation</title>
 <style>
 {get_pdf_css()}
-.chart-block {{
-    background: #fff;
-    border: 1px solid #E2E8F0;
-    border-radius: 6px;
-    padding: 12px;
-    margin: 0 0 16px 0;
-    page-break-inside: avoid;
-}}
-.chart-block img {{
-    width: 100%;
-    height: auto;
-    display: block;
-}}
-.badge {{
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    margin: 6px 0 10px 0;
-}}
-.badge-refresh {{ background: #e8f4ff; color: #0f4c81; }}
-.badge-archive {{ background: #fff0ec; color: #9e3b20; }}
-.empty-state {{ color: #6b7280; font-style: italic; padding: 8px 0; }}
 </style>
 </head>
 <body>
-    <h1>Monthly Content Audit Recommendation</h1>
-    <div class="muted">Current: {current_start} to {current_end} | Previous: {previous_start} to {previous_end}</div>
+    <div class="header-bar">
+        <h1>Monthly Content Audit Recommendation</h1>
+        <div class="subtitle">Current window: {current_start} to {current_end} | Comparison: {previous_start} to {previous_end}</div>
+    </div>
 
     <div class="panel">
         <h2>Executive Commentary</h2>
@@ -602,56 +580,11 @@ def generate_pdf():
 
 
 def upload_pdf_to_monday(pdf_path):
-    if not MONDAY_API_TOKEN or not MONDAY_ITEM_ID:
-        print("Skipping monday file upload: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.")
-        return
-
-    update_query = """
-    mutation ($item_id: ID!, $body: String!) {
-      create_update(item_id: $item_id, body: $body) {
-        id
-      }
-    }
-    """
-    update_variables = {
-        "item_id": str(MONDAY_ITEM_ID),
-        "body": "Content audit PDF report attached.",
-    }
-
-    update_response = requests.post(
-        MONDAY_API_URL,
-        headers={"Authorization": MONDAY_API_TOKEN, "Content-Type": "application/json"},
-        json={"query": update_query, "variables": update_variables},
-        timeout=60,
+    _upload_pdf(
+        pdf_path,
+        body_text="Monthly Content Audit PDF report attached.",
+        pdf_filename="content-audit-governance.pdf"
     )
-    update_response.raise_for_status()
-    update_id = update_response.json()["data"]["create_update"]["id"]
-
-    file_query = """
-    mutation ($update_id: ID!, $file: File!) {
-      add_file_to_update(update_id: $update_id, file: $file) {
-        id
-      }
-    }
-    """
-
-    with open(pdf_path, "rb") as f:
-        response = requests.post(
-            MONDAY_FILE_API_URL,
-            headers={"Authorization": MONDAY_API_TOKEN},
-            data={
-                "query": file_query,
-                "variables": json.dumps({"update_id": str(update_id), "file": None}),
-                "map": json.dumps({"pdf": ["variables.file"]}),
-            },
-            files={"pdf": ("content-audit-schedule.pdf", f, "application/pdf")},
-            timeout=120,
-        )
-
-    print("monday file upload status:", response.status_code)
-    print("monday file upload response:", response.text)
-    response.raise_for_status()
-    print("Uploaded PDF to monday update.")
 
 
 def main():

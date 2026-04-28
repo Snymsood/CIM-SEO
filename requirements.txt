@@ -13,3 +13,5 @@ lxml
 reportlab
 aiohttp
 gspread
+seaborn
+numpy

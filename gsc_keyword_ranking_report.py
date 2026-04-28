@@ -7,10 +7,12 @@ import pandas as pd
 import requests
 import os
 import html
-import base64
 from io import BytesIO
+from pathlib import Path
 import matplotlib
-from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
+from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card, format_delta
+from monday_utils import upload_pdf_to_monday as _upload_pdf
+from seo_utils import get_weekly_date_windows
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
@@ -24,6 +26,8 @@ MONDAY_ITEM_ID = os.getenv("MONDAY_ITEM_ID")
 MONDAY_API_URL = "https://api.monday.com/v2"
 MONDAY_FILE_API_URL = "https://api.monday.com/v2/file"
 TRACKED_KEYWORDS_FILE = "tracked_keywords.csv"
+CHARTS_DIR = Path("charts")
+CHARTS_DIR.mkdir(exist_ok=True)
 
 ACCENT = "#0f4c81"
 ACCENT_2 = "#2f7d8c"
@@ -261,9 +265,9 @@ def md_table_from_df(df, columns, rename_map=None):
         elif "position" in lower_col and "change" not in lower_col:
             work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: f"{x:.2f}" if pd.notnull(x) and x != 0 else "")
         elif "position" in lower_col and "change" in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: format_delta(x) if pd.notnull(x) else "")
+            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: format_delta(x, decimals=2) if pd.notnull(x) else "")
         elif "change" in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: format_delta_int(x) if pd.notnull(x) else "")
+            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: format_delta(x, decimals=0) if pd.notnull(x) else "")
         elif any(token in lower_col for token in ["click", "impression"]):
             work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: f"{x:.0f}" if pd.notnull(x) else "")
         else:
@@ -277,12 +281,11 @@ def md_table_from_df(df, columns, rename_map=None):
 
 
 
-def fig_to_base64(fig):
-    buffer = BytesIO()
-    fig.savefig(buffer, format="png", dpi=180, bbox_inches="tight", facecolor="white")
+def save_fig(fig, name):
+    path = CHARTS_DIR / name
+    fig.savefig(path, dpi=180, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    buffer.seek(0)
-    return base64.b64encode(buffer.read()).decode("utf-8")
+    return str(path.absolute())
 
 
 def make_barh_chart(df, label_col, value_col, title, color, top_n=10):
@@ -297,7 +300,7 @@ def make_barh_chart(df, label_col, value_col, title, color, top_n=10):
     ax.tick_params(axis='y', labelsize=9)
     ax.tick_params(axis='x', labelsize=9)
     fig.tight_layout()
-    return fig_to_base64(fig)
+    return save_fig(fig, "keyword_ranking_overview.png")
 
 
 def make_diverging_position_chart(gainers_df, losers_df, label_col, value_col, title):
@@ -324,7 +327,7 @@ def make_diverging_position_chart(gainers_df, losers_df, label_col, value_col, t
     ax.tick_params(axis='y', labelsize=9)
     ax.tick_params(axis='x', labelsize=9)
     fig.tight_layout()
-    return fig_to_base64(fig)
+    return save_fig(fig, "keyword_ranking_winners_losers.png")
 
 
 def make_kpi_comparison_chart(comparison_df):
@@ -350,7 +353,7 @@ def make_kpi_comparison_chart(comparison_df):
     ax.legend(frameon=False)
     ax.spines[['top', 'right']].set_visible(False)
     fig.tight_layout()
-    return fig_to_base64(fig)
+    return save_fig(fig, "keyword_ranking_distribution.png")
 
 
 def write_markdown_summary(comparison_df, commentary, current_start, current_end, previous_start, previous_end):
@@ -488,8 +491,10 @@ def write_html_summary(comparison_df, commentary, current_start, current_end, pr
 </style>
 </head>
 <body>
-    <h1>Weekly Keyword Ranking Review</h1>
-    <div class="muted">Current period: {current_start} to {current_end} | Previous period: {previous_start} to {previous_end}</div>
+    <div class="header-bar">
+        <h1>Weekly Keyword Ranking Review</h1>
+        <div class="subtitle">Current window: {current_start} to {current_end} | Comparison: {previous_start} to {previous_end}</div>
+    </div>
 
     <div class="panel">
         <h2>Executive Read</h2>
@@ -507,17 +512,17 @@ def write_html_summary(comparison_df, commentary, current_start, current_end, pr
     </div>
 
     <h2>Performance Overview</h2>
-    <div class="chart-wrap"><img src="data:image/png;base64,{kpi_chart}"></div>
+    <div class="chart-wrap"><img src="file://{kpi_chart}"></div>
 
     <div class="break-before"></div>
     <h2>Top Demand Drivers</h2>
-    <div class="chart-wrap"><img src="data:image/png;base64,{top_keywords_chart}"></div>
-    <div class="chart-wrap"><img src="data:image/png;base64,{visibility_chart}"></div>
+    <div class="chart-wrap"><img src="file://{top_keywords_chart}"></div>
+    <div class="chart-wrap"><img src="file://{visibility_chart}"></div>
 
     <div class="break-before"></div>
     <h2>Winners and Losers</h2>
-    <div class="chart-wrap"><img src="data:image/png;base64,{winners_losers_chart}"></div>
-    <div class="chart-wrap"><img src="data:image/png;base64,{position_gainers_chart}"></div>
+    <div class="chart-wrap"><img src="file://{winners_losers_chart}"></div>
+    <div class="chart-wrap"><img src="file://{position_gainers_chart}"></div>
 
     <div class="break-before"></div>
     <h2>Top Tracked Keywords</h2>
@@ -613,91 +618,18 @@ def generate_pdf():
 
 
 def upload_pdf_to_monday(pdf_path):
-    if not MONDAY_API_TOKEN or not MONDAY_ITEM_ID:
-        print("Skipping monday file upload: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.")
-        return
-
-    update_query = """
-    mutation ($item_id: ID!, $body: String!) {
-      create_update(item_id: $item_id, body: $body) {
-        id
-      }
-    }
-    """
-    update_variables = {
-        "item_id": str(MONDAY_ITEM_ID),
-        "body": "Keyword ranking PDF report attached.",
-    }
-
-    update_response = requests.post(
-        MONDAY_API_URL,
-        headers={
-            "Authorization": MONDAY_API_TOKEN,
-            "Content-Type": "application/json",
-        },
-        json={"query": update_query, "variables": update_variables},
-        timeout=60,
+    _upload_pdf(
+        pdf_path,
+        body_text="Keyword ranking PDF report attached.",
+        pdf_filename="keyword-ranking-review.pdf",
     )
-    update_response.raise_for_status()
-    update_data = update_response.json()
-
-    if "errors" in update_data:
-        raise RuntimeError(f"monday update creation failed: {update_data['errors']}")
-
-    update_id = update_data["data"]["create_update"]["id"]
-
-    file_query = """
-    mutation ($update_id: ID!, $file: File!) {
-      add_file_to_update(update_id: $update_id, file: $file) {
-        id
-      }
-    }
-    """
-
-    import json
-
-    with open(pdf_path, "rb") as f:
-        response = requests.post(
-            MONDAY_FILE_API_URL,
-            headers={
-                "Authorization": MONDAY_API_TOKEN,
-            },
-            data={
-                "query": file_query,
-                "variables": json.dumps({
-                    "update_id": str(update_id),
-                    "file": None
-                }),
-                "map": json.dumps({
-                    "pdf": ["variables.file"]
-                }),
-            },
-            files={
-                "pdf": ("keyword-ranking-review.pdf", f, "application/pdf")
-            },
-            timeout=120,
-        )
-
-    print("monday file upload status:", response.status_code)
-    print("monday file upload response:", response.text)
-    response.raise_for_status()
-
-    response_data = response.json()
-    if "errors" in response_data:
-        raise RuntimeError(f"monday file upload failed: {response_data['errors']}")
-
-    print("Uploaded PDF to monday update.")
 
 
 def main():
     service = get_service()
     tracked_df = load_tracked_keywords()
 
-    current_end = date.today() - timedelta(days=1)
-    current_start = current_end - timedelta(days=6)
-
-    previous_end = current_start - timedelta(days=1)
-    previous_start = previous_end - timedelta(days=6)
+    current_start, current_end, previous_start, previous_end = get_weekly_date_windows()
 
     current_query_df = fetch_query_data(service, current_start, current_end, row_limit=1000)
     previous_query_df = fetch_query_data(service, previous_start, previous_end, row_limit=1000)
