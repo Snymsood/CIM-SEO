@@ -25,7 +25,7 @@ GSC_PROPERTY = os.environ.get("GSC_PROPERTY")
 
 # GA4 Configuration
 GA4_PROPERTY_ID = os.environ.get("GA4_PROPERTY_ID")
-GA4_KEY_FILE = "ga4-key.json"
+GA4_KEY_FILE = "gsc-key.json"
 
 CHARTS_DIR = Path("charts")
 CHARTS_DIR.mkdir(exist_ok=True)
@@ -179,32 +179,36 @@ def main():
     gsc_data = fetch_gsc_data(gsc_service, curr_start, curr_end)
     ga4_data = fetch_ga4_data(ga4_client, curr_start, curr_end)
     
-    if gsc_data.empty or ga4_data.empty:
-        print("Insufficient data to generate full content report.")
-        return
-
     # Aggregate by Category
     gsc_cat = gsc_data.groupby("category").agg({
         "clicks": "sum", 
         "impressions": "sum",
         "position": "mean"
-    }).reset_index()
+    }).reset_index() if not gsc_data.empty else pd.DataFrame(columns=["category", "clicks", "impressions", "position"])
     
     ga4_cat = ga4_data.groupby("category").agg({
         "sessions": "sum", 
         "engagement_rate": "mean",
         "avg_duration": "mean"
-    }).reset_index()
+    }).reset_index() if not ga4_data.empty else pd.DataFrame(columns=["category", "sessions", "engagement_rate", "avg_duration"])
     
     # Merge
     content_perf = pd.merge(gsc_cat, ga4_cat, on="category", how="outer").fillna(0)
+    
+    # Final check for columns (GSC/GA4 might both be empty)
+    for col in ["category", "clicks", "impressions", "sessions", "engagement_rate", "avg_duration"]:
+        if col not in content_perf.columns:
+            content_perf[col] = 0
     
     # Save CSV
     content_perf.to_csv("content_category_performance.csv", index=False)
     
     # Generate fun visualizations
-    generate_visualizations(content_perf)
-    print("✅ Content ecosystem map and share of voice generated.")
+    if not content_perf.empty and content_perf["sessions"].sum() > 0:
+        generate_visualizations(content_perf)
+        print("✅ Content ecosystem map and share of voice generated.")
+    else:
+        print("⚠️ Skipping visualizations due to zero session data.")
 
 if __name__ == "__main__":
     main()
