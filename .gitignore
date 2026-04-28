@@ -1,0 +1,29 @@
+# API Keys and Secrets
+gsc-key.json
+*.pem
+.env
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Generated Reports & Artifacts
+ga4_*.csv
+weekly_*.csv
+top_*.csv
+biggest_*.csv
+page_*.csv
+site_speed_*.csv
+*.pdf
+*.html
+charts/
+screenshots/
+site_speed_history.csv
+tracked_speed_pages.csv
+weekly_gsc_report.csv
+weekly_pages_report.csv
+
+# Ignore venv
+venv/
+env/
+.venv/
