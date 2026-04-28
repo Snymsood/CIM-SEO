@@ -10,6 +10,8 @@ import html
 import json
 from pathlib import Path
 
+from google_sheets_db import append_to_sheet
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -879,6 +881,9 @@ def main():
     top_pages.to_csv("top_pages.csv", index=False)
     page_gainers.to_csv("page_gainers.csv", index=False)
     page_losers.to_csv("page_losers.csv", index=False)
+
+    append_to_sheet(query_comparison_df, "GSC_Query_Comparison")
+    append_to_sheet(page_comparison_df, "GSC_Page_Comparison")
 
     ai_analysis = build_ai_analysis(
         query_comparison_df,

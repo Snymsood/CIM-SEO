@@ -9,6 +9,8 @@ import os
 import html
 import json
 import matplotlib
+
+from google_sheets_db import append_to_sheet
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -683,6 +685,9 @@ def main():
 
     current_df.to_csv("site_speed_current_snapshot.csv", index=False)
     comparison_df.to_csv("site_speed_comparison.csv", index=False)
+
+    append_to_sheet(current_df, "Site_Speed_Snapshot")
+    append_to_sheet(comparison_df, "Site_Speed_Comparison")
 
     commentary = build_commentary(comparison_df)
     write_html_summary(comparison_df, commentary)

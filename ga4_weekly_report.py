@@ -7,6 +7,8 @@ import os
 import html
 import json
 
+from google_sheets_db import append_to_sheet
+
 from google.oauth2 import service_account
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
 from google.analytics.data_v1beta.types import (
@@ -466,6 +468,12 @@ def main():
     top_channels_df.to_csv("ga4_top_channels.csv", index=False)
     device_df.to_csv("ga4_device_split.csv", index=False)
     country_df.to_csv("ga4_country_split.csv", index=False)
+
+    append_to_sheet(summary_df, "GA4_Summary")
+    append_to_sheet(top_pages_df, "GA4_Top_Pages")
+    append_to_sheet(top_channels_df, "GA4_Top_Channels")
+    append_to_sheet(device_df, "GA4_Device_Split")
+    append_to_sheet(country_df, "GA4_Country_Split")
 
     ai_analysis = build_ai_analysis(
         summary_df,
