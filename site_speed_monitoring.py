@@ -460,6 +460,18 @@ def write_html_summary(comparison_df, commentary):
         </div>
         '''
 
+    mobile_cols = ["page", "category", "priority", "performance_score", "performance_score_change", "lcp_lab_ms", "inp_field_ms", "cls_field"]
+    mobile_rename = {"page": "Page", "category": "Category", "priority": "Priority", "performance_score": "Score", "performance_score_change": "Score Δ", "lcp_lab_ms": "LCP Lab (ms)", "inp_field_ms": "INP Field (ms)", "cls_field": "CLS Field"}
+
+    desktop_cols = ["page", "category", "priority", "performance_score", "performance_score_change", "lcp_lab_ms", "tbt_lab_ms", "cls_lab"]
+    desktop_rename = {"page": "Page", "category": "Category", "priority": "Priority", "performance_score": "Score", "performance_score_change": "Score Δ", "lcp_lab_ms": "LCP Lab (ms)", "tbt_lab_ms": "TBT Lab (ms)", "cls_lab": "CLS Lab"}
+
+    app_mobile_cols = ["page", "category", "priority", "performance_score", "lcp_lab_ms", "inp_field_ms", "cls_field"]
+    app_mobile_rename = {"page": "Page", "category": "Category", "priority": "Priority", "performance_score": "Score", "lcp_lab_ms": "LCP Lab (ms)", "inp_field_ms": "INP Field (ms)", "cls_field": "CLS Field"}
+
+    app_desktop_cols = ["page", "category", "priority", "performance_score", "lcp_lab_ms", "tbt_lab_ms", "cls_lab"]
+    app_desktop_rename = {"page": "Page", "category": "Category", "priority": "Priority", "performance_score": "Score", "lcp_lab_ms": "LCP Lab (ms)", "tbt_lab_ms": "TBT Lab (ms)", "cls_lab": "CLS Lab"}
+
     html_output = f"""
 <!DOCTYPE html>
 <html lang="en">
@@ -553,66 +565,20 @@ tr {{ page-break-inside: avoid; }}
 
     <div class="section page-break">
         <h2>Mobile Results</h2>
-        {html_table_from_df(mobile_main,
-            ["page", "category", "priority", "performance_score", "performance_score_change", "lcp_lab_ms", "inp_field_ms", "cls_field"],
-            {{
-                "page": "Page",
-                "category": "Category",
-                "priority": "Priority",
-                "performance_score": "Score",
-                "performance_score_change": "Score Δ",
-                "lcp_lab_ms": "LCP Lab (ms)",
-                "inp_field_ms": "INP Field (ms)",
-                "cls_field": "CLS Field",
-            }}
-        )}
+        {html_table_from_df(mobile_main, mobile_cols, mobile_rename)}
     </div>
 
     <div class="section">
         <h2>Desktop Results</h2>
-        {html_table_from_df(desktop_main,
-            ["page", "category", "priority", "performance_score", "performance_score_change", "lcp_lab_ms", "tbt_lab_ms", "cls_lab"],
-            {{
-                "page": "Page",
-                "category": "Category",
-                "priority": "Priority",
-                "performance_score": "Score",
-                "performance_score_change": "Score Δ",
-                "lcp_lab_ms": "LCP Lab (ms)",
-                "tbt_lab_ms": "TBT Lab (ms)",
-                "cls_lab": "CLS Lab",
-            }}
-        )}
+        {html_table_from_df(desktop_main, desktop_cols, desktop_rename)}
     </div>
 
     <div class="section">
         <h2>Appendix</h2>
         <h3>Additional Mobile Rows</h3>
-        {html_table_from_df(appendix_mobile,
-            ["page", "category", "priority", "performance_score", "lcp_lab_ms", "inp_field_ms", "cls_field"],
-            {{
-                "page": "Page",
-                "category": "Category",
-                "priority": "Priority",
-                "performance_score": "Score",
-                "lcp_lab_ms": "LCP Lab (ms)",
-                "inp_field_ms": "INP Field (ms)",
-                "cls_field": "CLS Field",
-            }}
-        )}
+        {html_table_from_df(appendix_mobile, app_mobile_cols, app_mobile_rename)}
         <h3 style="margin-top:24px;">Additional Desktop Rows</h3>
-        {html_table_from_df(appendix_desktop,
-            ["page", "category", "priority", "performance_score", "lcp_lab_ms", "tbt_lab_ms", "cls_lab"],
-            {{
-                "page": "Page",
-                "category": "Category",
-                "priority": "Priority",
-                "performance_score": "Score",
-                "lcp_lab_ms": "LCP Lab (ms)",
-                "tbt_lab_ms": "TBT Lab (ms)",
-                "cls_lab": "CLS Lab",
-            }}
-        )}
+        {html_table_from_df(appendix_desktop, app_desktop_cols, app_desktop_rename)}
         <div class="footer-note">Prepared for internal weekly monitoring.</div>
     </div>
 </div>
@@ -620,9 +586,6 @@ tr {{ page-break-inside: avoid; }}
 </body>
 </html>
 """
-    # replace double braces for dict literals introduced above only in function args
-    html_output = html_output.replace("{{\n                \"page\"", "{\n                \"page\"")
-    html_output = html_output.replace("}}\n        )}", "}\n        )}")
     with open("site_speed_summary.html", "w", encoding="utf-8") as f:
         f.write(html_output)
 
