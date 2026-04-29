@@ -1,245 +1,686 @@
+# GSC Weekly Report - Part 1 (imports and constants)
 from datetime import date, timedelta
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+import os, html, math
+
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from openai import OpenAI
 from weasyprint import HTML
 import pandas as pd
-import requests
-import os
-import html
-import json
-from pathlib import Path
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import numpy as np
 
 from google_sheets_db import append_to_sheet
-from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card, format_pct_change
+from pdf_report_formatter import get_pdf_css, build_card, format_pct_change
 from monday_utils import upload_pdf_to_monday as _upload_pdf
 from seo_utils import get_weekly_date_windows, short_url, safe_pct_change
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
 
-SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly"]
-KEY_FILE = "gsc-key.json"
-SITE_URL = os.environ["GSC_PROPERTY"]
-GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+# ── Auth / config ──────────────────────────────────────────────────────────────
+SCOPES    = ["https://www.googleapis.com/auth/webmasters.readonly"]
+KEY_FILE  = "gsc-key.json"
+SITE_URL  = os.environ["GSC_PROPERTY"]
+GROQ_API_KEY    = os.getenv("GROQ_API_KEY")
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
-MONDAY_ITEM_ID = os.getenv("MONDAY_ITEM_ID")
-
-MONDAY_API_URL = "https://api.monday.com/v2"
-MONDAY_FILE_API_URL = "https://api.monday.com/v2/file"
+MONDAY_ITEM_ID   = os.getenv("MONDAY_ITEM_ID")
 CHARTS_DIR = Path("charts")
 
-ACCENT = "#0F4C81"
-ACCENT_2 = "#2A9D8F"
-ACCENT_3 = "#E76F51"
-ACCENT_4 = "#6C757D"
-GRID = "#D9E2EC"
-TEXT = "#1F2937"
-BG = "#F5F7FB"
+ROW_LIMIT = 1000   # raised from 250
 
+# ── Brand palette ──────────────────────────────────────────────────────────────
+C_NAVY   = "#212878"
+C_TEAL   = "#2A9D8F"
+C_CORAL  = "#E76F51"
+C_SLATE  = "#6C757D"
+C_GREEN  = "#059669"
+C_RED    = "#DC2626"
+C_AMBER  = "#D97706"
+C_LIGHT  = "#F1F5F9"
+C_BORDER = "#E2E8F0"
+
+BRANDED_PATTERN = r"cim connect|vancouver 2026|cim 2026|cim vancouver"
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# DATA FETCHING
+# ══════════════════════════════════════════════════════════════════════════════
 
 def get_service():
-    credentials = service_account.Credentials.from_service_account_file(
-        KEY_FILE,
-        scopes=SCOPES,
-    )
-    return build("searchconsole", "v1", credentials=credentials)
+    creds = service_account.Credentials.from_service_account_file(KEY_FILE, scopes=SCOPES)
+    return build("searchconsole", "v1", credentials=creds)
 
 
-def empty_dimension_df(dimension_name):
+def _empty_df(dimension_name):
     return pd.DataFrame(columns=[dimension_name, "clicks", "impressions", "ctr", "position"])
 
 
-def fetch_dimension_data(service, start_date, end_date, dimension, row_limit=250):
-    request = {
+def fetch_dimension_data(service, start_date, end_date, dimension, row_limit=ROW_LIMIT, extra_filters=None):
+    """Fetch a single dimension from GSC searchanalytics."""
+    body = {
         "startDate": start_date.isoformat(),
-        "endDate": end_date.isoformat(),
+        "endDate":   end_date.isoformat(),
         "dimensions": [dimension],
-        "rowLimit": row_limit,
+        "rowLimit":   row_limit,
+    }
+    if extra_filters:
+        body["dimensionFilterGroups"] = extra_filters
+
+    try:
+        resp = service.searchanalytics().query(siteUrl=SITE_URL, body=body).execute()
+    except Exception as e:
+        print(f"GSC API error fetching {dimension}: {e}")
+        return _empty_df(dimension)
+
+    rows = resp.get("rows", [])
+    data = [
+        {
+            dimension:    row["keys"][0],
+            "clicks":     row.get("clicks", 0),
+            "impressions":row.get("impressions", 0),
+            "ctr":        row.get("ctr", 0),
+            "position":   row.get("position", 0),
+        }
+        for row in rows
+    ]
+    return pd.DataFrame(data) if data else _empty_df(dimension)
+
+
+def fetch_date_trend(service, start_date, end_date):
+    """Fetch daily clicks + impressions for trend line chart."""
+    body = {
+        "startDate":  start_date.isoformat(),
+        "endDate":    end_date.isoformat(),
+        "dimensions": ["date"],
+        "rowLimit":   25,
+    }
+    try:
+        resp = service.searchanalytics().query(siteUrl=SITE_URL, body=body).execute()
+    except Exception as e:
+        print(f"GSC API error fetching date trend: {e}")
+        return pd.DataFrame()
+
+    rows = resp.get("rows", [])
+    data = [
+        {
+            "date":        row["keys"][0],
+            "clicks":      row.get("clicks", 0),
+            "impressions": row.get("impressions", 0),
+            "ctr":         row.get("ctr", 0),
+            "position":    row.get("position", 0),
+        }
+        for row in rows
+    ]
+    if not data:
+        return pd.DataFrame()
+    df = pd.DataFrame(data)
+    df["date"] = pd.to_datetime(df["date"])
+    return df.sort_values("date")
+
+
+def fetch_device_split(service, start_date, end_date):
+    """Fetch clicks/impressions broken down by device."""
+    body = {
+        "startDate":  start_date.isoformat(),
+        "endDate":    end_date.isoformat(),
+        "dimensions": ["device"],
+        "rowLimit":   10,
+    }
+    try:
+        resp = service.searchanalytics().query(siteUrl=SITE_URL, body=body).execute()
+    except Exception as e:
+        print(f"GSC API error fetching device split: {e}")
+        return pd.DataFrame()
+
+    rows = resp.get("rows", [])
+    data = [
+        {
+            "device":      row["keys"][0],
+            "clicks":      row.get("clicks", 0),
+            "impressions": row.get("impressions", 0),
+            "ctr":         row.get("ctr", 0),
+            "position":    row.get("position", 0),
+        }
+        for row in rows
+    ]
+    return pd.DataFrame(data) if data else pd.DataFrame()
+
+
+def fetch_search_appearance(service, start_date, end_date):
+    """Fetch impressions by search appearance / rich result type."""
+    body = {
+        "startDate":  start_date.isoformat(),
+        "endDate":    end_date.isoformat(),
+        "dimensions": ["searchAppearance"],
+        "rowLimit":   25,
+    }
+    try:
+        resp = service.searchanalytics().query(siteUrl=SITE_URL, body=body).execute()
+    except Exception as e:
+        print(f"GSC API error fetching search appearance: {e}")
+        return pd.DataFrame()
+
+    rows = resp.get("rows", [])
+    data = [
+        {
+            "appearance":  row["keys"][0],
+            "clicks":      row.get("clicks", 0),
+            "impressions": row.get("impressions", 0),
+            "ctr":         row.get("ctr", 0),
+        }
+        for row in rows
+    ]
+    return pd.DataFrame(data) if data else pd.DataFrame()
+
+
+def fetch_all_data_parallel(service, current_start, current_end, previous_start, previous_end):
+    """Run all GSC API calls in parallel using a thread pool."""
+    tasks = {
+        "current_query":    (fetch_dimension_data, service, current_start,  current_end,  "query"),
+        "previous_query":   (fetch_dimension_data, service, previous_start, previous_end, "query"),
+        "current_page":     (fetch_dimension_data, service, current_start,  current_end,  "page"),
+        "previous_page":    (fetch_dimension_data, service, previous_start, previous_end, "page"),
+        "trend_current":    (fetch_date_trend,     service, current_start,  current_end),
+        "trend_previous":   (fetch_date_trend,     service, previous_start, previous_end),
+        "device_current":   (fetch_device_split,   service, current_start,  current_end),
+        "appearance":       (fetch_search_appearance, service, current_start, current_end),
     }
 
-    response = service.searchanalytics().query(
-        siteUrl=SITE_URL,
-        body=request
-    ).execute()
+    results = {}
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        future_map = {}
+        for key, args in tasks.items():
+            fn, *fn_args = args
+            future_map[executor.submit(fn, *fn_args)] = key
+        for future in as_completed(future_map):
+            key = future_map[future]
+            try:
+                results[key] = future.result()
+            except Exception as e:
+                print(f"Parallel fetch failed for {key}: {e}")
+                results[key] = pd.DataFrame()
 
-    rows = response.get("rows", [])
-    data = []
+    return results
 
-    for row in rows:
-        data.append({
-            dimension: row["keys"][0],
-            "clicks": row.get("clicks", 0),
-            "impressions": row.get("impressions", 0),
-            "ctr": row.get("ctr", 0),
-            "position": row.get("position", 0),
-        })
 
-    df = pd.DataFrame(data)
 
-    if df.empty:
-        return empty_dimension_df(dimension)
-
-    return df
-
+# ══════════════════════════════════════════════════════════════════════════════
+# DATA PROCESSING
+# ══════════════════════════════════════════════════════════════════════════════
 
 def prepare_comparison(current_df, previous_df, key_column):
-    current_df = current_df.rename(columns={
-        "clicks": "clicks_current",
-        "impressions": "impressions_current",
-        "ctr": "ctr_current",
-        "position": "position_current",
+    """Merge current and previous period DataFrames and compute deltas."""
+    cur = current_df.rename(columns={
+        "clicks": "clicks_current", "impressions": "impressions_current",
+        "ctr": "ctr_current", "position": "position_current",
     })
-
-    previous_df = previous_df.rename(columns={
-        "clicks": "clicks_previous",
-        "impressions": "impressions_previous",
-        "ctr": "ctr_previous",
-        "position": "position_previous",
+    prev = previous_df.rename(columns={
+        "clicks": "clicks_previous", "impressions": "impressions_previous",
+        "ctr": "ctr_previous", "position": "position_previous",
     })
-
-    merged_df = pd.merge(current_df, previous_df, on=key_column, how="outer").fillna(0)
-
-    merged_df["clicks_change"] = merged_df["clicks_current"] - merged_df["clicks_previous"]
-    merged_df["impressions_change"] = merged_df["impressions_current"] - merged_df["impressions_previous"]
-    merged_df["ctr_change"] = merged_df["ctr_current"] - merged_df["ctr_previous"]
-    merged_df["position_change"] = merged_df["position_current"] - merged_df["position_previous"]
-
-    merged_df["is_new"] = (merged_df["clicks_previous"] == 0) & (merged_df["clicks_current"] > 0)
-    merged_df["is_lost"] = (merged_df["clicks_previous"] > 0) & (merged_df["clicks_current"] == 0)
-
-    return merged_df.sort_values(by="clicks_current", ascending=False)
-
+    merged = pd.merge(cur, prev, on=key_column, how="outer").fillna(0)
+    merged["clicks_change"]      = merged["clicks_current"]      - merged["clicks_previous"]
+    merged["impressions_change"] = merged["impressions_current"] - merged["impressions_previous"]
+    merged["ctr_change"]         = merged["ctr_current"]         - merged["ctr_previous"]
+    merged["position_change"]    = merged["position_current"]    - merged["position_previous"]
+    merged["is_new"]  = (merged["clicks_previous"] == 0) & (merged["clicks_current"] > 0)
+    merged["is_lost"] = (merged["clicks_previous"] > 0) & (merged["clicks_current"] == 0)
+    return merged.sort_values("clicks_current", ascending=False)
 
 
 def calculate_kpis(df):
-    """Calculate aggregate KPI metrics from a GSC comparison dataframe."""
-    clicks_curr = df["clicks_current"].sum()
-    clicks_prev = df["clicks_previous"].sum()
-    impr_curr = df["impressions_current"].sum()
-    impr_prev = df["impressions_previous"].sum()
-    
-    ctr_curr = clicks_curr / impr_curr if impr_curr else 0
-    ctr_prev = clicks_prev / impr_prev if impr_prev else 0
-    
-    # Position mean for only those queries that had impressions in that period
-    pos_curr = df.loc[df["impressions_current"] > 0, "position_current"].mean() if not df.loc[df["impressions_current"] > 0].empty else 0
-    pos_prev = df.loc[df["impressions_previous"] > 0, "position_previous"].mean() if not df.loc[df["impressions_previous"] > 0].empty else 0
-    
+    """Return a dict of aggregate KPI metrics from a comparison DataFrame."""
+    clicks_curr  = df["clicks_current"].sum()
+    clicks_prev  = df["clicks_previous"].sum()
+    impr_curr    = df["impressions_current"].sum()
+    impr_prev    = df["impressions_previous"].sum()
+    ctr_curr     = clicks_curr / impr_curr  if impr_curr  else 0
+    ctr_prev     = clicks_prev / impr_prev  if impr_prev  else 0
+    has_impr_cur = df["impressions_current"] > 0
+    has_impr_pre = df["impressions_previous"] > 0
+    pos_curr = df.loc[has_impr_cur, "position_current"].mean()  if has_impr_cur.any()  else 0
+    pos_prev = df.loc[has_impr_pre, "position_previous"].mean() if has_impr_pre.any() else 0
     return {
-        "clicks_current": clicks_curr,
-        "clicks_previous": clicks_prev,
-        "impressions_current": impr_curr,
-        "impressions_previous": impr_prev,
-        "ctr_current": ctr_curr,
-        "ctr_previous": ctr_prev,
-        "position_current": pos_curr,
-        "position_previous": pos_prev
+        "clicks_current": clicks_curr,   "clicks_previous": clicks_prev,
+        "impressions_current": impr_curr, "impressions_previous": impr_prev,
+        "ctr_current": ctr_curr,          "ctr_previous": ctr_prev,
+        "position_current": pos_curr,     "position_previous": pos_prev,
+    }
+
+
+def position_band_html(pos):
+    """Return a coloured badge HTML string for a ranking position."""
+    try:
+        p = float(pos)
+    except (TypeError, ValueError):
+        return ""
+    if p <= 3:
+        return '<span class="badge badge-top3">Top 3</span>'
+    if p <= 10:
+        return '<span class="badge badge-p1">Page 1</span>'
+    if p <= 20:
+        return '<span class="badge badge-p2">Page 2</span>'
+    return '<span class="badge badge-p3">Page 3+</span>'
+
+
+def _fmt(val, decimals=0, pct=False):
+    """Lightweight number formatter for table cells."""
+    try:
+        v = float(val)
+        if math.isnan(v):
+            return "-"
+        if pct:
+            return f"{v:.2%}"
+        if decimals == 0:
+            return f"{v:,.0f}"
+        return f"{v:,.{decimals}f}"
+    except (TypeError, ValueError):
+        s = str(val)
+        return s[:57] + "..." if len(s) > 60 else s
+
+
+def _delta_html(val, decimals=0, lower_is_better=False):
+    """Return a coloured delta span for a numeric change value."""
+    try:
+        v = float(val)
+    except (TypeError, ValueError):
+        return "-"
+    if math.isclose(v, 0, abs_tol=1e-5):
+        return '<span class="chg neu">—</span>'
+    positive_good = (v > 0 and not lower_is_better) or (v < 0 and lower_is_better)
+    cls  = "pos" if positive_good else "neg"
+    sign = "+" if v > 0 else ""
+    return f'<span class="chg {cls}">{sign}{v:.{decimals}f}</span>'
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CHART GENERATION
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _style_ax(ax, title="", xlabel="", ylabel=""):
+    """Apply consistent clean styling to a matplotlib Axes."""
+    ax.set_title(title, fontsize=10, fontweight="600", color="#1A1A1A", pad=8, loc="left")
+    if xlabel:
+        ax.set_xlabel(xlabel, fontsize=8, color="#64748B", labelpad=4)
+    if ylabel:
+        ax.set_ylabel(ylabel, fontsize=8, color="#64748B", labelpad=4)
+    ax.tick_params(labelsize=8, colors="#64748B", length=0)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color(C_BORDER)
+    ax.spines["bottom"].set_color(C_BORDER)
+    ax.set_facecolor("#FAFAFA")
+
+
+def _save(fig, filename):
+    CHARTS_DIR.mkdir(exist_ok=True)
+    path = CHARTS_DIR / filename
+    fig.savefig(path, dpi=150, bbox_inches="tight", facecolor="white")
+    plt.close(fig)
+    return path
+
+
+def plot_kpi_grid(kpis):
+    """2×2 mini-panel grid — one chart per KPI, each on its own scale."""
+    panels = [
+        ("Clicks",         kpis["clicks_current"],      kpis["clicks_previous"],      False, False),
+        ("Impressions",    kpis["impressions_current"],  kpis["impressions_previous"],  False, False),
+        ("CTR (%)",        kpis["ctr_current"] * 100,   kpis["ctr_previous"] * 100,   True,  False),
+        ("Avg Position",   kpis["position_current"],     kpis["position_previous"],     False, True),
+    ]
+    fig, axes = plt.subplots(1, 4, figsize=(13, 3.2))
+    fig.patch.set_facecolor("white")
+
+    for ax, (label, curr, prev, is_pct, lower_better) in zip(axes, panels):
+        good_color = C_NAVY if ((curr >= prev and not lower_better) or (curr <= prev and lower_better)) else C_CORAL
+        bars = ax.bar(["Prev", "Curr"], [prev, curr],
+                      color=[C_SLATE, good_color], width=0.45, zorder=2)
+        # Value labels on top of bars
+        for bar, v in zip(bars, [prev, curr]):
+            label_str = f"{v:.1f}%" if is_pct else f"{v:,.0f}"
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() * 1.03,
+                    label_str, ha="center", va="bottom", fontsize=7.5, color="#374151", fontweight="600")
+        _style_ax(ax, title=label)
+        ax.grid(axis="y", linestyle="--", alpha=0.35, color=C_BORDER, zorder=1)
+        ax.set_ylim(0, max(curr, prev) * 1.28 if max(curr, prev) > 0 else 1)
+
+    fig.tight_layout(pad=1.5)
+    return _save(fig, "kpi_grid.png")
+
+
+def plot_trend_lines(trend_curr, trend_prev):
+    """Dual-axis 7-day trend: clicks (left) + impressions (right)."""
+    if trend_curr.empty:
+        return None
+
+    fig, ax1 = plt.subplots(figsize=(13, 3.4))
+    fig.patch.set_facecolor("white")
+
+    day_labels = [d.strftime("%a %d") for d in trend_curr["date"]]
+    x = range(len(day_labels))
+
+    ax1.plot(list(x), trend_curr["clicks"].tolist(), color=C_NAVY,
+             linewidth=2, marker="o", markersize=4, label="Clicks (curr)", zorder=3)
+    if not trend_prev.empty and len(trend_prev) == len(trend_curr):
+        ax1.plot(list(x), trend_prev["clicks"].tolist(), color=C_NAVY,
+                 linewidth=1.2, linestyle="--", alpha=0.45, marker="o", markersize=3,
+                 label="Clicks (prev)", zorder=2)
+    ax1.fill_between(list(x), trend_curr["clicks"].tolist(), alpha=0.08, color=C_NAVY)
+
+    ax2 = ax1.twinx()
+    ax2.plot(list(x), trend_curr["impressions"].tolist(), color=C_TEAL,
+             linewidth=2, marker="s", markersize=4, label="Impressions (curr)", zorder=3)
+    if not trend_prev.empty and len(trend_prev) == len(trend_curr):
+        ax2.plot(list(x), trend_prev["impressions"].tolist(), color=C_TEAL,
+                 linewidth=1.2, linestyle="--", alpha=0.45, marker="s", markersize=3,
+                 label="Impressions (prev)", zorder=2)
+
+    ax1.set_xticks(list(x))
+    ax1.set_xticklabels(day_labels, fontsize=8, color="#64748B")
+    ax1.tick_params(axis="y", labelsize=8, colors=C_NAVY, length=0)
+    ax2.tick_params(axis="y", labelsize=8, colors=C_TEAL, length=0)
+    ax1.set_ylabel("Clicks", fontsize=8, color=C_NAVY)
+    ax2.set_ylabel("Impressions", fontsize=8, color=C_TEAL)
+    ax1.set_facecolor("#FAFAFA")
+    for spine in ["top"]:
+        ax1.spines[spine].set_visible(False)
+        ax2.spines[spine].set_visible(False)
+    ax1.spines["left"].set_color(C_BORDER)
+    ax1.spines["bottom"].set_color(C_BORDER)
+    ax2.spines["right"].set_color(C_BORDER)
+    ax1.grid(axis="y", linestyle="--", alpha=0.3, color=C_BORDER)
+    ax1.set_title("7-Day Daily Trend — Clicks & Impressions", fontsize=10,
+                  fontweight="600", color="#1A1A1A", pad=8, loc="left")
+
+    # Combined legend
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, fontsize=7.5,
+               frameon=False, loc="upper right", ncol=2)
+
+    fig.tight_layout(pad=1.5)
+    return _save(fig, "trend_lines.png")
+
+
+def plot_device_split(device_df):
+    """Horizontal stacked bar showing device share of clicks and impressions."""
+    if device_df.empty:
+        return None
+
+    device_df = device_df.copy()
+    device_df["device"] = device_df["device"].str.capitalize()
+    total_clicks = device_df["clicks"].sum()
+    total_impr   = device_df["impressions"].sum()
+    if total_clicks == 0 and total_impr == 0:
+        return None
+
+    device_df["click_pct"] = device_df["clicks"] / total_clicks * 100 if total_clicks else 0
+    device_df["impr_pct"]  = device_df["impressions"] / total_impr * 100 if total_impr else 0
+
+    colors = {
+        "Mobile":  C_NAVY,
+        "Desktop": C_TEAL,
+        "Tablet":  C_AMBER,
+    }
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(13, 2.8))
+    fig.patch.set_facecolor("white")
+
+    for ax, col, title in [(ax1, "click_pct", "Clicks by Device (%)"),
+                            (ax2, "impr_pct",  "Impressions by Device (%)")]:
+        left = 0
+        for _, row in device_df.iterrows():
+            dev = row["device"]
+            val = row[col]
+            c   = colors.get(dev, C_SLATE)
+            ax.barh(0, val, left=left, color=c, height=0.55)
+            if val > 4:
+                ax.text(left + val / 2, 0, f"{dev}\n{val:.1f}%",
+                        ha="center", va="center", fontsize=8, color="white", fontweight="600")
+            left += val
+        ax.set_xlim(0, 100)
+        ax.set_yticks([])
+        ax.set_title(title, fontsize=9, fontweight="600", color="#1A1A1A", pad=5, loc="left")
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.spines["bottom"].set_color(C_BORDER)
+        ax.tick_params(labelsize=8, colors="#64748B", length=0)
+        ax.set_facecolor("#FAFAFA")
+
+    fig.tight_layout(pad=1.2)
+    return _save(fig, "device_split.png")
+
+
+def plot_ctr_position_scatter(query_df):
+    """CTR vs Avg Position scatter — dot size = impressions. Reveals CTR opportunity."""
+    df = query_df[
+        (query_df["impressions_current"] > 0) &
+        (query_df["position_current"] > 0)
+    ].copy().head(80)
+    if df.empty:
+        return None
+
+    fig, ax = plt.subplots(figsize=(13, 4.2))
+    fig.patch.set_facecolor("white")
+
+    sizes = (df["impressions_current"] / df["impressions_current"].max() * 220).clip(lower=18)
+    scatter = ax.scatter(
+        df["position_current"],
+        df["ctr_current"] * 100,
+        s=sizes,
+        c=df["clicks_current"],
+        cmap="Blues",
+        alpha=0.72,
+        edgecolors=C_BORDER,
+        linewidths=0.5,
+        zorder=3,
+    )
+    # Reference lines
+    ax.axvline(10.5, color=C_AMBER, linewidth=1, linestyle="--", alpha=0.6, zorder=2)
+    ax.axvline(3.5,  color=C_GREEN, linewidth=1, linestyle="--", alpha=0.6, zorder=2)
+    ax.text(10.7, ax.get_ylim()[1] * 0.95 if ax.get_ylim()[1] > 0 else 5,
+            "Page 2 →", fontsize=7.5, color=C_AMBER, va="top")
+    ax.text(3.7,  ax.get_ylim()[1] * 0.95 if ax.get_ylim()[1] > 0 else 5,
+            "Top 3 →", fontsize=7.5, color=C_GREEN, va="top")
+
+    cbar = fig.colorbar(scatter, ax=ax, pad=0.01)
+    cbar.set_label("Clicks", fontsize=8, color="#64748B")
+    cbar.ax.tick_params(labelsize=7)
+
+    _style_ax(ax, title="CTR vs Avg Position  (bubble size = impressions)",
+              xlabel="Average Position", ylabel="CTR (%)")
+    ax.grid(linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
+    ax.invert_xaxis()
+
+    fig.tight_layout(pad=1.5)
+    return _save(fig, "ctr_position_scatter.png")
+
+
+def plot_lollipop_movers(gainers_df, losers_df, label_col, change_col, title, filename):
+    """Lollipop chart for winners & losers — cleaner than thick bars."""
+    gainers = gainers_df[[label_col, change_col]].head(6).copy()
+    losers  = losers_df[[label_col, change_col]].head(6).copy()
+    merged  = pd.concat([losers, gainers], ignore_index=True)
+    if merged.empty:
+        return None
+
+    labels = [short_url(v, 44) for v in merged[label_col].astype(str)]
+    values = merged[change_col].astype(float).tolist()
+    colors = [C_CORAL if v < 0 else C_TEAL for v in values]
+
+    fig_h = max(3.6, len(labels) * 0.46)
+    fig, ax = plt.subplots(figsize=(13, fig_h))
+    fig.patch.set_facecolor("white")
+
+    y_pos = range(len(labels))
+    for y, v, c in zip(y_pos, values, colors):
+        ax.plot([0, v], [y, y], color=c, linewidth=1.6, zorder=2)
+        ax.scatter([v], [y], color=c, s=52, zorder=3)
+        sign = "+" if v > 0 else ""
+        ax.text(v + (max(abs(x) for x in values) * 0.02), y,
+                f"{sign}{v:.0f}", va="center", fontsize=7.5, color=c, fontweight="600")
+
+    ax.set_yticks(list(y_pos))
+    ax.set_yticklabels(labels, fontsize=8)
+    ax.axvline(0, color="#374151", linewidth=1, zorder=1)
+    _style_ax(ax, title=title, xlabel="Click Change")
+    ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=0)
+    ax.set_xlim(
+        min(values) * 1.25 if min(values) < 0 else -1,
+        max(values) * 1.25 if max(values) > 0 else 1,
+    )
+    fig.tight_layout(pad=1.5)
+    return _save(fig, filename)
+
+
+def plot_search_appearance(appearance_df):
+    """Horizontal bar chart of impressions by SERP feature / search appearance."""
+    if appearance_df.empty:
+        return None
+    df = appearance_df.sort_values("impressions", ascending=True).tail(10)
+
+    fig, ax = plt.subplots(figsize=(13, max(2.8, len(df) * 0.42)))
+    fig.patch.set_facecolor("white")
+
+    bars = ax.barh(df["appearance"], df["impressions"], color=C_NAVY, height=0.5, zorder=2)
+    max_v = df["impressions"].max()
+    for bar, v in zip(bars, df["impressions"]):
+        ax.text(v + max_v * 0.01, bar.get_y() + bar.get_height() / 2,
+                f"{v:,.0f}", va="center", fontsize=7.5, color="#374151")
+    ax.set_xlim(0, max_v * 1.18)
+    _style_ax(ax, title="Impressions by Search Appearance / SERP Feature", xlabel="Impressions")
+    ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
+    fig.tight_layout(pad=1.5)
+    return _save(fig, "search_appearance.png")
+
+
+def build_all_charts(query_df, page_df, kpis, trend_curr, trend_prev, device_df, appearance_df):
+    """Generate all charts and return a dict of {name: Path}."""
+    top_queries   = query_df.nlargest(10, "clicks_current")
+    query_gainers = query_df.nlargest(10, "clicks_change")
+    query_losers  = query_df.nsmallest(10, "clicks_change")
+    top_pages     = page_df.nlargest(10, "clicks_current")
+    page_gainers  = page_df.nlargest(10, "clicks_change")
+    page_losers   = page_df.nsmallest(10, "clicks_change")
+
+    return {
+        "kpi_grid":       plot_kpi_grid(kpis),
+        "trend":          plot_trend_lines(trend_curr, trend_prev),
+        "device":         plot_device_split(device_df),
+        "scatter":        plot_ctr_position_scatter(query_df),
+        "query_movers":   plot_lollipop_movers(query_gainers, query_losers, "query", "clicks_change",
+                                               "Query Winners & Losers (Click Δ)", "query_movers.png"),
+        "page_movers":    plot_lollipop_movers(page_gainers, page_losers, "page", "clicks_change",
+                                               "Page Winners & Losers (Click Δ)", "page_movers.png"),
+        "appearance":     plot_search_appearance(appearance_df),
     }
 
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+# AI ANALYSIS
+# ══════════════════════════════════════════════════════════════════════════════
 
+def build_deterministic_bullets(kpis, query_df):
+    """Return a list of plain-text bullet strings from hard metrics."""
+    bullets = []
+    clicks_curr = kpis["clicks_current"]
+    clicks_prev = kpis["clicks_previous"]
+    impr_curr   = kpis["impressions_current"]
+    impr_prev   = kpis["impressions_previous"]
+    ctr_curr    = kpis["ctr_current"]
+    ctr_prev    = kpis["ctr_previous"]
+    pos_curr    = kpis["position_current"]
+    pos_prev    = kpis["position_previous"]
 
-def build_executive_read(total_clicks_current, total_clicks_previous,
-                         total_impressions_current, total_impressions_previous,
-                         weighted_ctr_current, weighted_ctr_previous,
-                         avg_position_current, avg_position_previous,
-                         top_queries_df):
-    lines = []
-
-    if total_clicks_current > total_clicks_previous:
-        lines.append("Overall clicks are up week over week.")
-    elif total_clicks_current < total_clicks_previous:
-        lines.append("Overall clicks are down week over week.")
+    # Clicks
+    pct_clicks = safe_pct_change(clicks_curr, clicks_prev)
+    if pct_clicks is not None:
+        direction = "up" if clicks_curr > clicks_prev else ("down" if clicks_curr < clicks_prev else "flat")
+        pct_str   = f" ({pct_clicks:+.1%})" if pct_clicks else ""
+        bullets.append(f"Clicks are {direction} week over week: {clicks_curr:,.0f} vs {clicks_prev:,.0f}{pct_str}.")
     else:
-        lines.append("Overall clicks are flat week over week.")
+        bullets.append(f"Clicks this week: {clicks_curr:,.0f} (no prior-period baseline).")
 
-    impressions_pct = safe_pct_change(total_impressions_current, total_impressions_previous)
-    if impressions_pct is None:
-        lines.append("Impressions do not yet have a prior-period baseline.")
-    elif abs(impressions_pct) < 3:
-        lines.append("Impressions are essentially flat.")
-    elif total_impressions_current > total_impressions_previous:
-        lines.append("Impressions increased week over week.")
+    # Impressions
+    pct_impr = safe_pct_change(impr_curr, impr_prev)
+    if pct_impr is not None:
+        if abs(pct_impr) < 0.03:
+            bullets.append(f"Impressions are essentially flat: {impr_curr:,.0f} vs {impr_prev:,.0f}.")
+        else:
+            direction = "up" if impr_curr > impr_prev else "down"
+            bullets.append(f"Impressions are {direction} {pct_impr:+.1%}: {impr_curr:,.0f} vs {impr_prev:,.0f}.")
+
+    # CTR
+    if ctr_curr > ctr_prev:
+        bullets.append(f"CTR improved to {ctr_curr:.2%} (from {ctr_prev:.2%}), indicating better search-result efficiency.")
+    elif ctr_curr < ctr_prev:
+        bullets.append(f"CTR declined to {ctr_curr:.2%} (from {ctr_prev:.2%}).")
     else:
-        lines.append("Impressions declined week over week.")
+        bullets.append(f"CTR was flat at {ctr_curr:.2%}.")
 
-    if weighted_ctr_current > weighted_ctr_previous:
-        lines.append("CTR improved, indicating better search-result efficiency.")
-    elif weighted_ctr_current < weighted_ctr_previous:
-        lines.append("CTR declined versus the prior period.")
-    else:
-        lines.append("CTR was flat versus the prior period.")
+    # Position
+    if pos_curr > 0 and pos_prev > 0:
+        if pos_curr < pos_prev:
+            bullets.append(f"Average position improved to {pos_curr:.1f} (from {pos_prev:.1f}).")
+        elif pos_curr > pos_prev:
+            bullets.append(f"Average position weakened to {pos_curr:.1f} (from {pos_prev:.1f}).")
+        else:
+            bullets.append(f"Average position unchanged at {pos_curr:.1f}.")
 
-    if avg_position_current < avg_position_previous:
-        lines.append("Average position improved.")
-    elif avg_position_current > avg_position_previous:
-        lines.append("Average position weakened.")
-    else:
-        lines.append("Average position was unchanged.")
+    # New / lost queries
+    new_count  = int(query_df["is_new"].sum())
+    lost_count = int(query_df["is_lost"].sum())
+    if new_count:
+        bullets.append(f"{new_count} new quer{'y' if new_count == 1 else 'ies'} appeared this week with no prior-period clicks.")
+    if lost_count:
+        bullets.append(f"{lost_count} quer{'y' if lost_count == 1 else 'ies'} that had clicks last week recorded zero clicks this week.")
 
-    branded_mask = top_queries_df["query"].astype(str).str.contains(
-        r"cim connect|vancouver 2026|cim 2026|cim vancouver",
-        case=False,
-        na=False,
-    )
-    branded_clicks = top_queries_df.loc[branded_mask, "clicks_current"].sum()
-    total_top_clicks = top_queries_df["clicks_current"].sum()
+    # Branded concentration
+    top25 = query_df.nlargest(25, "clicks_current")
+    branded_mask   = top25["query"].astype(str).str.contains(BRANDED_PATTERN, case=False, na=False)
+    branded_clicks = top25.loc[branded_mask, "clicks_current"].sum()
+    total_top      = top25["clicks_current"].sum()
+    if total_top > 0 and (branded_clicks / total_top) >= 0.4:
+        bullets.append("Traffic remains heavily concentrated in CIM Connect / Vancouver 2026 branded demand.")
 
-    if total_top_clicks > 0 and (branded_clicks / total_top_clicks) >= 0.4:
-        lines.append("Performance concentration remains heavily weighted toward CIM Connect / Vancouver 2026 branded demand.")
-
-    return lines
+    return bullets
 
 
-def build_ai_analysis(query_df, page_df, current_start, current_end, previous_start, previous_end):
+def build_ai_bullets(kpis, query_df, page_df, current_start, current_end, previous_start, previous_end):
+    """Call Groq/Llama and return a list of bullet strings (no headings, no markdown)."""
     if not GROQ_API_KEY:
-        return "Executive commentary is unavailable for this run."
+        return []
 
-    top_queries = query_df.sort_values(by="clicks_current", ascending=False).head(10)[[
-        "query", "clicks_current", "clicks_change", "impressions_current", "ctr_current", "position_current"
-    ]]
-    top_pages = page_df.sort_values(by="clicks_current", ascending=False).head(10)[[
-        "page", "clicks_current", "clicks_change", "impressions_current", "ctr_current", "position_current"
-    ]]
+    top_queries = query_df.nlargest(10, "clicks_current")[
+        ["query", "clicks_current", "clicks_change", "impressions_current", "ctr_current", "position_current"]
+    ]
+    top_pages = page_df.nlargest(10, "clicks_current")[
+        ["page", "clicks_current", "clicks_change", "impressions_current", "ctr_current", "position_current"]
+    ]
 
-    kpis = calculate_kpis(query_df)
-    
-    total_clicks_current = kpis["clicks_current"]
-    total_clicks_previous = kpis["clicks_previous"]
-    total_impressions_current = kpis["impressions_current"]
-    total_impressions_previous = kpis["impressions_previous"]
-    ctr_current = kpis["ctr_current"]
-    ctr_previous = kpis["ctr_previous"]
-    avg_position_current = kpis["position_current"]
-    avg_position_previous = kpis["position_previous"]
+    prompt = f"""You are writing a concise executive SEO brief for a corporate stakeholder report.
 
-    prompt = f"""
-You are writing a concise executive SEO analysis for a corporate stakeholder report.
-
-Write under these headings:
-Executive Summary
-Key Wins
-Risks / Watchouts
-Recommended Actions for Next Week
-
-Requirements:
-- professional corporate tone
-- no hype
-- use short paragraphs and bullets
-- keep it under 275 words
-- do not invent data
-- emphasize interpretation and priorities, not just metric repetition
+Output ONLY bullet points. No headings, no bold, no markdown symbols, no numbered lists.
+Each bullet is one sentence. Maximum 10 bullets total.
+Cover: what changed and why it matters, key wins, risks or watchouts, one or two recommended actions.
+Do not repeat raw numbers already obvious from the data — interpret and prioritise.
+Professional corporate tone. Under 200 words total.
 
 Current period: {current_start} to {current_end}
 Previous period: {previous_start} to {previous_end}
 
 Overall metrics:
-- Clicks: {total_clicks_current:.0f} vs {total_clicks_previous:.0f}
-- Impressions: {total_impressions_current:.0f} vs {total_impressions_previous:.0f}
-- CTR: {ctr_current:.2%} vs {ctr_previous:.2%}
-- Avg position: {avg_position_current:.2f} vs {avg_position_previous:.2f}
+- Clicks: {kpis['clicks_current']:.0f} vs {kpis['clicks_previous']:.0f}
+- Impressions: {kpis['impressions_current']:.0f} vs {kpis['impressions_previous']:.0f}
+- CTR: {kpis['ctr_current']:.2%} vs {kpis['ctr_previous']:.2%}
+- Avg position: {kpis['position_current']:.2f} vs {kpis['position_previous']:.2f}
 
 Top queries:
 {top_queries.to_csv(index=False)}
@@ -250,434 +691,576 @@ Top pages:
 
     try:
         client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
-        response = client.chat.completions.create(
+        resp = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
-                {"role": "system", "content": "You write polished weekly executive SEO briefs."},
-                {"role": "user", "content": prompt},
+                {"role": "system", "content": "You write polished weekly executive SEO briefs as bullet points only."},
+                {"role": "user",   "content": prompt},
             ],
             temperature=0.2,
         )
-        content = response.choices[0].message.content.strip()
-        return content if content else "Executive commentary was empty for this run."
+        raw = resp.choices[0].message.content.strip()
+        bullets = []
+        for line in raw.splitlines():
+            clean = line.strip().lstrip("-•*·▪▸").strip()
+            # Strip any stray markdown bold/italic
+            clean = clean.replace("**", "").replace("__", "").replace("*", "").strip()
+            if clean:
+                bullets.append(clean)
+        return bullets
     except Exception as e:
-        return "Executive commentary is temporarily unavailable for this run."
+        print(f"AI analysis failed: {e}")
+        return []
+
+
+def build_unified_executive_bullets(kpis, query_df, page_df,
+                                    current_start, current_end,
+                                    previous_start, previous_end):
+    """Merge deterministic + AI bullets into one flat list."""
+    det_bullets = build_deterministic_bullets(kpis, query_df)
+    ai_bullets  = build_ai_bullets(kpis, query_df, page_df,
+                                   current_start, current_end,
+                                   previous_start, previous_end)
+    return det_bullets + ai_bullets
 
 
 
-def plot_metric_comparison(total_clicks_current, total_clicks_previous,
-                           total_impressions_current, total_impressions_previous,
-                           weighted_ctr_current, weighted_ctr_previous,
-                           avg_position_current, avg_position_previous):
-    CHARTS_DIR.mkdir(exist_ok=True)
-    path = CHARTS_DIR / "kpi_comparison.png"
+# ══════════════════════════════════════════════════════════════════════════════
+# HTML TABLE BUILDERS  (inline bar + badge variants)
+# ══════════════════════════════════════════════════════════════════════════════
 
-    labels = ["Clicks", "Impressions", "CTR %", "Avg Position"]
-    current = [total_clicks_current, total_impressions_current, weighted_ctr_current * 100, avg_position_current]
-    previous = [total_clicks_previous, total_impressions_previous, weighted_ctr_previous * 100, avg_position_previous]
-
-    fig, ax = plt.subplots(figsize=(10, 5.2))
-    x = range(len(labels))
-    width = 0.35
-    ax.bar([i - width / 2 for i in x], previous, width=width, label="Previous", color=ACCENT_4)
-    ax.bar([i + width / 2 for i in x], current, width=width, label="Current", color=ACCENT)
-    ax.set_xticks(list(x))
-    ax.set_xticklabels(labels)
-    ax.set_title("Current Week vs Previous Week")
-    ax.grid(axis="y", linestyle="--", alpha=0.35)
-    ax.legend(frameon=False)
-    fig.tight_layout()
-    fig.savefig(path, dpi=180, bbox_inches="tight")
-    plt.close(fig)
-    return path
-
-
-def plot_top_items(df, label_col, value_col, title, output_name, color=ACCENT, max_label=42):
-    CHARTS_DIR.mkdir(exist_ok=True)
-    path = CHARTS_DIR / output_name
-    plot_df = df[[label_col, value_col]].copy().head(10)
-    if plot_df.empty:
-        return None
-
-    labels = [short_url(v, max_label) for v in plot_df[label_col].astype(str).tolist()][::-1]
-    values = plot_df[value_col].astype(float).tolist()[::-1]
-
-    fig_height = max(4.8, len(labels) * 0.55)
-    fig, ax = plt.subplots(figsize=(10, fig_height))
-    ax.barh(labels, values, color=color)
-    ax.set_title(title)
-    ax.grid(axis="x", linestyle="--", alpha=0.35)
-    fig.tight_layout()
-    fig.savefig(path, dpi=180, bbox_inches="tight")
-    plt.close(fig)
-    return path
-
-
-def plot_winners_losers(gainers_df, losers_df, label_col, change_col, title, output_name):
-    CHARTS_DIR.mkdir(exist_ok=True)
-    path = CHARTS_DIR / output_name
-
-    gainers = gainers_df[[label_col, change_col]].head(5).copy()
-    losers = losers_df[[label_col, change_col]].head(5).copy()
-
-    merged = pd.concat([losers, gainers], ignore_index=True)
-    if merged.empty:
-        return None
-
-    labels = [short_url(v, 42) for v in merged[label_col].astype(str).tolist()]
-    values = merged[change_col].astype(float).tolist()
-    colors = [ACCENT_3 if v < 0 else ACCENT_2 for v in values]
-
-    fig_height = max(4.5, len(labels) * 0.52)
-    fig, ax = plt.subplots(figsize=(10, fig_height))
-    ax.barh(labels, values, color=colors)
-    ax.axvline(0, color="#374151", linewidth=1)
-    ax.set_title(title)
-    ax.grid(axis="x", linestyle="--", alpha=0.30)
-    fig.tight_layout()
-    fig.savefig(path, dpi=180, bbox_inches="tight")
-    plt.close(fig)
-    return path
-
-
-def build_chart_paths(query_df, page_df,
-                      total_clicks_current, total_clicks_previous,
-                      total_impressions_current, total_impressions_previous,
-                      weighted_ctr_current, weighted_ctr_previous,
-                      avg_position_current, avg_position_previous):
-    top_queries = query_df.sort_values(by="clicks_current", ascending=False).head(10)
-    gainers = query_df.sort_values(by="clicks_change", ascending=False).head(10)
-    losers = query_df.sort_values(by="clicks_change", ascending=True).head(10)
-    top_pages = page_df.sort_values(by="clicks_current", ascending=False).head(10)
-    page_gainers = page_df.sort_values(by="clicks_change", ascending=False).head(10)
-    page_losers = page_df.sort_values(by="clicks_change", ascending=True).head(10)
-
-    return {
-        "kpi": plot_metric_comparison(
-            total_clicks_current, total_clicks_previous,
-            total_impressions_current, total_impressions_previous,
-            weighted_ctr_current, weighted_ctr_previous,
-            avg_position_current, avg_position_previous,
-        ),
-        "top_queries": plot_top_items(top_queries, "query", "clicks_current", "Top Queries by Clicks", "top_queries.png", ACCENT),
-        "top_pages": plot_top_items(top_pages, "page", "clicks_current", "Top Pages by Clicks", "top_pages.png", ACCENT_2, 52),
-        "query_moves": plot_winners_losers(gainers, losers, "query", "clicks_change", "Query Winners and Losers", "query_moves.png"),
-        "page_moves": plot_winners_losers(page_gainers, page_losers, "page", "clicks_change", "Page Winners and Losers", "page_moves.png"),
-    }
-
-
-def image_block(path, alt):
-    if not path:
-        return ""
-    return f'<div class="chart-card"><img src="{html.escape(str(path))}" alt="{html.escape(alt)}"></div>'
-
-
-def write_markdown_summary(query_df, page_df, ai_analysis, current_start, current_end, previous_start, previous_end):
-    kpis = calculate_kpis(query_df)
-    
-    total_clicks_current = kpis["clicks_current"]
-    total_clicks_previous = kpis["clicks_previous"]
-    total_impressions_current = kpis["impressions_current"]
-    total_impressions_previous = kpis["impressions_previous"]
-    weighted_ctr_current = kpis["ctr_current"]
-    weighted_ctr_previous = kpis["ctr_previous"]
-    avg_position_current = kpis["position_current"]
-    avg_position_previous = kpis["position_previous"]
-
-    top_queries = query_df.sort_values(by="clicks_current", ascending=False).head(10)
-    top_pages = page_df.sort_values(by="clicks_current", ascending=False).head(10)
-
-    executive_read = build_executive_read(
-        total_clicks_current, total_clicks_previous,
-        total_impressions_current, total_impressions_previous,
-        weighted_ctr_current, weighted_ctr_previous,
-        avg_position_current, avg_position_previous,
-        top_queries,
+def _bar_cell(value, max_value, color=C_NAVY):
+    """Return a table cell containing an inline proportional bar."""
+    if max_value <= 0:
+        return f"<td>{_fmt(value)}</td>"
+    pct = min(value / max_value * 100, 100)
+    return (
+        f'<td><div style="display:flex;align-items:center;gap:6px;">'
+        f'<div style="width:{pct:.1f}%;max-width:80px;height:8px;'
+        f'background:{color};border-radius:3px;flex-shrink:0;"></div>'
+        f'<span style="font-size:9px;color:#374151;">{_fmt(value)}</span>'
+        f"</div></td>"
     )
 
+
+def build_top_table(df, key_col, is_page=False, n=15):
+    """Top queries or pages table with inline click bar, position badge, and delta columns."""
+    if df.empty:
+        return "<p style='color:#94A3B8;font-size:10px;'>No data available.</p>"
+
+    work = df.nlargest(n, "clicks_current").copy()
+    max_clicks = work["clicks_current"].max()
+    max_impr   = work["impressions_current"].max()
+
+    headers = ["#", "Query" if not is_page else "Page",
+               "Clicks", "Impr", "CTR", "Pos", "Band", "Clicks Δ", "Pos Δ"]
+    th = "".join(f"<th>{h}</th>" for h in headers)
+
+    rows_html = []
+    for i, (_, row) in enumerate(work.iterrows(), 1):
+        label = short_url(str(row[key_col]), 55 if is_page else 48)
+        click_bar  = _bar_cell(row["clicks_current"], max_clicks, C_NAVY)
+        impr_bar   = _bar_cell(row["impressions_current"], max_impr, C_TEAL)
+        ctr_str    = _fmt(row["ctr_current"], pct=True)
+        pos_str    = _fmt(row["position_current"], decimals=1)
+        band       = position_band_html(row["position_current"])
+        click_dlt  = _delta_html(row["clicks_change"])
+        pos_dlt    = _delta_html(row["position_change"], decimals=1, lower_is_better=True)
+
+        rows_html.append(
+            f"<tr>"
+            f"<td style='color:#94A3B8;font-size:9px;'>{i}</td>"
+            f"<td style='max-width:220px;word-break:break-all;'>{html.escape(label)}</td>"
+            f"{click_bar}{impr_bar}"
+            f"<td>{ctr_str}</td>"
+            f"<td>{pos_str}</td>"
+            f"<td>{band}</td>"
+            f"<td>{click_dlt}</td>"
+            f"<td>{pos_dlt}</td>"
+            f"</tr>"
+        )
+
+    return (
+        f"<table><thead><tr>{th}</tr></thead>"
+        f"<tbody>{''.join(rows_html)}</tbody></table>"
+    )
+
+
+def build_movers_table(gainers_df, losers_df, key_col, n=10):
+    """Single color-coded table: losers on top, gainers below, sorted by click change."""
+    if gainers_df.empty and losers_df.empty:
+        return "<p style='color:#94A3B8;font-size:10px;'>No movement data available.</p>"
+
+    gainers = gainers_df.nlargest(n, "clicks_change").copy()
+    losers  = losers_df.nsmallest(n, "clicks_change").copy()
+    merged  = pd.concat([losers, gainers], ignore_index=True)
+
+    headers = ["Query" if key_col == "query" else "Page",
+               "Prev Clicks", "Curr Clicks", "Click Δ", "Pos Δ"]
+    th = "".join(f"<th>{h}</th>" for h in headers)
+
+    rows_html = []
+    for _, row in merged.iterrows():
+        change = float(row["clicks_change"])
+        is_gain = change >= 0
+        border_color = C_TEAL if is_gain else C_CORAL
+        label = short_url(str(row[key_col]), 55)
+        click_dlt = _delta_html(row["clicks_change"])
+        pos_dlt   = _delta_html(row["position_change"], decimals=1, lower_is_better=True)
+
+        rows_html.append(
+            f'<tr style="border-left:3px solid {border_color};">'
+            f"<td style='max-width:220px;word-break:break-all;'>{html.escape(label)}</td>"
+            f"<td>{_fmt(row['clicks_previous'])}</td>"
+            f"<td>{_fmt(row['clicks_current'])}</td>"
+            f"<td>{click_dlt}</td>"
+            f"<td>{pos_dlt}</td>"
+            f"</tr>"
+        )
+
+    return (
+        f"<table><thead><tr>{th}</tr></thead>"
+        f"<tbody>{''.join(rows_html)}</tbody></table>"
+    )
+
+
+def build_new_lost_block(query_df):
+    """Two mini-tables: new queries this week + queries that dropped to zero."""
+    new_df  = query_df[query_df["is_new"]].nlargest(10, "clicks_current")
+    lost_df = query_df[query_df["is_lost"]].nlargest(10, "clicks_previous")
+
+    def mini_table(df, key_col, val_col, val_label, border_color):
+        if df.empty:
+            return f"<p style='color:#94A3B8;font-size:9px;'>None this week.</p>"
+        th = f"<th>Query</th><th>{val_label}</th><th>Impr</th>"
+        rows = []
+        for _, row in df.iterrows():
+            label = html.escape(short_url(str(row[key_col]), 50))
+            rows.append(
+                f'<tr style="border-left:3px solid {border_color};">'
+                f"<td style='max-width:200px;word-break:break-all;'>{label}</td>"
+                f"<td>{_fmt(row[val_col])}</td>"
+                f"<td>{_fmt(row['impressions_current'] if 'impressions_current' in row else row.get('impressions_previous', 0))}</td>"
+                f"</tr>"
+            )
+        return f"<table><thead><tr>{th}</tr></thead><tbody>{''.join(rows)}</tbody></table>"
+
+    new_html  = mini_table(new_df,  "query", "clicks_current",  "Clicks", C_TEAL)
+    lost_html = mini_table(lost_df, "query", "clicks_previous", "Prev Clicks", C_CORAL)
+
+    return f"""
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
+  <div>
+    <div class="section-label" style="color:{C_TEAL};">&#9650; New This Week ({len(new_df)})</div>
+    {new_html}
+  </div>
+  <div>
+    <div class="section-label" style="color:{C_CORAL};">&#9660; Lost This Week ({len(lost_df)})</div>
+    {lost_html}
+  </div>
+</div>
+"""
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CSS  (extends pdf_report_formatter base styles)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def get_extra_css():
+    return """
+    /* ── Executive bullets ─────────────────────────────────────── */
+    .exec-panel {
+        background: #F8FAFC;
+        border-top: 3px solid #212878;
+        border: 1px solid #E2E8F0;
+        border-radius: 4px;
+        padding: 18px 20px;
+        margin-bottom: 22px;
+    }
+    .exec-panel .panel-label {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        color: #64748B;
+        font-weight: 700;
+        margin-bottom: 10px;
+    }
+    .exec-bullets {
+        margin: 0;
+        padding-left: 16px;
+        list-style: disc;
+    }
+    .exec-bullets li {
+        font-size: 10.5px;
+        color: #1E293B;
+        line-height: 1.65;
+        margin-bottom: 5px;
+        padding-left: 2px;
+    }
+
+    /* ── Section label (used in new/lost block) ─────────────────── */
+    .section-label {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.7px;
+        font-weight: 700;
+        margin-bottom: 6px;
+    }
+
+    /* ── Inline delta spans ─────────────────────────────────────── */
+    .chg        { font-size: 9.5px; font-weight: 600; padding: 1px 5px;
+                  border-radius: 3px; display: inline-block; }
+    .chg.pos    { background: #ECFDF5; color: #059669; }
+    .chg.neg    { background: #FEF2F2; color: #DC2626; }
+    .chg.neu    { background: #F8FAFC; color: #94A3B8; }
+
+    /* ── Position band badges ───────────────────────────────────── */
+    .badge      { font-size: 8px; font-weight: 700; padding: 2px 6px;
+                  border-radius: 10px; display: inline-block; white-space: nowrap; }
+    .badge-top3 { background: #DCFCE7; color: #15803D; }
+    .badge-p1   { background: #DBEAFE; color: #1D4ED8; }
+    .badge-p2   { background: #FEF9C3; color: #A16207; }
+    .badge-p3   { background: #FEE2E2; color: #B91C1C; }
+
+    /* ── Chart image wrapper ────────────────────────────────────── */
+    .chart-wrap {
+        margin-bottom: 18px;
+        page-break-inside: avoid;
+    }
+    .chart-wrap img {
+        width: 100%;
+        display: block;
+        border-radius: 4px;
+        border: 1px solid #E2E8F0;
+    }
+    .chart-row-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+        margin-bottom: 18px;
+        page-break-inside: avoid;
+    }
+
+    /* ── Two-column query/page layout ───────────────────────────── */
+    .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 20px;
+    }
+    .col-header {
+        font-size: 9px;
+        text-transform: uppercase;
+        letter-spacing: 0.7px;
+        font-weight: 700;
+        color: #212878;
+        border-left: 3px solid #212878;
+        padding-left: 8px;
+        margin-bottom: 8px;
+    }
+
+    /* ── Table tweaks ───────────────────────────────────────────── */
+    table { font-size: 9.5px; }
+    th    { font-size: 8px; }
+    td    { padding: 7px 10px; }
+    """
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# HTML REPORT BUILDER
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _img(path, alt="chart"):
+    if not path:
+        return ""
+    return f'<div class="chart-wrap"><img src="{html.escape(str(path))}" alt="{html.escape(alt)}"></div>'
+
+
+def _img2(path_a, alt_a, path_b, alt_b):
+    """Two charts side-by-side."""
+    a = f'<div><img src="{html.escape(str(path_a))}" alt="{html.escape(alt_a)}" style="width:100%;border-radius:4px;border:1px solid #E2E8F0;"></div>' if path_a else "<div></div>"
+    b = f'<div><img src="{html.escape(str(path_b))}" alt="{html.escape(alt_b)}" style="width:100%;border-radius:4px;border:1px solid #E2E8F0;"></div>' if path_b else "<div></div>"
+    return f'<div class="chart-row-2">{a}{b}</div>'
+
+
+def write_html_summary(query_df, page_df, exec_bullets, kpis,
+                       chart_paths, device_df, appearance_df,
+                       current_start, current_end, previous_start, previous_end):
+
+    # ── Executive bullets ──────────────────────────────────────────────────
+    bullet_items = "".join(f"<li>{html.escape(b)}</li>" for b in exec_bullets)
+
+    # ── KPI cards ─────────────────────────────────────────────────────────
+    kpi_cards = "".join([
+        build_card("Clicks",       kpis["clicks_current"],      kpis["clicks_previous"]),
+        build_card("Impressions",  kpis["impressions_current"],  kpis["impressions_previous"]),
+        build_card("CTR",          kpis["ctr_current"],          kpis["ctr_previous"],  is_pct=True),
+        build_card("Avg Position", kpis["position_current"],     kpis["position_previous"], decimals=2),
+    ])
+
+    # ── Tables ─────────────────────────────────────────────────────────────
+    top_queries_tbl  = build_top_table(query_df, "query", is_page=False, n=15)
+    top_pages_tbl    = build_top_table(page_df,  "page",  is_page=True,  n=15)
+
+    q_gainers = query_df.nlargest(15, "clicks_change")
+    q_losers  = query_df.nsmallest(15, "clicks_change")
+    p_gainers = page_df.nlargest(15, "clicks_change")
+    p_losers  = page_df.nsmallest(15, "clicks_change")
+
+    query_movers_tbl = build_movers_table(q_gainers, q_losers, "query", n=10)
+    page_movers_tbl  = build_movers_table(p_gainers, p_losers, "page",  n=10)
+    new_lost_block   = build_new_lost_block(query_df)
+
+    # ── Device table (small) ───────────────────────────────────────────────
+    device_rows = ""
+    if not device_df.empty:
+        for _, row in device_df.iterrows():
+            device_rows += (
+                f"<tr><td>{html.escape(str(row['device']).capitalize())}</td>"
+                f"<td>{_fmt(row['clicks'])}</td>"
+                f"<td>{_fmt(row['impressions'])}</td>"
+                f"<td>{_fmt(row['ctr'], pct=True)}</td>"
+                f"<td>{_fmt(row['position'], decimals=1)}</td></tr>"
+            )
+    device_table = (
+        f"<table><thead><tr>"
+        f"<th>Device</th><th>Clicks</th><th>Impressions</th><th>CTR</th><th>Avg Pos</th>"
+        f"</tr></thead><tbody>{device_rows}</tbody></table>"
+        if device_rows else "<p style='color:#94A3B8;font-size:10px;'>No device data.</p>"
+    )
+
+    doc = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>GSC Weekly Performance Summary</title>
+<style>
+{get_pdf_css()}
+{get_extra_css()}
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ─────────────────────────────────────────────────────────── -->
+<div class="header-bar">
+  <h1>GSC Weekly Performance Summary</h1>
+  <div class="subtitle">
+    Current: {current_start} → {current_end} &nbsp;|&nbsp;
+    Previous: {previous_start} → {previous_end}
+  </div>
+</div>
+
+<!-- ── EXECUTIVE SUMMARY ──────────────────────────────────────────────── -->
+<div class="exec-panel">
+  <div class="panel-label">Executive Summary</div>
+  <ul class="exec-bullets">{bullet_items}</ul>
+</div>
+
+<!-- ── KPI CARDS ──────────────────────────────────────────────────────── -->
+<div class="grid">{kpi_cards}</div>
+
+<!-- ── KPI GRID CHART ─────────────────────────────────────────────────── -->
+{_img(chart_paths.get("kpi_grid"), "KPI comparison grid")}
+
+<!-- ── TREND LINE ─────────────────────────────────────────────────────── -->
+{_img(chart_paths.get("trend"), "7-day daily trend")}
+
+<!-- ── DEVICE + APPEARANCE side by side ───────────────────────────────── -->
+{_img2(chart_paths.get("device"), "Device split",
+       chart_paths.get("appearance"), "Search appearance")}
+
+<div class="break-before"></div>
+
+<!-- ── CTR vs POSITION SCATTER ────────────────────────────────────────── -->
+{_img(chart_paths.get("scatter"), "CTR vs position scatter")}
+
+<!-- ── LOLLIPOP MOVERS side by side ───────────────────────────────────── -->
+{_img2(chart_paths.get("query_movers"), "Query winners & losers",
+       chart_paths.get("page_movers"),  "Page winners & losers")}
+
+<div class="break-before"></div>
+
+<!-- ── NEW / LOST QUERIES ─────────────────────────────────────────────── -->
+<div class="col-header">New &amp; Lost Queries This Week</div>
+{new_lost_block}
+
+<!-- ── TOP QUERIES + TOP PAGES side by side ───────────────────────────── -->
+<div class="two-col">
+  <div>
+    <div class="col-header">Top Queries by Clicks</div>
+    {top_queries_tbl}
+  </div>
+  <div>
+    <div class="col-header">Top Pages by Clicks</div>
+    {top_pages_tbl}
+  </div>
+</div>
+
+<div class="break-before"></div>
+
+<!-- ── QUERY MOVERS TABLE ─────────────────────────────────────────────── -->
+<div class="col-header">Query Movement (Gainers &amp; Losers)</div>
+{query_movers_tbl}
+
+<!-- ── PAGE MOVERS TABLE ──────────────────────────────────────────────── -->
+<div class="col-header" style="margin-top:16px;">Page Movement (Gainers &amp; Losers)</div>
+{page_movers_tbl}
+
+<!-- ── DEVICE BREAKDOWN ────────────────────────────────────────────────── -->
+<div class="col-header" style="margin-top:16px;">Device Breakdown</div>
+{device_table}
+
+</body>
+</html>"""
+
+    with open("weekly_summary.html", "w", encoding="utf-8") as f:
+        f.write(doc)
+    print("Saved weekly_summary.html")
+
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MARKDOWN SUMMARY
+# ══════════════════════════════════════════════════════════════════════════════
+
+def write_markdown_summary(query_df, page_df, exec_bullets, kpis,
+                           current_start, current_end, previous_start, previous_end):
+    top_queries = query_df.nlargest(10, "clicks_current")
+    top_pages   = page_df.nlargest(10, "clicks_current")
+
     lines = [
-        "# Weekly GSC Summary",
+        "# GSC Weekly Performance Summary",
         "",
         f"Current period: {current_start} to {current_end}",
         f"Previous period: {previous_start} to {previous_end}",
         "",
-        "## Executive Read",
+        "## Executive Summary",
+        "",
     ]
-    lines.extend([f"- {line}" for line in executive_read])
+    lines.extend(f"- {b}" for b in exec_bullets)
     lines.extend([
         "",
-        "## Executive Commentary",
-        "",
-        ai_analysis,
-        "",
         "## KPI Snapshot",
-        f"- Clicks: {total_clicks_current:.0f} vs {total_clicks_previous:.0f} ({format_pct_change(total_clicks_current, total_clicks_previous)})",
-        f"- Impressions: {total_impressions_current:.0f} vs {total_impressions_previous:.0f} ({format_pct_change(total_impressions_current, total_impressions_previous)})",
-        f"- CTR: {weighted_ctr_current:.2%} vs {weighted_ctr_previous:.2%}",
-        f"- Avg position: {avg_position_current:.2f} vs {avg_position_previous:.2f}",
+        f"- Clicks: {kpis['clicks_current']:,.0f} vs {kpis['clicks_previous']:,.0f}"
+        f" ({format_pct_change(kpis['clicks_current'], kpis['clicks_previous'])})",
+        f"- Impressions: {kpis['impressions_current']:,.0f} vs {kpis['impressions_previous']:,.0f}"
+        f" ({format_pct_change(kpis['impressions_current'], kpis['impressions_previous'])})",
+        f"- CTR: {kpis['ctr_current']:.2%} vs {kpis['ctr_previous']:.2%}",
+        f"- Avg Position: {kpis['position_current']:.2f} vs {kpis['position_previous']:.2f}",
         "",
         "## Top Queries",
-        top_queries[["query", "clicks_current", "impressions_current", "ctr_current", "position_current"]].to_markdown(index=False),
+        "",
+        top_queries[["query", "clicks_current", "impressions_current",
+                     "ctr_current", "position_current"]].to_markdown(index=False),
         "",
         "## Top Pages",
-        top_pages[["page", "clicks_current", "impressions_current", "ctr_current", "position_current"]].to_markdown(index=False),
+        "",
+        top_pages[["page", "clicks_current", "impressions_current",
+                   "ctr_current", "position_current"]].to_markdown(index=False),
     ])
 
     with open("weekly_summary.md", "w", encoding="utf-8") as f:
         f.write("\n".join(lines))
+    print("Saved weekly_summary.md")
 
 
-def write_html_summary(query_df, page_df, ai_analysis, current_start, current_end, previous_start, previous_end):
-    kpis = calculate_kpis(query_df)
-    
-    total_clicks_current = kpis["clicks_current"]
-    total_clicks_previous = kpis["clicks_previous"]
-    total_impressions_current = kpis["impressions_current"]
-    total_impressions_previous = kpis["impressions_previous"]
-    weighted_ctr_current = kpis["ctr_current"]
-    weighted_ctr_previous = kpis["ctr_previous"]
-    avg_position_current = kpis["position_current"]
-    avg_position_previous = kpis["position_previous"]
-
-    top_queries = query_df.sort_values(by="clicks_current", ascending=False).head(10)
-    gainers = query_df.sort_values(by="clicks_change", ascending=False).head(10)
-    losers = query_df.sort_values(by="clicks_change", ascending=True).head(10)
-    top_pages = page_df.sort_values(by="clicks_current", ascending=False).head(10)
-    page_gainers = page_df.sort_values(by="clicks_change", ascending=False).head(10)
-    page_losers = page_df.sort_values(by="clicks_change", ascending=True).head(10)
-
-    executive_read = build_executive_read(
-        total_clicks_current, total_clicks_previous,
-        total_impressions_current, total_impressions_previous,
-        weighted_ctr_current, weighted_ctr_previous,
-        avg_position_current, avg_position_previous,
-        top_queries,
-    )
-
-    chart_paths = build_chart_paths(
-        query_df, page_df,
-        total_clicks_current, total_clicks_previous,
-        total_impressions_current, total_impressions_previous,
-        weighted_ctr_current, weighted_ctr_previous,
-        avg_position_current, avg_position_previous,
-    )
-
-    highlights = "".join(f"<li>{html.escape(line)}</li>" for line in executive_read)
-
-    html_output = f"""
-<!DOCTYPE html>
-<html lang=\"en\">
-<head>
-<meta charset=\"utf-8\">
-<title>Weekly GSC Summary</title>
-<style>
-{get_pdf_css()}
-</style>
-</head>
-<body>
-    <div class="header-bar">
-        <h1>GSC Weekly Performance Summary</h1>
-        <div class="subtitle">Current window: {current_start} to {current_end} | Comparison: {previous_start} to {previous_end}</div>
-    </div>
-
-    <div class=\"panel\">
-        <h2>Executive Read</h2>
-        <ul>{highlights}</ul>
-    </div>
-
-    <div class=\"panel\">
-        <h2>Executive Commentary</h2>
-        <div class=\"ai-block\">{html.escape(ai_analysis)}</div>
-    </div>
-
-    <div class=\"grid\">
-        {build_card("Clicks", total_clicks_current, total_clicks_previous)}
-        {build_card("Impressions", total_impressions_current, total_impressions_previous)}
-        {build_card("CTR", weighted_ctr_current, weighted_ctr_previous, is_pct=True)}
-        {build_card("Avg Position", avg_position_current, avg_position_previous, decimals=2)}
-    </div>
-
-    <h2>Performance Overview</h2>
-    {image_block(chart_paths['kpi'], 'KPI comparison chart')}
-
-    <div class="break-before"></div>
-    <h2>Top Demand Drivers</h2>
-    {image_block(chart_paths['top_queries'], 'Top queries by clicks')}
-    {image_block(chart_paths['top_pages'], 'Top pages by clicks')}
-
-    <div class="break-before"></div>
-    <h2>Winners and Losers</h2>
-    {image_block(chart_paths['query_moves'], 'Query winners and losers')}
-    {image_block(chart_paths['page_moves'], 'Page winners and losers')}
-
-    <div class="break-before"></div>
-
-    <h2>Top Queries</h2>
-    {html_table_from_df(top_queries,
-        ["query", "clicks_current", "clicks_change", "impressions_current", "ctr_current", "position_current"],
-        {
-            "query": "Query",
-            "clicks_current": "Clicks",
-            "clicks_change": "Clicks Δ",
-            "impressions_current": "Impr",
-            "ctr_current": "CTR",
-            "position_current": "Pos",
-        }
-    )}
-
-    <h2>Query Gainers</h2>
-    {html_table_from_df(gainers,
-        ["query", "clicks_previous", "clicks_current", "clicks_change"],
-        {
-            "query": "Query",
-            "clicks_previous": "Prev Clicks",
-            "clicks_current": "Curr Clicks",
-            "clicks_change": "Δ",
-        }
-    )}
-
-    <h2>Query Losers</h2>
-    {html_table_from_df(losers,
-        ["query", "clicks_previous", "clicks_current", "clicks_change"],
-        {
-            "query": "Query",
-            "clicks_previous": "Prev Clicks",
-            "clicks_current": "Curr Clicks",
-            "clicks_change": "Δ",
-        }
-    )}
-
-    <div class="break-before"></div>
-
-    <h2>Top Pages</h2>
-    {html_table_from_df(top_pages,
-        ["page", "clicks_current", "clicks_change", "impressions_current", "ctr_current", "position_current"],
-        {
-            "page": "Page",
-            "clicks_current": "Clicks",
-            "clicks_change": "Clicks Δ",
-            "impressions_current": "Impr",
-            "ctr_current": "CTR",
-            "position_current": "Pos",
-        }
-    )}
-
-    <h2>Page Gainers</h2>
-    {html_table_from_df(page_gainers,
-        ["page", "clicks_previous", "clicks_current", "clicks_change"],
-        {
-            "page": "Page",
-            "clicks_previous": "Prev Clicks",
-            "clicks_current": "Curr Clicks",
-            "clicks_change": "Δ",
-        }
-    )}
-
-    <h2>Page Losers</h2>
-    {html_table_from_df(page_losers,
-        ["page", "clicks_previous", "clicks_current", "clicks_change"],
-        {
-            "page": "Page",
-            "clicks_previous": "Prev Clicks",
-            "clicks_current": "Curr Clicks",
-            "clicks_change": "Δ",
-        }
-    )}
-</body>
-</html>
-"""
-    with open("weekly_summary.html", "w", encoding="utf-8") as f:
-        f.write(html_output)
-
+# ══════════════════════════════════════════════════════════════════════════════
+# PDF + MONDAY UPLOAD
+# ══════════════════════════════════════════════════════════════════════════════
 
 def generate_pdf():
     HTML("weekly_summary.html", base_url=os.getcwd()).write_pdf("weekly_summary.pdf")
     print("Saved weekly_summary.pdf")
 
 
-def upload_pdf_to_monday(pdf_path):
-    _upload_pdf(
-        pdf_path,
-        body_text="GSC weekly PDF report attached.",
-        pdf_filename="google-search-console-audit.pdf",
-    )
+def upload_to_monday():
+    try:
+        _upload_pdf(
+            "weekly_summary.pdf",
+            body_text="GSC weekly PDF report attached.",
+            pdf_filename="google-search-console-weekly.pdf",
+        )
+    except Exception as e:
+        print(f"Monday upload failed: {e}")
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MAIN
+# ══════════════════════════════════════════════════════════════════════════════
 
 def main():
+    print("GSC Weekly Report — starting")
     service = get_service()
-
     current_start, current_end, previous_start, previous_end = get_weekly_date_windows()
 
-    current_query_df = fetch_dimension_data(service, current_start, current_end, "query", row_limit=250)
-    previous_query_df = fetch_dimension_data(service, previous_start, previous_end, "query", row_limit=250)
+    # ── Fetch all data in parallel ─────────────────────────────────────────
+    print("Fetching GSC data (parallel)…")
+    raw = fetch_all_data_parallel(service, current_start, current_end, previous_start, previous_end)
 
-    current_page_df = fetch_dimension_data(service, current_start, current_end, "page", row_limit=250)
-    previous_page_df = fetch_dimension_data(service, previous_start, previous_end, "page", row_limit=250)
+    current_query_df  = raw.get("current_query",  pd.DataFrame())
+    previous_query_df = raw.get("previous_query", pd.DataFrame())
+    current_page_df   = raw.get("current_page",   pd.DataFrame())
+    previous_page_df  = raw.get("previous_page",  pd.DataFrame())
+    trend_curr        = raw.get("trend_current",  pd.DataFrame())
+    trend_prev        = raw.get("trend_previous", pd.DataFrame())
+    device_df         = raw.get("device_current", pd.DataFrame())
+    appearance_df     = raw.get("appearance",     pd.DataFrame())
 
-    query_comparison_df = prepare_comparison(current_query_df, previous_query_df, "query")
-    page_comparison_df = prepare_comparison(current_page_df, previous_page_df, "page")
+    # ── Build comparison DataFrames ────────────────────────────────────────
+    query_df = prepare_comparison(current_query_df, previous_query_df, "query")
+    page_df  = prepare_comparison(current_page_df,  previous_page_df,  "page")
+    kpis     = calculate_kpis(query_df)
 
-    current_query_df.to_csv("weekly_gsc_report.csv", index=False)
-    query_comparison_df.to_csv("weekly_comparison.csv", index=False)
-    current_page_df.to_csv("weekly_pages_report.csv", index=False)
-    page_comparison_df.to_csv("weekly_pages_comparison.csv", index=False)
+    # ── Save raw CSVs ──────────────────────────────────────────────────────
+    current_query_df.to_csv("weekly_gsc_report.csv",      index=False)
+    query_df.to_csv("weekly_comparison.csv",               index=False)
+    current_page_df.to_csv("weekly_pages_report.csv",      index=False)
+    page_df.to_csv("weekly_pages_comparison.csv",          index=False)
 
-    top_queries = query_comparison_df.sort_values(by="clicks_current", ascending=False).head(25)
-    gainers = query_comparison_df.sort_values(by="clicks_change", ascending=False).head(25)
-    losers = query_comparison_df.sort_values(by="clicks_change", ascending=True).head(25)
+    query_df.nlargest(25, "clicks_current").to_csv("top_queries.csv",    index=False)
+    query_df.nlargest(25, "clicks_change").to_csv("biggest_gainers.csv", index=False)
+    query_df.nsmallest(25, "clicks_change").to_csv("biggest_losers.csv", index=False)
+    page_df.nlargest(25, "clicks_current").to_csv("top_pages.csv",       index=False)
+    page_df.nlargest(25, "clicks_change").to_csv("page_gainers.csv",     index=False)
+    page_df.nsmallest(25, "clicks_change").to_csv("page_losers.csv",     index=False)
 
-    top_pages = page_comparison_df.sort_values(by="clicks_current", ascending=False).head(25)
-    page_gainers = page_comparison_df.sort_values(by="clicks_change", ascending=False).head(25)
-    page_losers = page_comparison_df.sort_values(by="clicks_change", ascending=True).head(25)
+    if not device_df.empty:
+        device_df.to_csv("device_split.csv", index=False)
+    if not appearance_df.empty:
+        appearance_df.to_csv("search_appearance.csv", index=False)
 
-    top_queries.to_csv("top_queries.csv", index=False)
-    gainers.to_csv("biggest_gainers.csv", index=False)
-    losers.to_csv("biggest_losers.csv", index=False)
-    top_pages.to_csv("top_pages.csv", index=False)
-    page_gainers.to_csv("page_gainers.csv", index=False)
-    page_losers.to_csv("page_losers.csv", index=False)
+    # ── Google Sheets ──────────────────────────────────────────────────────
+    append_to_sheet(query_df,  "GSC_Query_Comparison")
+    append_to_sheet(page_df,   "GSC_Page_Comparison")
+    if not device_df.empty:
+        append_to_sheet(device_df, "GSC_Device_Split")
 
-    append_to_sheet(query_comparison_df, "GSC_Query_Comparison")
-    append_to_sheet(page_comparison_df, "GSC_Page_Comparison")
+    # ── Charts ─────────────────────────────────────────────────────────────
+    print("Generating charts…")
+    chart_paths = build_all_charts(query_df, page_df, kpis,
+                                   trend_curr, trend_prev,
+                                   device_df, appearance_df)
 
-    ai_analysis = build_ai_analysis(
-        query_comparison_df,
-        page_comparison_df,
-        current_start,
-        current_end,
-        previous_start,
-        previous_end,
+    # ── Executive bullets (deterministic + AI) ─────────────────────────────
+    print("Building executive summary…")
+    exec_bullets = build_unified_executive_bullets(
+        kpis, query_df, page_df,
+        current_start, current_end, previous_start, previous_end,
     )
 
-    write_markdown_summary(
-        query_comparison_df,
-        page_comparison_df,
-        ai_analysis,
-        current_start,
-        current_end,
-        previous_start,
-        previous_end,
-    )
+    # ── Reports ────────────────────────────────────────────────────────────
+    write_markdown_summary(query_df, page_df, exec_bullets, kpis,
+                           current_start, current_end, previous_start, previous_end)
 
-    write_html_summary(
-        query_comparison_df,
-        page_comparison_df,
-        ai_analysis,
-        current_start,
-        current_end,
-        previous_start,
-        previous_end,
-    )
+    write_html_summary(query_df, page_df, exec_bullets, kpis,
+                       chart_paths, device_df, appearance_df,
+                       current_start, current_end, previous_start, previous_end)
 
     generate_pdf()
+    upload_to_monday()
 
-    try:
-        upload_pdf_to_monday("weekly_summary.pdf")
-    except Exception as e:
-        print(f"monday upload step failed: {e}")
-
-    print("Saved weekly_summary.md, weekly_summary.html, weekly_summary.pdf")
-    print("Saved query and page comparison outputs")
+    print("GSC Weekly Report — complete")
 
 
 if __name__ == "__main__":
