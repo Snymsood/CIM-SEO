@@ -52,11 +52,24 @@ BRANDED_PATTERN = r"cim connect|vancouver 2026|cim 2026|cim vancouver"
 # DATA FETCHING
 # ══════════════════════════════════════════════════════════════════════════════
 
+def get_credentials():
+    """Return a fresh Credentials object. Called per-thread so each gets its own."""
+    return service_account.Credentials.from_service_account_file(KEY_FILE, scopes=SCOPES)
+
+
 def get_service():
-    import httplib2
-    creds = service_account.Credentials.from_service_account_file(KEY_FILE, scopes=SCOPES)
-    # Build an authorized httplib2 with a 120s timeout so parallel calls don't time out
-    authed_http = google_auth_httplib2.AuthorizedHttp(creds, http=httplib2.Http(timeout=120))
+    """Build a single GSC service for sequential use (main thread only)."""
+    authed_http = google_auth_httplib2.AuthorizedHttp(
+        get_credentials(), http=httplib2.Http(timeout=120)
+    )
+    return build("searchconsole", "v1", http=authed_http, cache_discovery=False)
+
+
+def _build_thread_service():
+    """Build a fresh, independent GSC service for use inside a worker thread."""
+    authed_http = google_auth_httplib2.AuthorizedHttp(
+        get_credentials(), http=httplib2.Http(timeout=120)
+    )
     return build("searchconsole", "v1", http=authed_http, cache_discovery=False)
 
 
@@ -182,31 +195,38 @@ def fetch_search_appearance(service, start_date, end_date):
     return pd.DataFrame(data) if data else pd.DataFrame()
 
 
-def fetch_all_data_parallel(service, current_start, current_end, previous_start, previous_end):
-    """Run all GSC API calls in parallel using a thread pool."""
+def fetch_all_data_parallel(current_start, current_end, previous_start, previous_end):
+    """Run all GSC API calls in parallel. Each worker builds its own service object
+    so there is no shared-state / thread-safety issue with googleapiclient."""
+
+    def _run(fn, *args):
+        svc = _build_thread_service()
+        return fn(svc, *args)
+
     tasks = {
-        "current_query":    (fetch_dimension_data, service, current_start,  current_end,  "query"),
-        "previous_query":   (fetch_dimension_data, service, previous_start, previous_end, "query"),
-        "current_page":     (fetch_dimension_data, service, current_start,  current_end,  "page"),
-        "previous_page":    (fetch_dimension_data, service, previous_start, previous_end, "page"),
-        "trend_current":    (fetch_date_trend,     service, current_start,  current_end),
-        "trend_previous":   (fetch_date_trend,     service, previous_start, previous_end),
-        "device_current":   (fetch_device_split,   service, current_start,  current_end),
-        "appearance":       (fetch_search_appearance, service, current_start, current_end),
+        "current_query":  (fetch_dimension_data, current_start,  current_end,  "query"),
+        "previous_query": (fetch_dimension_data, previous_start, previous_end, "query"),
+        "current_page":   (fetch_dimension_data, current_start,  current_end,  "page"),
+        "previous_page":  (fetch_dimension_data, previous_start, previous_end, "page"),
+        "trend_current":  (fetch_date_trend,     current_start,  current_end),
+        "trend_previous": (fetch_date_trend,     previous_start, previous_end),
+        "device_current": (fetch_device_split,   current_start,  current_end),
+        "appearance":     (fetch_search_appearance, current_start, current_end),
     }
 
     results = {}
     with ThreadPoolExecutor(max_workers=8) as executor:
-        future_map = {}
-        for key, args in tasks.items():
-            fn, *fn_args = args
-            future_map[executor.submit(fn, *fn_args)] = key
+        future_map = {
+            executor.submit(_run, fn, *fn_args): key
+            for key, (fn, *fn_args) in tasks.items()
+        }
         for future in as_completed(future_map):
             key = future_map[future]
             try:
                 results[key] = future.result()
+                print(f"  ✓ {key}")
             except Exception as e:
-                print(f"Parallel fetch failed for {key}: {e}")
+                print(f"  ✗ {key}: {e}")
                 results[key] = pd.DataFrame()
 
     return results
@@ -475,8 +495,16 @@ def plot_ctr_position_scatter(query_df):
         (query_df["impressions_current"] > 0) &
         (query_df["position_current"] > 0)
     ].copy().head(100)
+
     if df.empty:
-        return None
+        # Return a placeholder chart rather than None (avoids blank page)
+        fig, ax = plt.subplots(figsize=(13, 6.5))
+        fig.patch.set_facecolor("white")
+        ax.text(0.5, 0.5, "No impression data available for this period.",
+                ha="center", va="center", fontsize=12, color="#94A3B8",
+                transform=ax.transAxes)
+        ax.set_axis_off()
+        return _save(fig, "ctr_position_scatter.png")
 
     fig, ax = plt.subplots(figsize=(13, 6.5))
     fig.patch.set_facecolor("white")
@@ -975,13 +1003,27 @@ def get_extra_css():
     .badge-p2   { background: #FEF9C3; color: #A16207; }
     .badge-p3   { background: #FEE2E2; color: #B91C1C; }
 
-    /* ── Chart: one per row, full width ─────────────────────────── */
+    /* ── Chart: one per row, full width, fills the page ────────── */
     .chart-wrap {
         width: 100%;
-        margin-bottom: 20px;
+        margin-bottom: 0;
+        page-break-before: always;
         page-break-inside: avoid;
+        page-break-after: avoid;
     }
     .chart-wrap img {
+        width: 100%;
+        display: block;
+        border-radius: 4px;
+        border: 1px solid #E2E8F0;
+    }
+    /* First chart on a page doesn't need a break-before */
+    .chart-wrap-first {
+        width: 100%;
+        margin-bottom: 0;
+        page-break-inside: avoid;
+    }
+    .chart-wrap-first img {
         width: 100%;
         display: block;
         border-radius: 4px;
@@ -1024,10 +1066,12 @@ def get_extra_css():
 # HTML REPORT BUILDER
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _img(path, alt="chart"):
+def _img(path, alt="chart", first_on_page=False):
+    """Full-width chart image. first_on_page=True skips the page-break-before."""
     if not path:
         return ""
-    return f'<div class="chart-wrap"><img src="{html.escape(str(path))}" alt="{html.escape(alt)}"></div>'
+    css_class = "chart-wrap-first" if first_on_page else "chart-wrap"
+    return f'<div class="{css_class}"><img src="{html.escape(str(path))}" alt="{html.escape(alt)}"></div>'
 
 
 def write_html_summary(query_df, page_df, exec_bullets, kpis,
@@ -1108,7 +1152,7 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
 <div class="break-before"></div>
 
 <div class="col-header" style="margin-top:0;">KPI Comparison — Current vs Previous Week</div>
-{_img(chart_paths.get("kpi_grid"), "KPI comparison grid")}
+{_img(chart_paths.get("kpi_grid"), "KPI comparison grid", first_on_page=True)}
 
 <div class="col-header">7-Day Daily Trend</div>
 {_img(chart_paths.get("trend"), "7-day daily trend")}
@@ -1117,7 +1161,7 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
 <div class="break-before"></div>
 
 <div class="col-header" style="margin-top:0;">Device Split</div>
-{_img(chart_paths.get("device"), "Device split")}
+{_img(chart_paths.get("device"), "Device split", first_on_page=True)}
 
 <div class="col-header">Search Appearance / SERP Features</div>
 {_img(chart_paths.get("appearance"), "Search appearance")}
@@ -1126,13 +1170,13 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
 <div class="break-before"></div>
 
 <div class="col-header" style="margin-top:0;">CTR vs Average Position</div>
-{_img(chart_paths.get("scatter"), "CTR vs position scatter")}
+{_img(chart_paths.get("scatter"), "CTR vs position scatter", first_on_page=True)}
 
 <!-- ── PAGE 5: LOLLIPOP MOVERS ────────────────────────────────────────── -->
 <div class="break-before"></div>
 
 <div class="col-header" style="margin-top:0;">Query Winners &amp; Losers</div>
-{_img(chart_paths.get("query_movers"), "Query winners and losers")}
+{_img(chart_paths.get("query_movers"), "Query winners and losers", first_on_page=True)}
 
 <div class="col-header">Page Winners &amp; Losers</div>
 {_img(chart_paths.get("page_movers"), "Page winners and losers")}
@@ -1247,12 +1291,13 @@ def upload_to_monday():
 
 def main():
     print("GSC Weekly Report — starting")
-    service = get_service()
     current_start, current_end, previous_start, previous_end = get_weekly_date_windows()
+    print(f"Current:  {current_start} → {current_end}")
+    print(f"Previous: {previous_start} → {previous_end}")
 
-    # ── Fetch all data in parallel ─────────────────────────────────────────
+    # ── Fetch all data in parallel (each thread owns its own service) ──────
     print("Fetching GSC data (parallel)…")
-    raw = fetch_all_data_parallel(service, current_start, current_end, previous_start, previous_end)
+    raw = fetch_all_data_parallel(current_start, current_end, previous_start, previous_end)
 
     current_query_df  = raw.get("current_query",  pd.DataFrame())
     previous_query_df = raw.get("previous_query", pd.DataFrame())
