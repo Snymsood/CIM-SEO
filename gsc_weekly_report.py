@@ -358,39 +358,39 @@ def _save(fig, filename):
 
 
 def plot_kpi_grid(kpis):
-    """2×2 mini-panel grid — one chart per KPI, each on its own scale."""
+    """1×4 KPI bar grid — sized to fill half an A4 page."""
     panels = [
-        ("Clicks",         kpis["clicks_current"],      kpis["clicks_previous"],      False, False),
-        ("Impressions",    kpis["impressions_current"],  kpis["impressions_previous"],  False, False),
-        ("CTR (%)",        kpis["ctr_current"] * 100,   kpis["ctr_previous"] * 100,   True,  False),
-        ("Avg Position",   kpis["position_current"],     kpis["position_previous"],     False, True),
+        ("Clicks",       kpis["clicks_current"],     kpis["clicks_previous"],     False, False),
+        ("Impressions",  kpis["impressions_current"], kpis["impressions_previous"], False, False),
+        ("CTR (%)",      kpis["ctr_current"] * 100,  kpis["ctr_previous"] * 100,  True,  False),
+        ("Avg Position", kpis["position_current"],    kpis["position_previous"],    False, True),
     ]
-    fig, axes = plt.subplots(1, 4, figsize=(13, 3.2))
+    fig, axes = plt.subplots(1, 4, figsize=(13, 4.8))
     fig.patch.set_facecolor("white")
 
     for ax, (label, curr, prev, is_pct, lower_better) in zip(axes, panels):
         good_color = C_NAVY if ((curr >= prev and not lower_better) or (curr <= prev and lower_better)) else C_CORAL
         bars = ax.bar(["Prev", "Curr"], [prev, curr],
                       color=[C_SLATE, good_color], width=0.45, zorder=2)
-        # Value labels on top of bars
         for bar, v in zip(bars, [prev, curr]):
             label_str = f"{v:.1f}%" if is_pct else f"{v:,.0f}"
             ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() * 1.03,
-                    label_str, ha="center", va="bottom", fontsize=7.5, color="#374151", fontweight="600")
+                    label_str, ha="center", va="bottom", fontsize=9, color="#374151", fontweight="600")
         _style_ax(ax, title=label)
         ax.grid(axis="y", linestyle="--", alpha=0.35, color=C_BORDER, zorder=1)
-        ax.set_ylim(0, max(curr, prev) * 1.28 if max(curr, prev) > 0 else 1)
+        ax.set_ylim(0, max(curr, prev) * 1.30 if max(curr, prev) > 0 else 1)
+        ax.tick_params(labelsize=9)
 
-    fig.tight_layout(pad=1.5)
+    fig.tight_layout(pad=2.0)
     return _save(fig, "kpi_grid.png")
 
 
 def plot_trend_lines(trend_curr, trend_prev):
-    """Dual-axis 7-day trend: clicks (left) + impressions (right)."""
+    """Dual-axis 7-day trend — sized to fill half an A4 page."""
     if trend_curr.empty:
         return None
 
-    fig, ax1 = plt.subplots(figsize=(13, 3.4))
+    fig, ax1 = plt.subplots(figsize=(13, 4.8))
     fig.patch.set_facecolor("white")
 
     day_labels = [d.strftime("%a %d") for d in trend_curr["date"]]
@@ -440,7 +440,7 @@ def plot_trend_lines(trend_curr, trend_prev):
 
 
 def plot_device_split(device_df):
-    """Horizontal stacked bar showing device share of clicks and impressions."""
+    """Horizontal stacked bar — sized to fill half an A4 page."""
     if device_df.empty:
         return None
 
@@ -460,7 +460,7 @@ def plot_device_split(device_df):
         "Tablet":  C_AMBER,
     }
 
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(13, 2.8))
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(13, 4.8))
     fig.patch.set_facecolor("white")
 
     for ax, col, title in [(ax1, "click_pct", "Clicks by Device (%)"),
@@ -470,22 +470,22 @@ def plot_device_split(device_df):
             dev = row["device"]
             val = row[col]
             c   = colors.get(dev, C_SLATE)
-            ax.barh(0, val, left=left, color=c, height=0.55)
+            ax.barh(0, val, left=left, color=c, height=0.6)
             if val > 4:
                 ax.text(left + val / 2, 0, f"{dev}\n{val:.1f}%",
-                        ha="center", va="center", fontsize=8, color="white", fontweight="600")
+                        ha="center", va="center", fontsize=10, color="white", fontweight="600")
             left += val
         ax.set_xlim(0, 100)
         ax.set_yticks([])
-        ax.set_title(title, fontsize=9, fontweight="600", color="#1A1A1A", pad=5, loc="left")
+        ax.set_title(title, fontsize=10, fontweight="600", color="#1A1A1A", pad=8, loc="left")
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
         ax.spines["left"].set_visible(False)
         ax.spines["bottom"].set_color(C_BORDER)
-        ax.tick_params(labelsize=8, colors="#64748B", length=0)
+        ax.tick_params(labelsize=9, colors="#64748B", length=0)
         ax.set_facecolor("#FAFAFA")
 
-    fig.tight_layout(pad=1.2)
+    fig.tight_layout(pad=2.5)
     return _save(fig, "device_split.png")
 
 
@@ -569,7 +569,7 @@ def plot_ctr_position_scatter(query_df):
 
 
 def plot_lollipop_movers(gainers_df, losers_df, label_col, change_col, title, filename):
-    """Lollipop chart for winners & losers — full width, taller, more items."""
+    """Lollipop chart — sized to fill half an A4 page so two fit per page."""
     gainers = gainers_df[[label_col, change_col]].head(8).copy()
     losers  = losers_df[[label_col, change_col]].head(8).copy()
     merged  = pd.concat([losers, gainers], ignore_index=True)
@@ -581,8 +581,7 @@ def plot_lollipop_movers(gainers_df, losers_df, label_col, change_col, title, fi
     colors = [C_CORAL if v < 0 else C_TEAL for v in values]
     max_abs = max(abs(x) for x in values) if values else 1
 
-    fig_h = max(4.8, len(labels) * 0.52)
-    fig, ax = plt.subplots(figsize=(13, fig_h))
+    fig, ax = plt.subplots(figsize=(13, 4.8))
     fig.patch.set_facecolor("white")
 
     y_pos = range(len(labels))
@@ -594,44 +593,45 @@ def plot_lollipop_movers(gainers_df, losers_df, label_col, change_col, title, fi
         ha = "left" if v >= 0 else "right"
         ax.text(v + (offset if v >= 0 else -offset), y,
                 f"{sign}{v:.0f}", va="center", ha=ha,
-                fontsize=8, color=c, fontweight="600")
+                fontsize=9, color=c, fontweight="600")
 
     ax.set_yticks(list(y_pos))
-    ax.set_yticklabels(labels, fontsize=8.5)
+    ax.set_yticklabels(labels, fontsize=9)
     ax.axvline(0, color="#374151", linewidth=1.2, zorder=1)
     _style_ax(ax, title=title, xlabel="Click Change (current vs previous week)")
+    ax.tick_params(labelsize=9)
     ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=0)
     padding = max_abs * 0.30
     ax.set_xlim(
         (min(values) - padding) if min(values) < 0 else -padding * 0.5,
         (max(values) + padding) if max(values) > 0 else padding * 0.5,
     )
-    # Shade gain / loss halves
     ax.axvspan(0, ax.get_xlim()[1], alpha=0.03, color=C_TEAL)
     ax.axvspan(ax.get_xlim()[0], 0, alpha=0.03, color=C_CORAL)
 
-    fig.tight_layout(pad=1.8)
+    fig.tight_layout(pad=2.0)
     return _save(fig, filename)
 
 
 def plot_search_appearance(appearance_df):
-    """Horizontal bar chart of impressions by SERP feature / search appearance."""
+    """Horizontal bar chart of impressions by SERP feature — fills half an A4 page."""
     if appearance_df.empty:
         return None
     df = appearance_df.sort_values("impressions", ascending=True).tail(10)
 
-    fig, ax = plt.subplots(figsize=(13, max(2.8, len(df) * 0.42)))
+    fig, ax = plt.subplots(figsize=(13, 4.8))
     fig.patch.set_facecolor("white")
 
     bars = ax.barh(df["appearance"], df["impressions"], color=C_NAVY, height=0.5, zorder=2)
     max_v = df["impressions"].max()
     for bar, v in zip(bars, df["impressions"]):
         ax.text(v + max_v * 0.01, bar.get_y() + bar.get_height() / 2,
-                f"{v:,.0f}", va="center", fontsize=7.5, color="#374151")
+                f"{v:,.0f}", va="center", fontsize=9, color="#374151")
     ax.set_xlim(0, max_v * 1.18)
     _style_ax(ax, title="Impressions by Search Appearance / SERP Feature", xlabel="Impressions")
+    ax.tick_params(labelsize=9)
     ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
-    fig.tight_layout(pad=1.5)
+    fig.tight_layout(pad=2.0)
     return _save(fig, "search_appearance.png")
 
 
@@ -1003,13 +1003,11 @@ def get_extra_css():
     .badge-p2   { background: #FEF9C3; color: #A16207; }
     .badge-p3   { background: #FEE2E2; color: #B91C1C; }
 
-    /* ── Chart: one per row, full width, fills the page ────────── */
+    /* ── Chart: full width, no forced page break on the image itself ── */
     .chart-wrap {
         width: 100%;
-        margin-bottom: 0;
-        page-break-before: always;
+        margin-bottom: 6px;
         page-break-inside: avoid;
-        page-break-after: avoid;
     }
     .chart-wrap img {
         width: 100%;
@@ -1017,10 +1015,10 @@ def get_extra_css():
         border-radius: 4px;
         border: 1px solid #E2E8F0;
     }
-    /* First chart on a page doesn't need a break-before */
+    /* Alias — same as chart-wrap, kept for compatibility */
     .chart-wrap-first {
         width: 100%;
-        margin-bottom: 0;
+        margin-bottom: 6px;
         page-break-inside: avoid;
     }
     .chart-wrap-first img {
@@ -1028,6 +1026,10 @@ def get_extra_css():
         display: block;
         border-radius: 4px;
         border: 1px solid #E2E8F0;
+    }
+    /* Section wrapper that starts a new page */
+    .page-section {
+        page-break-before: always;
     }
 
     /* ── Section header bar ─────────────────────────────────────── */
@@ -1148,68 +1150,65 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
 
 <div class="grid">{kpi_cards}</div>
 
-<!-- ── PAGE 2: KPI GRID + TREND LINE ──────────────────────────────────── -->
-<div class="break-before"></div>
+<!-- ── PAGE 2: KPI GRID + TREND LINE (two half-page charts) ───────────── -->
+<div class="page-section">
+  <div class="col-header" style="margin-top:0;">KPI Comparison — Current vs Previous Week</div>
+  {_img(chart_paths.get("kpi_grid"), "KPI comparison grid", first_on_page=True)}
+  <div class="col-header">7-Day Daily Trend</div>
+  {_img(chart_paths.get("trend"), "7-day daily trend")}
+</div>
 
-<div class="col-header" style="margin-top:0;">KPI Comparison — Current vs Previous Week</div>
-{_img(chart_paths.get("kpi_grid"), "KPI comparison grid", first_on_page=True)}
+<!-- ── PAGE 3: DEVICE SPLIT + SEARCH APPEARANCE (two half-page charts) ── -->
+<div class="page-section">
+  <div class="col-header" style="margin-top:0;">Device Split</div>
+  {_img(chart_paths.get("device"), "Device split", first_on_page=True)}
+  <div class="col-header">Search Appearance / SERP Features</div>
+  {_img(chart_paths.get("appearance"), "Search appearance")}
+</div>
 
-<div class="col-header">7-Day Daily Trend</div>
-{_img(chart_paths.get("trend"), "7-day daily trend")}
+<!-- ── PAGE 4: CTR vs POSITION SCATTER (full page) ────────────────────── -->
+<div class="page-section">
+  <div class="col-header" style="margin-top:0;">CTR vs Average Position</div>
+  {_img(chart_paths.get("scatter"), "CTR vs position scatter", first_on_page=True)}
+</div>
 
-<!-- ── PAGE 3: DEVICE + SEARCH APPEARANCE ─────────────────────────────── -->
-<div class="break-before"></div>
-
-<div class="col-header" style="margin-top:0;">Device Split</div>
-{_img(chart_paths.get("device"), "Device split", first_on_page=True)}
-
-<div class="col-header">Search Appearance / SERP Features</div>
-{_img(chart_paths.get("appearance"), "Search appearance")}
-
-<!-- ── PAGE 4: CTR vs POSITION SCATTER ────────────────────────────────── -->
-<div class="break-before"></div>
-
-<div class="col-header" style="margin-top:0;">CTR vs Average Position</div>
-{_img(chart_paths.get("scatter"), "CTR vs position scatter", first_on_page=True)}
-
-<!-- ── PAGE 5: LOLLIPOP MOVERS ────────────────────────────────────────── -->
-<div class="break-before"></div>
-
-<div class="col-header" style="margin-top:0;">Query Winners &amp; Losers</div>
-{_img(chart_paths.get("query_movers"), "Query winners and losers", first_on_page=True)}
-
-<div class="col-header">Page Winners &amp; Losers</div>
-{_img(chart_paths.get("page_movers"), "Page winners and losers")}
+<!-- ── PAGE 5: QUERY + PAGE LOLLIPOPS (two half-page charts) ──────────── -->
+<div class="page-section">
+  <div class="col-header" style="margin-top:0;">Query Winners &amp; Losers</div>
+  {_img(chart_paths.get("query_movers"), "Query winners and losers", first_on_page=True)}
+  <div class="col-header">Page Winners &amp; Losers</div>
+  {_img(chart_paths.get("page_movers"), "Page winners and losers")}
+</div>
 
 <!-- ── PAGE 6: NEW / LOST + TOP QUERIES ───────────────────────────────── -->
-<div class="break-before"></div>
-
+<div class="page-section">
 <div class="col-header" style="margin-top:0;">New &amp; Lost Queries This Week</div>
 {new_lost_block}
 
 <div class="col-header">Top Queries by Clicks</div>
 {top_queries_tbl}
+</div>
 
 <!-- ── PAGE 7: TOP PAGES ───────────────────────────────────────────────── -->
-<div class="break-before"></div>
-
+<div class="page-section">
 <div class="col-header" style="margin-top:0;">Top Pages by Clicks</div>
 {top_pages_tbl}
+</div>
 
 <!-- ── PAGE 8: QUERY MOVEMENT ─────────────────────────────────────────── -->
-<div class="break-before"></div>
-
+<div class="page-section">
 <div class="col-header" style="margin-top:0;">Query Movement — Gainers &amp; Losers</div>
 {query_movers_tbl}
+</div>
 
 <!-- ── PAGE 9: PAGE MOVEMENT + DEVICE ─────────────────────────────────── -->
-<div class="break-before"></div>
-
+<div class="page-section">
 <div class="col-header" style="margin-top:0;">Page Movement — Gainers &amp; Losers</div>
 {page_movers_tbl}
 
 <div class="col-header">Device Breakdown</div>
 {device_table}
+</div>
 
 </body>
 </html>"""
