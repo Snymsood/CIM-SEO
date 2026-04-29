@@ -1,6 +1,7 @@
 # Google APIs
 google-api-python-client>=2.100.0
 google-auth>=2.23.0
+google-auth-httplib2>=0.2.0
 google-analytics-data>=0.17.0
 
 # Data Processing

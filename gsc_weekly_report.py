@@ -6,6 +6,8 @@ import os, html, math
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+import google_auth_httplib2
+import httplib2
 from openai import OpenAI
 from weasyprint import HTML
 import pandas as pd
@@ -51,8 +53,11 @@ BRANDED_PATTERN = r"cim connect|vancouver 2026|cim 2026|cim vancouver"
 # ══════════════════════════════════════════════════════════════════════════════
 
 def get_service():
+    import httplib2
     creds = service_account.Credentials.from_service_account_file(KEY_FILE, scopes=SCOPES)
-    return build("searchconsole", "v1", credentials=creds)
+    # Build an authorized httplib2 with a 120s timeout so parallel calls don't time out
+    authed_http = google_auth_httplib2.AuthorizedHttp(creds, http=httplib2.Http(timeout=120))
+    return build("searchconsole", "v1", http=authed_http, cache_discovery=False)
 
 
 def _empty_df(dimension_name):
@@ -223,6 +228,13 @@ def prepare_comparison(current_df, previous_df, key_column):
         "ctr": "ctr_previous", "position": "position_previous",
     })
     merged = pd.merge(cur, prev, on=key_column, how="outer").fillna(0)
+
+    # Ensure numeric dtypes — outer merge on two empty DFs can leave object columns
+    for col in ["clicks_current", "clicks_previous", "impressions_current", "impressions_previous",
+                "ctr_current", "ctr_previous", "position_current", "position_previous"]:
+        if col in merged.columns:
+            merged[col] = pd.to_numeric(merged[col], errors="coerce").fillna(0)
+
     merged["clicks_change"]      = merged["clicks_current"]      - merged["clicks_previous"]
     merged["impressions_change"] = merged["impressions_current"] - merged["impressions_previous"]
     merged["ctr_change"]         = merged["ctr_current"]         - merged["ctr_previous"]
