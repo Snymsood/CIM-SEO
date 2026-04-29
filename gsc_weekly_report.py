@@ -470,84 +470,119 @@ def plot_device_split(device_df):
 
 
 def plot_ctr_position_scatter(query_df):
-    """CTR vs Avg Position scatter — dot size = impressions. Reveals CTR opportunity."""
+    """CTR vs Avg Position scatter — large bubbles, vivid colormap, top-query labels."""
     df = query_df[
         (query_df["impressions_current"] > 0) &
         (query_df["position_current"] > 0)
-    ].copy().head(80)
+    ].copy().head(100)
     if df.empty:
         return None
 
-    fig, ax = plt.subplots(figsize=(13, 4.2))
+    fig, ax = plt.subplots(figsize=(13, 6.5))
     fig.patch.set_facecolor("white")
 
-    sizes = (df["impressions_current"] / df["impressions_current"].max() * 220).clip(lower=18)
+    max_impr = df["impressions_current"].max()
+    # Scale bubbles much larger — min 60, max 1200
+    sizes = (df["impressions_current"] / max_impr * 1200).clip(lower=60)
+
     scatter = ax.scatter(
         df["position_current"],
         df["ctr_current"] * 100,
         s=sizes,
         c=df["clicks_current"],
-        cmap="Blues",
-        alpha=0.72,
-        edgecolors=C_BORDER,
-        linewidths=0.5,
+        cmap="RdYlGn",          # vivid green→yellow→red gradient
+        alpha=0.80,
+        edgecolors="#FFFFFF",
+        linewidths=0.8,
         zorder=3,
     )
-    # Reference lines
-    ax.axvline(10.5, color=C_AMBER, linewidth=1, linestyle="--", alpha=0.6, zorder=2)
-    ax.axvline(3.5,  color=C_GREEN, linewidth=1, linestyle="--", alpha=0.6, zorder=2)
-    ax.text(10.7, ax.get_ylim()[1] * 0.95 if ax.get_ylim()[1] > 0 else 5,
-            "Page 2 →", fontsize=7.5, color=C_AMBER, va="top")
-    ax.text(3.7,  ax.get_ylim()[1] * 0.95 if ax.get_ylim()[1] > 0 else 5,
-            "Top 3 →", fontsize=7.5, color=C_GREEN, va="top")
 
-    cbar = fig.colorbar(scatter, ax=ax, pad=0.01)
-    cbar.set_label("Clicks", fontsize=8, color="#64748B")
+    # Reference band shading
+    ax.axvspan(0, 3.5,  alpha=0.06, color=C_GREEN,  zorder=1)
+    ax.axvspan(3.5, 10.5, alpha=0.04, color=C_AMBER, zorder=1)
+    ax.axvspan(10.5, df["position_current"].max() + 1, alpha=0.04, color=C_CORAL, zorder=1)
+
+    # Reference lines
+    ax.axvline(10.5, color=C_AMBER, linewidth=1.2, linestyle="--", alpha=0.7, zorder=2)
+    ax.axvline(3.5,  color=C_GREEN, linewidth=1.2, linestyle="--", alpha=0.7, zorder=2)
+
+    # Band labels at top of chart
+    y_top = df["ctr_current"].max() * 100 * 1.05 if df["ctr_current"].max() > 0 else 10
+    ax.text(1.8,  y_top, "Top 3",  fontsize=8, color=C_GREEN, fontweight="700", ha="center", va="bottom")
+    ax.text(7.0,  y_top, "Page 1", fontsize=8, color=C_AMBER, fontweight="700", ha="center", va="bottom")
+    ax.text(13.0, y_top, "Page 2+",fontsize=8, color=C_CORAL, fontweight="700", ha="center", va="bottom")
+
+    # Label the top 8 queries by clicks
+    top_labels = df.nlargest(8, "clicks_current")
+    for _, row in top_labels.iterrows():
+        label = str(row["query"])[:28]
+        ax.annotate(
+            label,
+            xy=(row["position_current"], row["ctr_current"] * 100),
+            xytext=(6, 4), textcoords="offset points",
+            fontsize=7, color="#374151",
+            bbox=dict(boxstyle="round,pad=0.2", fc="white", ec=C_BORDER, alpha=0.85),
+        )
+
+    cbar = fig.colorbar(scatter, ax=ax, pad=0.01, shrink=0.85)
+    cbar.set_label("Clicks (colour)", fontsize=8, color="#64748B")
     cbar.ax.tick_params(labelsize=7)
 
-    _style_ax(ax, title="CTR vs Avg Position  (bubble size = impressions)",
-              xlabel="Average Position", ylabel="CTR (%)")
-    ax.grid(linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
+    _style_ax(ax,
+              title="CTR vs Avg Position  ·  bubble size = impressions  ·  colour = clicks",
+              xlabel="Average Position  (lower = better, axis inverted)",
+              ylabel="CTR (%)")
+    ax.grid(linestyle="--", alpha=0.25, color=C_BORDER, zorder=1)
     ax.invert_xaxis()
+    ax.set_ylim(bottom=-2)
 
-    fig.tight_layout(pad=1.5)
+    fig.tight_layout(pad=1.8)
     return _save(fig, "ctr_position_scatter.png")
 
 
 def plot_lollipop_movers(gainers_df, losers_df, label_col, change_col, title, filename):
-    """Lollipop chart for winners & losers — cleaner than thick bars."""
-    gainers = gainers_df[[label_col, change_col]].head(6).copy()
-    losers  = losers_df[[label_col, change_col]].head(6).copy()
+    """Lollipop chart for winners & losers — full width, taller, more items."""
+    gainers = gainers_df[[label_col, change_col]].head(8).copy()
+    losers  = losers_df[[label_col, change_col]].head(8).copy()
     merged  = pd.concat([losers, gainers], ignore_index=True)
     if merged.empty:
         return None
 
-    labels = [short_url(v, 44) for v in merged[label_col].astype(str)]
+    labels = [short_url(v, 52) for v in merged[label_col].astype(str)]
     values = merged[change_col].astype(float).tolist()
     colors = [C_CORAL if v < 0 else C_TEAL for v in values]
+    max_abs = max(abs(x) for x in values) if values else 1
 
-    fig_h = max(3.6, len(labels) * 0.46)
+    fig_h = max(4.8, len(labels) * 0.52)
     fig, ax = plt.subplots(figsize=(13, fig_h))
     fig.patch.set_facecolor("white")
 
     y_pos = range(len(labels))
     for y, v, c in zip(y_pos, values, colors):
-        ax.plot([0, v], [y, y], color=c, linewidth=1.6, zorder=2)
-        ax.scatter([v], [y], color=c, s=52, zorder=3)
+        ax.plot([0, v], [y, y], color=c, linewidth=2.0, zorder=2, solid_capstyle="round")
+        ax.scatter([v], [y], color=c, s=70, zorder=3, edgecolors="white", linewidths=0.8)
         sign = "+" if v > 0 else ""
-        ax.text(v + (max(abs(x) for x in values) * 0.02), y,
-                f"{sign}{v:.0f}", va="center", fontsize=7.5, color=c, fontweight="600")
+        offset = max_abs * 0.025
+        ha = "left" if v >= 0 else "right"
+        ax.text(v + (offset if v >= 0 else -offset), y,
+                f"{sign}{v:.0f}", va="center", ha=ha,
+                fontsize=8, color=c, fontweight="600")
 
     ax.set_yticks(list(y_pos))
-    ax.set_yticklabels(labels, fontsize=8)
-    ax.axvline(0, color="#374151", linewidth=1, zorder=1)
-    _style_ax(ax, title=title, xlabel="Click Change")
+    ax.set_yticklabels(labels, fontsize=8.5)
+    ax.axvline(0, color="#374151", linewidth=1.2, zorder=1)
+    _style_ax(ax, title=title, xlabel="Click Change (current vs previous week)")
     ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=0)
+    padding = max_abs * 0.30
     ax.set_xlim(
-        min(values) * 1.25 if min(values) < 0 else -1,
-        max(values) * 1.25 if max(values) > 0 else 1,
+        (min(values) - padding) if min(values) < 0 else -padding * 0.5,
+        (max(values) + padding) if max(values) > 0 else padding * 0.5,
     )
-    fig.tight_layout(pad=1.5)
+    # Shade gain / loss halves
+    ax.axvspan(0, ax.get_xlim()[1], alpha=0.03, color=C_TEAL)
+    ax.axvspan(ax.get_xlim()[0], 0, alpha=0.03, color=C_CORAL)
+
+    fig.tight_layout(pad=1.8)
     return _save(fig, filename)
 
 
@@ -770,7 +805,9 @@ def build_top_table(df, key_col, is_page=False, n=15):
 
     rows_html = []
     for i, (_, row) in enumerate(work.iterrows(), 1):
-        label = short_url(str(row[key_col]), 55 if is_page else 48)
+        # Truncate more aggressively for pages to prevent wrapping
+        max_len = 45 if is_page else 40
+        label = short_url(str(row[key_col]), max_len)
         click_bar  = _bar_cell(row["clicks_current"], max_clicks, C_NAVY)
         impr_bar   = _bar_cell(row["impressions_current"], max_impr, C_TEAL)
         ctr_str    = _fmt(row["ctr_current"], pct=True)
@@ -781,14 +818,14 @@ def build_top_table(df, key_col, is_page=False, n=15):
 
         rows_html.append(
             f"<tr>"
-            f"<td style='color:#94A3B8;font-size:9px;'>{i}</td>"
-            f"<td style='max-width:220px;word-break:break-all;'>{html.escape(label)}</td>"
+            f"<td style='color:#94A3B8;font-size:9px;width:18px;'>{i}</td>"
+            f"<td class='url-cell'>{html.escape(label)}</td>"
             f"{click_bar}{impr_bar}"
-            f"<td>{ctr_str}</td>"
-            f"<td>{pos_str}</td>"
-            f"<td>{band}</td>"
-            f"<td>{click_dlt}</td>"
-            f"<td>{pos_dlt}</td>"
+            f"<td style='white-space:nowrap;'>{ctr_str}</td>"
+            f"<td style='white-space:nowrap;'>{pos_str}</td>"
+            f"<td style='white-space:nowrap;'>{band}</td>"
+            f"<td style='white-space:nowrap;'>{click_dlt}</td>"
+            f"<td style='white-space:nowrap;'>{pos_dlt}</td>"
             f"</tr>"
         )
 
@@ -816,17 +853,17 @@ def build_movers_table(gainers_df, losers_df, key_col, n=10):
         change = float(row["clicks_change"])
         is_gain = change >= 0
         border_color = C_TEAL if is_gain else C_CORAL
-        label = short_url(str(row[key_col]), 55)
+        label = short_url(str(row[key_col]), 60)
         click_dlt = _delta_html(row["clicks_change"])
         pos_dlt   = _delta_html(row["position_change"], decimals=1, lower_is_better=True)
 
         rows_html.append(
             f'<tr style="border-left:3px solid {border_color};">'
-            f"<td style='max-width:220px;word-break:break-all;'>{html.escape(label)}</td>"
-            f"<td>{_fmt(row['clicks_previous'])}</td>"
-            f"<td>{_fmt(row['clicks_current'])}</td>"
-            f"<td>{click_dlt}</td>"
-            f"<td>{pos_dlt}</td>"
+            f"<td class='url-cell'>{html.escape(label)}</td>"
+            f"<td style='white-space:nowrap;'>{_fmt(row['clicks_previous'])}</td>"
+            f"<td style='white-space:nowrap;'>{_fmt(row['clicks_current'])}</td>"
+            f"<td style='white-space:nowrap;'>{click_dlt}</td>"
+            f"<td style='white-space:nowrap;'>{pos_dlt}</td>"
             f"</tr>"
         )
 
@@ -847,29 +884,32 @@ def build_new_lost_block(query_df):
         th = f"<th>Query</th><th>{val_label}</th><th>Impr</th>"
         rows = []
         for _, row in df.iterrows():
-            label = html.escape(short_url(str(row[key_col]), 50))
+            label = html.escape(short_url(str(row[key_col]), 38))
+            impr_val = row.get("impressions_current", row.get("impressions_previous", 0))
             rows.append(
                 f'<tr style="border-left:3px solid {border_color};">'
-                f"<td style='max-width:200px;word-break:break-all;'>{label}</td>"
-                f"<td>{_fmt(row[val_col])}</td>"
-                f"<td>{_fmt(row['impressions_current'] if 'impressions_current' in row else row.get('impressions_previous', 0))}</td>"
+                f"<td class='url-cell'>{label}</td>"
+                f"<td style='white-space:nowrap;'>{_fmt(row[val_col])}</td>"
+                f"<td style='white-space:nowrap;'>{_fmt(impr_val)}</td>"
                 f"</tr>"
             )
         return f"<table><thead><tr>{th}</tr></thead><tbody>{''.join(rows)}</tbody></table>"
 
-    new_html  = mini_table(new_df,  "query", "clicks_current",  "Clicks", C_TEAL)
+    new_html  = mini_table(new_df,  "query", "clicks_current",  "Clicks",      C_TEAL)
     lost_html = mini_table(lost_df, "query", "clicks_previous", "Prev Clicks", C_CORAL)
 
+    # Float-based two-column — WeasyPrint supports float, not CSS grid
     return f"""
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;">
-  <div>
+<div class="nl-wrap">
+  <div class="nl-col">
     <div class="section-label" style="color:{C_TEAL};">&#9650; New This Week ({len(new_df)})</div>
     {new_html}
   </div>
-  <div>
+  <div class="nl-col-right">
     <div class="section-label" style="color:{C_CORAL};">&#9660; Lost This Week ({len(lost_df)})</div>
     {lost_html}
   </div>
+  <div class="nl-clear"></div>
 </div>
 """
 
@@ -911,7 +951,7 @@ def get_extra_css():
         padding-left: 2px;
     }
 
-    /* ── Section label (used in new/lost block) ─────────────────── */
+    /* ── Section label ──────────────────────────────────────────── */
     .section-label {
         font-size: 9px;
         text-transform: uppercase;
@@ -935,9 +975,10 @@ def get_extra_css():
     .badge-p2   { background: #FEF9C3; color: #A16207; }
     .badge-p3   { background: #FEE2E2; color: #B91C1C; }
 
-    /* ── Chart image wrapper ────────────────────────────────────── */
+    /* ── Chart: one per row, full width ─────────────────────────── */
     .chart-wrap {
-        margin-bottom: 18px;
+        width: 100%;
+        margin-bottom: 20px;
         page-break-inside: avoid;
     }
     .chart-wrap img {
@@ -946,21 +987,8 @@ def get_extra_css():
         border-radius: 4px;
         border: 1px solid #E2E8F0;
     }
-    .chart-row-2 {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 14px;
-        margin-bottom: 18px;
-        page-break-inside: avoid;
-    }
 
-    /* ── Two-column query/page layout ───────────────────────────── */
-    .two-col {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
-        margin-bottom: 20px;
-    }
+    /* ── Section header bar ─────────────────────────────────────── */
     .col-header {
         font-size: 9px;
         text-transform: uppercase;
@@ -969,13 +997,26 @@ def get_extra_css():
         color: #212878;
         border-left: 3px solid #212878;
         padding-left: 8px;
+        margin-top: 20px;
         margin-bottom: 8px;
     }
 
-    /* ── Table tweaks ───────────────────────────────────────────── */
-    table { font-size: 9.5px; }
+    /* ── Table: prevent URL character-splitting ─────────────────── */
+    table { font-size: 9.5px; width: 100%; table-layout: fixed; }
     th    { font-size: 8px; }
-    td    { padding: 7px 10px; }
+    td    { padding: 7px 10px; overflow-wrap: break-word; word-break: normal; }
+    td.url-cell {
+        max-width: 200px;
+        overflow-wrap: break-word;
+        word-break: break-word;
+        font-size: 8.5px;
+    }
+
+    /* ── New/lost two-column: float-based (WeasyPrint safe) ─────── */
+    .nl-wrap { width: 100%; overflow: hidden; margin-bottom: 20px; }
+    .nl-col  { float: left; width: 48%; }
+    .nl-col-right { float: right; width: 48%; }
+    .nl-clear { clear: both; }
     """
 
 
@@ -987,13 +1028,6 @@ def _img(path, alt="chart"):
     if not path:
         return ""
     return f'<div class="chart-wrap"><img src="{html.escape(str(path))}" alt="{html.escape(alt)}"></div>'
-
-
-def _img2(path_a, alt_a, path_b, alt_b):
-    """Two charts side-by-side."""
-    a = f'<div><img src="{html.escape(str(path_a))}" alt="{html.escape(alt_a)}" style="width:100%;border-radius:4px;border:1px solid #E2E8F0;"></div>' if path_a else "<div></div>"
-    b = f'<div><img src="{html.escape(str(path_b))}" alt="{html.escape(alt_b)}" style="width:100%;border-radius:4px;border:1px solid #E2E8F0;"></div>' if path_b else "<div></div>"
-    return f'<div class="chart-row-2">{a}{b}</div>'
 
 
 def write_html_summary(query_df, page_df, exec_bullets, kpis,
@@ -1024,7 +1058,7 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
     page_movers_tbl  = build_movers_table(p_gainers, p_losers, "page",  n=10)
     new_lost_block   = build_new_lost_block(query_df)
 
-    # ── Device table (small) ───────────────────────────────────────────────
+    # ── Device table ───────────────────────────────────────────────────────
     device_rows = ""
     if not device_df.empty:
         for _, row in device_df.iterrows():
@@ -1054,7 +1088,7 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
 </head>
 <body>
 
-<!-- ── HEADER ─────────────────────────────────────────────────────────── -->
+<!-- ── PAGE 1: HEADER + EXECUTIVE SUMMARY + KPI CARDS ────────────────── -->
 <div class="header-bar">
   <h1>GSC Weekly Performance Summary</h1>
   <div class="subtitle">
@@ -1063,64 +1097,74 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
   </div>
 </div>
 
-<!-- ── EXECUTIVE SUMMARY ──────────────────────────────────────────────── -->
 <div class="exec-panel">
   <div class="panel-label">Executive Summary</div>
   <ul class="exec-bullets">{bullet_items}</ul>
 </div>
 
-<!-- ── KPI CARDS ──────────────────────────────────────────────────────── -->
 <div class="grid">{kpi_cards}</div>
 
-<!-- ── KPI GRID CHART ─────────────────────────────────────────────────── -->
+<!-- ── PAGE 2: KPI GRID + TREND LINE ──────────────────────────────────── -->
+<div class="break-before"></div>
+
+<div class="col-header" style="margin-top:0;">KPI Comparison — Current vs Previous Week</div>
 {_img(chart_paths.get("kpi_grid"), "KPI comparison grid")}
 
-<!-- ── TREND LINE ─────────────────────────────────────────────────────── -->
+<div class="col-header">7-Day Daily Trend</div>
 {_img(chart_paths.get("trend"), "7-day daily trend")}
 
-<!-- ── DEVICE + APPEARANCE side by side ───────────────────────────────── -->
-{_img2(chart_paths.get("device"), "Device split",
-       chart_paths.get("appearance"), "Search appearance")}
-
+<!-- ── PAGE 3: DEVICE + SEARCH APPEARANCE ─────────────────────────────── -->
 <div class="break-before"></div>
 
-<!-- ── CTR vs POSITION SCATTER ────────────────────────────────────────── -->
+<div class="col-header" style="margin-top:0;">Device Split</div>
+{_img(chart_paths.get("device"), "Device split")}
+
+<div class="col-header">Search Appearance / SERP Features</div>
+{_img(chart_paths.get("appearance"), "Search appearance")}
+
+<!-- ── PAGE 4: CTR vs POSITION SCATTER ────────────────────────────────── -->
+<div class="break-before"></div>
+
+<div class="col-header" style="margin-top:0;">CTR vs Average Position</div>
 {_img(chart_paths.get("scatter"), "CTR vs position scatter")}
 
-<!-- ── LOLLIPOP MOVERS side by side ───────────────────────────────────── -->
-{_img2(chart_paths.get("query_movers"), "Query winners & losers",
-       chart_paths.get("page_movers"),  "Page winners & losers")}
-
+<!-- ── PAGE 5: LOLLIPOP MOVERS ────────────────────────────────────────── -->
 <div class="break-before"></div>
 
-<!-- ── NEW / LOST QUERIES ─────────────────────────────────────────────── -->
-<div class="col-header">New &amp; Lost Queries This Week</div>
+<div class="col-header" style="margin-top:0;">Query Winners &amp; Losers</div>
+{_img(chart_paths.get("query_movers"), "Query winners and losers")}
+
+<div class="col-header">Page Winners &amp; Losers</div>
+{_img(chart_paths.get("page_movers"), "Page winners and losers")}
+
+<!-- ── PAGE 6: NEW / LOST + TOP QUERIES ───────────────────────────────── -->
+<div class="break-before"></div>
+
+<div class="col-header" style="margin-top:0;">New &amp; Lost Queries This Week</div>
 {new_lost_block}
 
-<!-- ── TOP QUERIES + TOP PAGES side by side ───────────────────────────── -->
-<div class="two-col">
-  <div>
-    <div class="col-header">Top Queries by Clicks</div>
-    {top_queries_tbl}
-  </div>
-  <div>
-    <div class="col-header">Top Pages by Clicks</div>
-    {top_pages_tbl}
-  </div>
-</div>
+<div class="col-header">Top Queries by Clicks</div>
+{top_queries_tbl}
 
+<!-- ── PAGE 7: TOP PAGES ───────────────────────────────────────────────── -->
 <div class="break-before"></div>
 
-<!-- ── QUERY MOVERS TABLE ─────────────────────────────────────────────── -->
-<div class="col-header">Query Movement (Gainers &amp; Losers)</div>
+<div class="col-header" style="margin-top:0;">Top Pages by Clicks</div>
+{top_pages_tbl}
+
+<!-- ── PAGE 8: QUERY MOVEMENT ─────────────────────────────────────────── -->
+<div class="break-before"></div>
+
+<div class="col-header" style="margin-top:0;">Query Movement — Gainers &amp; Losers</div>
 {query_movers_tbl}
 
-<!-- ── PAGE MOVERS TABLE ──────────────────────────────────────────────── -->
-<div class="col-header" style="margin-top:16px;">Page Movement (Gainers &amp; Losers)</div>
+<!-- ── PAGE 9: PAGE MOVEMENT + DEVICE ─────────────────────────────────── -->
+<div class="break-before"></div>
+
+<div class="col-header" style="margin-top:0;">Page Movement — Gainers &amp; Losers</div>
 {page_movers_tbl}
 
-<!-- ── DEVICE BREAKDOWN ────────────────────────────────────────────────── -->
-<div class="col-header" style="margin-top:16px;">Device Breakdown</div>
+<div class="col-header">Device Breakdown</div>
 {device_table}
 
 </body>
