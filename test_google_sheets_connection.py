@@ -47,8 +47,9 @@ def test_connection():
     try:
         spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
         print(f"✓ Successfully opened spreadsheet: '{spreadsheet.title}'")
-    except gspread.exceptions.SpreadsheetNotFound:
+    except gspread.exceptions.SpreadsheetNotFound as e:
         print("\n✗ ERROR: Spreadsheet not found or no access")
+        print(f"\nDetailed error: {str(e)}")
         print("\nPOSSIBLE CAUSES:")
         print("  1. The service account doesn't have access to this sheet")
         print("  2. The sheet ID is incorrect")
@@ -60,7 +61,10 @@ def test_connection():
         print("  5. Grant 'Editor' permissions")
         return False
     except Exception as e:
-        print(f"\n✗ ERROR: {e}")
+        print(f"\n✗ ERROR: {type(e).__name__}: {str(e)}")
+        import traceback
+        print("\nFull traceback:")
+        traceback.print_exc()
         return False
     
     # Try to list worksheets
