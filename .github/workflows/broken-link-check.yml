@@ -38,4 +38,4 @@ jobs:
             broken_link_results.csv
             broken_link_issues_only.csv
             broken_link_summary.html
-            broken_link_summary.pdf
+            broken_link_summary_final.html

@@ -5,16 +5,18 @@ import requests
 import pandas as pd
 from pathlib import Path
 from datetime import datetime, timezone
-from weasyprint import HTML
 
-from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
-from monday_utils import upload_pdf_to_monday as _upload_pdf
+from pdf_report_formatter import html_table_from_df
+from html_report_utils import (
+    mm_html_shell, mm_kpi_card, mm_kpi_grid, mm_section, mm_report_section,
+    mm_ai_block, generate_self_contained_html, upload_html_to_monday,
+)
 
 REPORT_DIR = Path("reports")
-PDF_PATH = REPORT_DIR / "ai_snippet_verification_report.pdf"
-HTML_PATH = REPORT_DIR / "ai_snippet_verification_report.html"
-CSV_PATH = REPORT_DIR / "ai_snippet_verification.csv"
-MD_PATH = REPORT_DIR / "ai_snippet_verification.md"
+HTML_PATH  = REPORT_DIR / "ai_snippet_verification_report.html"
+FINAL_PATH = REPORT_DIR / "ai_snippet_verification_report_final.html"
+CSV_PATH   = REPORT_DIR / "ai_snippet_verification.csv"
+MD_PATH    = REPORT_DIR / "ai_snippet_verification.md"
 
 GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
 
@@ -109,92 +111,86 @@ def risk_label(value):
     return "Unknown"
 
 
-def build_pdf(df, ai_summary):
+def build_html(df, ai_summary):
     REPORT_DIR.mkdir(exist_ok=True)
 
     df["hallucination_flag"] = df["hallucination_flag"].apply(risk_label)
-    
-    avg_access = df["access_score"].mean()
+
+    avg_access  = df["access_score"].mean()
     avg_summary = df["summary_score"].mean()
-    avg_cta = df["cta_score"].mean()
+    avg_cta     = df["cta_score"].mean()
+    high_risk   = int(sum(df["hallucination_flag"] == "High"))
+    medium_risk = int(sum(df["hallucination_flag"] == "Medium"))
+    low_risk    = int(sum(df["hallucination_flag"] == "Low"))
 
-    high_risk = sum(df["hallucination_flag"] == "High")
-    medium_risk = sum(df["hallucination_flag"] == "Medium")
-    low_risk = sum(df["hallucination_flag"] == "Low")
+    kpi_grid = mm_kpi_grid(
+        mm_kpi_card("Pages Checked",     len(df),     None),
+        mm_kpi_card("Avg Access Score",  avg_access,  None, decimals=2),
+        mm_kpi_card("Avg Summary Score", avg_summary, None, decimals=2),
+        mm_kpi_card("Avg CTA Score",     avg_cta,     None, decimals=2),
+    )
+    risk_grid = mm_kpi_grid(
+        mm_kpi_card("High Risk",   high_risk,   None),
+        mm_kpi_card("Medium Risk", medium_risk, None),
+        mm_kpi_card("Low Risk",    low_risk,    None),
+        mm_kpi_card("Total Pages", len(df),     None),
+    )
 
-    html_output = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>AI Snippet Verification Report</title>
-<style>
-{get_pdf_css()}
-</style>
-</head>
-<body>
-    <div class="header-bar">
-        <h1>AI Snippet Verification Report</h1>
-        <div class="subtitle">Generated: {datetime.now(timezone.utc).strftime('%B %d, %Y at %H:%M UTC')}</div>
-    </div>
-
-    <div class="panel">
-        <h2>AI Executive Summary</h2>
-        <div class="ai-block">{html.escape(ai_summary)}</div>
-    </div>
-
-    <div class="grid">
-        {build_card("Pages Checked", len(df), None)}
-        {build_card("Avg Access Score", avg_access, None, decimals=2)}
-        {build_card("Avg Summary Score", avg_summary, None, decimals=2)}
-        {build_card("Avg CTA Score", avg_cta, None, decimals=2)}
-    </div>
-
-    <h2>Hallucination Risk Summary</h2>
-    <div class="grid">
-        {build_card("High Risk", high_risk, None)}
-        {build_card("Medium Risk", medium_risk, None)}
-        {build_card("Low Risk", low_risk, None)}
-    </div>
-
-    <div class="break-before"></div>
-    <h2>Page-Level Results</h2>
-    {html_table_from_df(
+    results_tbl = html_table_from_df(
         df,
-        ["page_name", "access_score", "summary_score", "cta_score", "hallucination_flag", "recommendation"],
-        {
-            "page_name": "Page Name",
-            "access_score": "Access",
-            "summary_score": "Summary",
-            "cta_score": "CTA",
-            "hallucination_flag": "Risk",
-            "recommendation": "Recommendation"
-        }
-    )}
-</body>
-</html>
-"""
+        ["page_name","access_score","summary_score","cta_score","hallucination_flag","recommendation"],
+        {"page_name":"Page Name","access_score":"Access","summary_score":"Summary",
+         "cta_score":"CTA","hallucination_flag":"Risk","recommendation":"Recommendation"}
+    )
+
+    body = (
+        mm_section("AI Executive Summary",
+            mm_report_section(mm_ai_block(ai_summary))
+        ) +
+        f'<div class="section" style="padding-top:0;">{kpi_grid}</div>'
+        '<hr class="rule-thick">' +
+        mm_section("Hallucination Risk Summary",
+            f'<div class="section" style="padding-top:0;">{risk_grid}</div>'
+        ) +
+        mm_section("Page-Level Results",
+            mm_report_section(results_tbl)
+        )
+    )
+
+    doc = mm_html_shell(
+        title="AI Snippet Verification Report",
+        eyebrow="CIM SEO — AI Visibility",
+        headline="AI Snippet\nVerification",
+        meta_line=f"Generated {datetime.now(timezone.utc).strftime('%B %d, %Y at %H:%M UTC')}",
+        body_content=body,
+    )
     with open(HTML_PATH, "w", encoding="utf-8") as f:
-        f.write(html_output)
-
-    HTML(filename=str(HTML_PATH)).write_pdf(str(PDF_PATH))
-    print(f"PDF created: {PDF_PATH}")
+        f.write(doc)
+    print(f"Saved {HTML_PATH}")
 
 
-def upload_pdf_to_monday():
-    _upload_pdf(
-        str(PDF_PATH),
-        body_text="AI Snippet Verification PDF report attached.",
-        pdf_filename="ai-snippet-verification-report.pdf"
+def generate_self_contained():
+    generate_self_contained_html(str(HTML_PATH), str(FINAL_PATH))
+
+
+def upload_to_monday():
+    upload_html_to_monday(
+        str(FINAL_PATH),
+        "ai-snippet-verification-report.html",
+        body_text="AI Snippet Verification Report attached as self-contained HTML.",
     )
 
 
 def main():
     df, md_text = read_inputs()
-    ai_summary = groq_summary(df, md_text)
-    build_pdf(df, ai_summary)
+    ai_summary  = groq_summary(df, md_text)
+    build_html(df, ai_summary)
+    generate_self_contained()
 
-    upload_pdf_to_monday()
+    try:
+        upload_to_monday()
+    except Exception as e:
+        print(f"Monday upload failed: {e}")
 
 
 if __name__ == "__main__":

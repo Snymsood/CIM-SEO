@@ -47,4 +47,5 @@ jobs:
             page_position_losers.csv
             landing_pages_summary.md
             landing_pages_summary.html
-            landing_pages_summary.pdf
+            landing_pages_summary_final.html
+            charts/

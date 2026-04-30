@@ -2,7 +2,6 @@ import asyncio
 import aiohttp
 from datetime import date
 from openai import OpenAI
-from weasyprint import HTML
 import pandas as pd
 import requests
 import os
@@ -11,8 +10,12 @@ import json
 import matplotlib
 
 from google_sheets_db import append_to_sheet
-from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
-from monday_utils import upload_pdf_to_monday as _upload_pdf
+from pdf_report_formatter import html_table_from_df
+from html_report_utils import (
+    mm_html_shell, mm_kpi_card, mm_kpi_grid, mm_section, mm_report_section,
+    mm_col_header, mm_chart_wrap, mm_chart_row_2, mm_exec_bullets, mm_ai_block,
+    generate_self_contained_html, upload_html_to_monday,
+)
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from pathlib import Path
@@ -406,97 +409,97 @@ def img_tag(path, alt):
 
 # ---------- report ----------
 def write_html_summary(comparison_df, commentary):
-    clean = comparison_df[pd.notnull(comparison_df["performance_score"])].copy()
-    mobile = clean[clean["strategy"] == "mobile"].copy()
+    clean   = comparison_df[pd.notnull(comparison_df["performance_score"])].copy()
+    mobile  = clean[clean["strategy"] == "mobile"].copy()
     desktop = clean[clean["strategy"] == "desktop"].copy()
-    mobile["priority_rank"] = mobile["priority"].map(priority_rank)
+    mobile["priority_rank"]  = mobile["priority"].map(priority_rank)
     desktop["priority_rank"] = desktop["priority"].map(priority_rank)
-    mobile = mobile.sort_values(by=["priority_rank", "performance_score"], ascending=[True, False]).drop(columns=["priority_rank"]) 
-    desktop = desktop.sort_values(by=["priority_rank", "performance_score"], ascending=[True, False]).drop(columns=["priority_rank"]) 
+    mobile  = mobile.sort_values(["priority_rank","performance_score"], ascending=[True,False]).drop(columns=["priority_rank"])
+    desktop = desktop.sort_values(["priority_rank","performance_score"], ascending=[True,False]).drop(columns=["priority_rank"])
 
     executive_read = build_executive_read(comparison_df)
-    charts = build_charts(comparison_df)
-    commentary_html = commentary_to_html(commentary)
+    charts         = build_charts(comparison_df)
+    commentary_html = mm_ai_block(commentary)
 
-    # Keep main body concise for PDF readability
-    mobile_main = mobile.head(10).copy()
-    desktop_main = desktop.head(10).copy()
-    appendix_mobile = mobile.iloc[10:].copy()
+    mobile_main    = mobile.head(10).copy()
+    desktop_main   = desktop.head(10).copy()
+    appendix_mobile  = mobile.iloc[10:].copy()
     appendix_desktop = desktop.iloc[10:].copy()
 
-    mobile_cols = ["page", "category", "priority", "performance_score", "performance_score_change", "lcp_field_ms", "inp_field_ms", "cls_field"]
-    mobile_rename = {"page": "Page", "category": "Category", "priority": "Priority", "performance_score": "Score", "performance_score_change": "Score Δ", "lcp_field_ms": "LCP (ms)", "inp_field_ms": "INP (ms)", "cls_field": "CLS"}
+    mobile_cols   = ["page","category","priority","performance_score","performance_score_change","lcp_field_ms","inp_field_ms","cls_field"]
+    mobile_rename = {"page":"Page","category":"Category","priority":"Priority","performance_score":"Score","performance_score_change":"Score Δ","lcp_field_ms":"LCP (ms)","inp_field_ms":"INP (ms)","cls_field":"CLS"}
+    desktop_cols  = ["page","category","priority","performance_score","performance_score_change","lcp_lab_ms","tbt_lab_ms","cls_lab"]
+    desktop_rename= {"page":"Page","category":"Category","priority":"Priority","performance_score":"Score","performance_score_change":"Score Δ","lcp_lab_ms":"LCP Lab (ms)","tbt_lab_ms":"TBT Lab (ms)","cls_lab":"CLS Lab"}
 
-    desktop_cols = ["page", "category", "priority", "performance_score", "performance_score_change", "lcp_lab_ms", "tbt_lab_ms", "cls_lab"]
-    desktop_rename = {"page": "Page", "category": "Category", "priority": "Priority", "performance_score": "Score", "performance_score_change": "Score Δ", "lcp_lab_ms": "LCP Lab (ms)", "tbt_lab_ms": "TBT Lab (ms)", "cls_lab": "CLS Lab"}
+    def tbl(df, cols, rename):
+        return html_table_from_df(df, cols, rename) if not df.empty else "<p>No data.</p>"
 
-    html_output = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Site Speed Monitoring</title>
-<style>
-{get_pdf_css()}
-.chart-panel {{ background: #f8fafc; border: 1px solid #dbe4f0; border-radius: 6px; padding: 12px; margin-top: 12px; margin-bottom: 20px; page-break-inside: avoid; }}
-.chart-row {{ margin-bottom: 12px; }}
-.two-col {{ display: block; }}
-</style>
-</head>
-<body>
-    <h1>Site Speed Monitoring</h1>
-    <div class="muted">Prepared for stakeholder review • Generated {date.today().isoformat()}</div>
+    def chart_img(path, alt):
+        if not path:
+            return '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#525252;">No baseline data available for this chart.</p>'
+        return mm_chart_wrap(path, alt)
 
-    <div class="panel">
-        <h2>Executive Overview</h2>
-        <ul>{''.join(f'<li>{html.escape(line)}</li>' for line in executive_read)}</ul>
-        
-        <h2>Executive Commentary</h2>
-        <div class="ai-block">{commentary_html}</div>
-    </div>
+    kpi_grid = mm_kpi_grid(
+        mm_kpi_card("Tracked URLs",      comparison_df['page'].nunique(), None),
+        mm_kpi_card("Mobile Avg Score",  mobile['performance_score'].mean() if not mobile.empty else 0, None, decimals=1),
+        mm_kpi_card("Desktop Avg Score", desktop['performance_score'].mean() if not desktop.empty else 0, None, decimals=1),
+        mm_kpi_card("Poor Mobile LCP",   int((mobile['lcp_field_category'] == 'SLOW').sum()) if not mobile.empty else 0, None),
+    )
 
-    <div class="grid">
-        {build_card("Tracked URLs", comparison_df['page'].nunique(), None, decimals=0)}
-        {build_card("Mobile Avg Score", mobile['performance_score'].mean(), None, decimals=1)}
-        {build_card("Desktop Avg Score", desktop['performance_score'].mean(), None, decimals=1)}
-        {build_card("Poor Mobile LCP", (mobile['lcp_field_category'] == 'SLOW').sum(), None, decimals=0)}
-    </div>
+    body = (
+        mm_section("Executive Overview",
+            mm_report_section(mm_exec_bullets(executive_read) + commentary_html)
+        ) +
+        f'<div class="section" style="padding-top:0;">{kpi_grid}</div>'
+        '<hr class="rule-thick">' +
+        mm_section("Performance Overview",
+            mm_report_section(chart_img(charts['overview'], 'Site speed overview'))
+        ) +
+        mm_section("Top Mobile Performance Scores",
+            mm_report_section(chart_img(charts['top_mobile'], 'Top mobile scores'))
+        ) +
+        mm_section("Highest Mobile LCP Pages",
+            mm_report_section(chart_img(charts['worst_lcp'], 'Highest mobile LCP'))
+        ) +
+        mm_section("Mobile Score Movement",
+            mm_report_section(chart_img(charts.get('score_change'), 'Mobile score winners and losers'))
+        ) +
+        mm_section("Mobile Results",
+            mm_report_section(tbl(mobile_main, mobile_cols, mobile_rename))
+        ) +
+        mm_section("Desktop Results",
+            mm_report_section(tbl(desktop_main, desktop_cols, desktop_rename))
+        ) +
+        mm_section("Appendix — Additional Mobile Rows",
+            mm_report_section(tbl(appendix_mobile, mobile_cols, mobile_rename))
+        ) +
+        mm_section("Appendix — Additional Desktop Rows",
+            mm_report_section(tbl(appendix_desktop, desktop_cols, desktop_rename))
+        )
+    )
 
-    <h2>Performance Overview</h2>
-    <div class="chart-row chart-panel">{img_tag(charts['overview'], 'Site speed overview')}</div>
-
-    <h2>Top Mobile Performance Scores</h2>
-    <div class="chart-row chart-panel">{img_tag(charts['top_mobile'], 'Top mobile scores')}</div>
-
-    <h2>Highest Mobile LCP Pages</h2>
-    <div class="chart-row chart-panel">{img_tag(charts['worst_lcp'], 'Highest mobile LCP')}</div>
-
-    <div class="break-before"></div>
-    <h2>Mobile Score Movement</h2>
-    <div class="chart-row chart-panel">{img_tag(charts['score_change'], 'Mobile score winners and losers')}</div>
-
-    <h2>Mobile Results</h2>
-    {html_table_from_df(mobile_main, mobile_cols, mobile_rename)}
-
-    <h2>Desktop Results</h2>
-    {html_table_from_df(desktop_main, desktop_cols, desktop_rename)}
-
-    <div class="break-before"></div>
-    <h2>Appendix: Additional Mobile Rows</h2>
-    {html_table_from_df(appendix_mobile, mobile_cols, mobile_rename)}
-    
-    <h2>Appendix: Additional Desktop Rows</h2>
-    {html_table_from_df(appendix_desktop, desktop_cols, desktop_rename)}
-</body>
-</html>
-"""
+    doc = mm_html_shell(
+        title="Site Speed Monitoring",
+        eyebrow="CIM SEO — Core Web Vitals",
+        headline="Site Speed\nMonitoring",
+        meta_line=f"Generated {date.today().isoformat()}",
+        body_content=body,
+    )
     with open("site_speed_summary.html", "w", encoding="utf-8") as f:
-        f.write(html_output)
+        f.write(doc)
+    print("Saved site_speed_summary.html")
 
 
-def generate_pdf():
-    HTML("site_speed_summary.html").write_pdf("site_speed_summary.pdf")
-    print("Saved site_speed_summary.pdf")
+def generate_self_contained():
+    generate_self_contained_html("site_speed_summary.html", "site_speed_summary_final.html")
+
+
+def upload_to_monday():
+    upload_html_to_monday(
+        "site_speed_summary_final.html",
+        "site-speed-monitoring.html",
+        body_text="Site Speed Monitoring Report attached as self-contained HTML.",
+    )
 
 
 def persist_snapshots(current_df):
@@ -507,14 +510,6 @@ def persist_snapshots(current_df):
     else:
         history_df = current_df.copy()
     history_df.to_csv(HISTORY_FILE, index=False)
-
-
-def upload_pdf_to_monday(pdf_path):
-    _upload_pdf(
-        pdf_path,
-        body_text="Site speed PDF report attached.",
-        pdf_filename="site-speed-monitoring.pdf",
-    )
 
 
 def main():
@@ -531,11 +526,11 @@ def main():
 
     commentary = build_commentary(comparison_df)
     write_html_summary(comparison_df, commentary)
-    generate_pdf()
+    generate_self_contained()
     persist_snapshots(current_df)
 
     try:
-        upload_pdf_to_monday("site_speed_summary.pdf")
+        upload_to_monday()
     except Exception as e:
         print(f"monday upload step failed: {e}")
 

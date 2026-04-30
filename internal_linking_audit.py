@@ -1,7 +1,6 @@
 from collections import Counter, deque
 from datetime import date
 from openai import OpenAI
-from weasyprint import HTML
 from urllib.parse import urljoin, urlparse, urldefrag
 from bs4 import BeautifulSoup
 import matplotlib.pyplot as plt
@@ -14,8 +13,12 @@ import time
 import asyncio
 import aiohttp
 
-from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
-from monday_utils import upload_pdf_to_monday as _upload_pdf
+from pdf_report_formatter import html_table_from_df
+from html_report_utils import (
+    mm_html_shell, mm_kpi_card, mm_kpi_grid, mm_section, mm_report_section,
+    mm_col_header, mm_chart_wrap, mm_exec_bullets, mm_ai_block,
+    generate_self_contained_html, upload_html_to_monday,
+)
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
@@ -452,129 +455,83 @@ def write_markdown_summary(commentary_text, page_summary_df, flagged_pages_df, p
 
 
 def write_html_summary(commentary_text, page_summary_df, flagged_pages_df, priority_target_df, generic_anchor_examples_df, opportunities_df):
-    commentary_lines = [line.strip() for line in commentary_text.splitlines() if line.strip()]
+    total_pages   = len(page_summary_df)
+    low_outlinks  = int(page_summary_df["flag_low_outlinks"].sum()) if not page_summary_df.empty else 0
+    orphan_like   = int(page_summary_df["flag_zero_inlinks"].sum()) if not page_summary_df.empty else 0
+    weak_targets  = int(priority_target_df["flag_low_inlinks"].sum()) if not priority_target_df.empty else 0
 
-    total_pages = len(page_summary_df)
-    low_outlinks = int(page_summary_df["flag_low_outlinks"].sum()) if not page_summary_df.empty else 0
-    orphan_like = int(page_summary_df["flag_zero_inlinks"].sum()) if not page_summary_df.empty else 0
-    weak_targets = int(priority_target_df["flag_low_inlinks"].sum()) if not priority_target_df.empty else 0
+    def tbl(df, cols, rename):
+        return html_table_from_df(df, cols, rename) if not df.empty else "<p>No rows to display.</p>"
 
-    flagged_table = build_table_html(
-        flagged_pages_df.head(20),
-        ["url", "outlinks", "inlinks", "generic_anchor_links"],
-        {
-            "url": "Page",
-            "outlinks": "Outlinks",
-            "inlinks": "Inlinks",
-            "generic_anchor_links": "Generic Anchor Links",
-        }
+    kpi_grid = mm_kpi_grid(
+        mm_kpi_card("Crawled Pages",         total_pages,  None),
+        mm_kpi_card("Low Outlinks",          low_outlinks, None),
+        mm_kpi_card("Orphan-Like Pages",     orphan_like,  None),
+        mm_kpi_card("Weak Priority Targets", weak_targets, None),
     )
 
-    priority_table = build_table_html(
-        priority_target_df,
-        ["priority_target", "inlinks", "flag_low_inlinks"],
-        {
-            "priority_target": "Priority Target",
-            "inlinks": "Inlinks",
-            "flag_low_inlinks": "Low Support Flag",
-        }
+    charts_html = (
+        mm_chart_wrap("internal_linking_low_outlinks.png",    "Low outlink pages") +
+        mm_chart_wrap("internal_linking_low_inlinks.png",     "Low inlink pages") +
+        mm_chart_wrap("internal_linking_priority_targets.png","Priority target support")
     )
 
-    generic_anchor_table = build_table_html(
-        generic_anchor_examples_df.head(20),
-        ["source_url", "target_url", "anchor_text"],
-        {
-            "source_url": "Source URL",
-            "target_url": "Target URL",
-            "anchor_text": "Anchor Text",
-        }
+    body = (
+        mm_section("Executive Commentary",
+            mm_report_section(mm_ai_block(commentary_text))
+        ) +
+        f'<div class="section" style="padding-top:0;">{kpi_grid}</div>'
+        '<hr class="rule-thick">' +
+        mm_section("Link Coverage Charts",
+            mm_report_section(charts_html)
+        ) +
+        mm_section("Flagged Pages",
+            mm_report_section(tbl(flagged_pages_df.head(20),
+                ["url","outlinks","inlinks","generic_anchor_links"],
+                {"url":"Page","outlinks":"Outlinks","inlinks":"Inlinks","generic_anchor_links":"Generic Anchor Links"}
+            ))
+        ) +
+        mm_section("Priority Target Review",
+            mm_report_section(tbl(priority_target_df,
+                ["priority_target","inlinks","flag_low_inlinks"],
+                {"priority_target":"Priority Target","inlinks":"Inlinks","flag_low_inlinks":"Low Support Flag"}
+            ))
+        ) +
+        mm_section("Generic Anchor Text Examples",
+            mm_report_section(tbl(generic_anchor_examples_df.head(20),
+                ["source_url","target_url","anchor_text"],
+                {"source_url":"Source URL","target_url":"Target URL","anchor_text":"Anchor Text"}
+            ))
+        ) +
+        mm_section("Suggested Link Opportunities",
+            mm_report_section(tbl(opportunities_df.head(20),
+                ["source_page","suggested_target","reason"],
+                {"source_page":"Source Page","suggested_target":"Suggested Target","reason":"Reason"}
+            ))
+        )
     )
 
-    opportunity_table = build_table_html(
-        opportunities_df.head(20),
-        ["source_page", "suggested_target", "reason"],
-        {
-            "source_page": "Source Page",
-            "suggested_target": "Suggested Target",
-            "reason": "Reason",
-        }
+    doc = mm_html_shell(
+        title="Internal Linking & Architecture Audit",
+        eyebrow="CIM SEO — Technical Audit",
+        headline="Internal Linking\nAudit",
+        meta_line=f"Generated {date.today().strftime('%B %d, %Y')} · {total_pages} crawled pages",
+        body_content=body,
     )
-
-    html_output = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Internal Linking Audit</title>
-<style>
-{get_pdf_css()}
-.empty-state {{ color: #6b7280; font-style: italic; padding: 8px 0; }}
-</style>
-</head>
-<body>
-    <div class="header-bar">
-        <h1>Internal Linking & Architecture Audit</h1>
-        <div class="subtitle">Generated: {date.today().strftime('%B %d, %Y')} | Analysis of {total_pages} crawled pages</div>
-    </div>
-
-    <div class="panel">
-        <h2>Executive Commentary</h2>
-        <div class="ai-block">{''.join(f'<p>{html.escape(line)}</p>' for line in commentary_lines)}</div>
-    </div>
-
-    <h2>Linking Snapshot</h2>
-    <div class="grid">
-        {build_card("Crawled Pages", total_pages, None)}
-        {build_card("Low Outlinks", low_outlinks, None)}
-        {build_card("Orphan-Like Pages", orphan_like, None)}
-        {build_card("Weak Priority Targets", weak_targets, None)}
-    </div>
-
-    <h2>Low Outlink Coverage</h2>
-    <div class="chart-block">
-        <img src="internal_linking_low_outlinks.png" alt="Low outlink pages">
-    </div>
-
-    <h2>Low Inlink Coverage</h2>
-    <div class="chart-block">
-        <img src="internal_linking_low_inlinks.png" alt="Low inlink pages">
-    </div>
-
-    <h2>Priority Target Support</h2>
-    <div class="chart-block">
-        <img src="internal_linking_priority_targets.png" alt="Priority target support">
-    </div>
-
-    <div class="break-before"></div>
-    <h2>Flagged Pages</h2>
-    {flagged_table}
-
-    <h2>Priority Target Review</h2>
-    {priority_table}
-
-    <h2>Generic Anchor Text Examples</h2>
-    {generic_anchor_table}
-
-    <div class="break-before"></div>
-    <h2>Suggested Link Opportunities</h2>
-    {opportunity_table}
-</body>
-</html>
-"""
     with open("internal_linking_audit_summary.html", "w", encoding="utf-8") as f:
-        f.write(html_output)
+        f.write(doc)
+    print("Saved internal_linking_audit_summary.html", flush=True)
 
 
-def generate_pdf():
-    HTML("internal_linking_audit_summary.html").write_pdf("internal_linking_audit_summary.pdf")
-    print("Saved internal_linking_audit_summary.pdf", flush=True)
+def generate_self_contained():
+    generate_self_contained_html("internal_linking_audit_summary.html", "internal_linking_audit_summary_final.html")
 
 
-def upload_pdf_to_monday(pdf_path):
-    _upload_pdf(
-        pdf_path,
-        body_text="Internal linking PDF report attached.",
-        pdf_filename="internal-linking-audit.pdf",
+def upload_to_monday():
+    upload_html_to_monday(
+        "internal_linking_audit_summary_final.html",
+        "internal-linking-audit.html",
+        body_text="Internal Linking Audit attached as self-contained HTML.",
     )
 
 
@@ -601,10 +558,10 @@ def main():
     generate_charts(page_summary_df, priority_target_df)
     write_markdown_summary(commentary_text, page_summary_df, flagged_pages_df, priority_target_df, opportunities_df)
     write_html_summary(commentary_text, page_summary_df, flagged_pages_df, priority_target_df, generic_anchor_examples_df, opportunities_df)
-    generate_pdf()
+    generate_self_contained()
 
     try:
-        upload_pdf_to_monday("internal_linking_audit_summary.pdf")
+        upload_to_monday()
     except Exception as e:
         print(f"monday upload step failed: {e}", flush=True)
 

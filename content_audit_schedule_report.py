@@ -2,7 +2,6 @@ from datetime import date, timedelta
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from openai import OpenAI
-from weasyprint import HTML
 import matplotlib.pyplot as plt
 import pandas as pd
 import requests
@@ -11,8 +10,12 @@ import html
 import json
 import math
 
-from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card, safe_pct_change
-from monday_utils import upload_pdf_to_monday as _upload_pdf
+from pdf_report_formatter import html_table_from_df, safe_pct_change
+from html_report_utils import (
+    mm_html_shell, mm_kpi_card, mm_kpi_grid, mm_section, mm_report_section,
+    mm_col_header, mm_chart_wrap, mm_exec_bullets, mm_ai_block,
+    generate_self_contained_html, upload_html_to_monday,
+)
 
 SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly"]
 KEY_FILE = "gsc-key.json"
@@ -463,127 +466,77 @@ def write_markdown_summary(selected_df, scored_df, commentary_text, current_star
 
 
 def write_html_summary(selected_df, scored_df, commentary_text, current_start, current_end, previous_start, previous_end):
-    commentary_lines = [line.strip() for line in commentary_text.splitlines() if line.strip()]
     selected = selected_df.iloc[0] if not selected_df.empty else None
     top_candidates = scored_df.head(10).copy()
-
     selected_action = selected["recommended_action"] if selected is not None else "No Selection"
-    selected_score = f"{selected['low_performance_score']:.1f}" if selected is not None else "n/a"
-    selected_page = shorten_page_label(selected["page"]) if selected is not None else "No eligible page"
+    selected_score  = f"{selected['low_performance_score']:.1f}" if selected is not None else "n/a"
     candidate_count = len(scored_df)
 
-    selected_table_html = build_table_html(
-        selected_df,
-        [
-            "page", "recommended_action", "low_performance_score", "clicks_current",
-            "impressions_current", "ctr_current", "position_current", "reason"
-        ],
-        {
-            "page": "Page",
-            "recommended_action": "Recommendation",
-            "low_performance_score": "Score",
-            "clicks_current": "Clicks",
-            "impressions_current": "Impressions",
-            "ctr_current": "CTR",
-            "position_current": "Position",
-            "reason": "Reason",
-        }
+    def tbl(df, cols, rename):
+        return html_table_from_df(df, cols, rename) if not df.empty else "<p>No rows to display.</p>"
+
+    kpi_grid = mm_kpi_grid(
+        mm_kpi_card("Selected Action", selected_action, None),
+        mm_kpi_card("Selected Score",  selected_score,  None),
+        mm_kpi_card("Candidate Set",   candidate_count, None),
     )
 
-    candidate_table_html = build_table_html(
-        top_candidates,
-        [
-            "page", "recommended_action", "low_performance_score", "clicks_current",
-            "impressions_current", "ctr_current", "position_current"
-        ],
-        {
-            "page": "Page",
-            "recommended_action": "Recommendation",
-            "low_performance_score": "Score",
-            "clicks_current": "Clicks",
-            "impressions_current": "Impressions",
-            "ctr_current": "CTR",
-            "position_current": "Position",
-        }
+    selected_tbl = tbl(selected_df,
+        ["page","recommended_action","low_performance_score","clicks_current","impressions_current","ctr_current","position_current","reason"],
+        {"page":"Page","recommended_action":"Recommendation","low_performance_score":"Score","clicks_current":"Clicks",
+         "impressions_current":"Impressions","ctr_current":"CTR","position_current":"Position","reason":"Reason"}
+    )
+    candidate_tbl = tbl(top_candidates,
+        ["page","recommended_action","low_performance_score","clicks_current","impressions_current","ctr_current","position_current"],
+        {"page":"Page","recommended_action":"Recommendation","low_performance_score":"Score","clicks_current":"Clicks",
+         "impressions_current":"Impressions","ctr_current":"CTR","position_current":"Position"}
     )
 
-    html_output = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Monthly Content Audit Recommendation</title>
-<style>
-{get_pdf_css()}
-</style>
-</head>
-<body>
-    <div class="header-bar">
-        <h1>Monthly Content Audit Recommendation</h1>
-        <div class="subtitle">Current window: {current_start} to {current_end} | Comparison: {previous_start} to {previous_end}</div>
-    </div>
+    body = (
+        mm_section("Executive Commentary",
+            mm_report_section(mm_ai_block(commentary_text))
+        ) +
+        f'<div class="section" style="padding-top:0;">{kpi_grid}</div>'
+        '<hr class="rule-thick">' +
+        mm_section("Selected Page Recommendation",
+            mm_report_section(selected_tbl)
+        ) +
+        mm_section("Risk Profile",
+            mm_report_section(mm_chart_wrap("content_audit_selected_score.png", "Selected page risk profile"))
+        ) +
+        mm_section("Top Low-Performance Candidates",
+            mm_report_section(
+                mm_chart_wrap("content_audit_top_candidates.png", "Top low-performance candidates") +
+                mm_chart_wrap("content_audit_candidate_impressions.png", "Candidate visibility") +
+                mm_chart_wrap("content_audit_candidate_clicks.png", "Candidate click volume")
+            )
+        ) +
+        mm_section("Candidate Comparison",
+            mm_report_section(candidate_tbl)
+        )
+    )
 
-    <div class="panel">
-        <h2>Executive Commentary</h2>
-        <div class="ai-block">{''.join(f'<p>{html.escape(line)}</p>' for line in commentary_lines)}</div>
-    </div>
-
-    <h2>Monthly Selection Snapshot</h2>
-    <div class="grid">
-        {build_card("Selected Action", selected_action, None)}
-        {build_card("Selected Score", selected_score, None)}
-        {build_card("Candidate Set", candidate_count, None)}
-    </div>
-
-    <div class="panel">
-        <h2>Selected Page Recommendation</h2>
-        <div><strong>{html.escape(selected["recommended_action"] if selected is not None else "No page selected")}</strong></div>
-        <div class="muted">{html.escape(selected["page"] if selected is not None else "")}</div>
-        {"<span class='badge badge-refresh'>Refresh</span>" if selected is not None and selected["recommended_action"] == "Refresh" else ""}
-        {"<span class='badge badge-archive'>Archive</span>" if selected is not None and selected["recommended_action"] == "Archive" else ""}
-        {selected_table_html}
-    </div>
-
-    <div class="break-before"></div>
-    <h2>Risk Profile</h2>
-    <div class="chart-block">
-        <img src="content_audit_selected_score.png" alt="Selected page risk profile">
-    </div>
-
-    <h2>Top Low-Performance Candidates</h2>
-    <div class="chart-block">
-        <img src="content_audit_top_candidates.png" alt="Top low-performance candidates">
-    </div>
-
-    <h2>Candidate Visibility</h2>
-    <div class="chart-block">
-        <img src="content_audit_candidate_impressions.png" alt="Candidate visibility">
-    </div>
-
-    <h2>Candidate Click Volume</h2>
-    <div class="chart-block">
-        <img src="content_audit_candidate_clicks.png" alt="Candidate click volume">
-    </div>
-
-    <h2>Candidate Comparison Table</h2>
-    {candidate_table_html}
-</body>
-</html>
-"""
+    doc = mm_html_shell(
+        title="Monthly Content Audit Recommendation",
+        eyebrow="CIM SEO — Content Governance",
+        headline="Monthly Content\nAudit",
+        meta_line=f"{current_start} → {current_end} / prev {previous_start} → {previous_end}",
+        body_content=body,
+    )
     with open("content_audit_schedule_summary.html", "w", encoding="utf-8") as f:
-        f.write(html_output)
+        f.write(doc)
+    print("Saved content_audit_schedule_summary.html")
 
 
-def generate_pdf():
-    HTML("content_audit_schedule_summary.html").write_pdf("content_audit_schedule_summary.pdf")
-    print("Saved content_audit_schedule_summary.pdf")
+def generate_self_contained():
+    generate_self_contained_html("content_audit_schedule_summary.html", "content_audit_schedule_summary_final.html")
 
 
-def upload_pdf_to_monday(pdf_path):
-    _upload_pdf(
-        pdf_path,
-        body_text="Monthly Content Audit PDF report attached.",
-        pdf_filename="content-audit-governance.pdf"
+def upload_to_monday():
+    upload_html_to_monday(
+        "content_audit_schedule_summary_final.html",
+        "content-audit-governance.html",
+        body_text="Monthly Content Audit Report attached as self-contained HTML.",
     )
 
 
@@ -622,29 +575,12 @@ def main():
 
     generate_charts(selected_df, candidate_df)
 
-    write_markdown_summary(
-        selected_df,
-        candidate_df,
-        commentary_text,
-        current_start,
-        current_end,
-        previous_start,
-        previous_end,
-    )
-    write_html_summary(
-        selected_df,
-        candidate_df,
-        commentary_text,
-        current_start,
-        current_end,
-        previous_start,
-        previous_end,
-    )
-
-    generate_pdf()
+    write_markdown_summary(selected_df, candidate_df, commentary_text, current_start, current_end, previous_start, previous_end)
+    write_html_summary(selected_df, candidate_df, commentary_text, current_start, current_end, previous_start, previous_end)
+    generate_self_contained()
 
     try:
-        upload_pdf_to_monday("content_audit_schedule_summary.pdf")
+        upload_to_monday()
     except Exception as e:
         print(f"monday upload step failed: {e}")
 

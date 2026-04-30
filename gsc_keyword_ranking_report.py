@@ -2,7 +2,6 @@ from datetime import date, timedelta
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from openai import OpenAI
-from weasyprint import HTML
 import pandas as pd
 import requests
 import os
@@ -10,8 +9,12 @@ import html
 from io import BytesIO
 from pathlib import Path
 import matplotlib
-from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card, format_delta
-from monday_utils import upload_pdf_to_monday as _upload_pdf
+from pdf_report_formatter import html_table_from_df, format_delta
+from html_report_utils import (
+    mm_html_shell, mm_kpi_card, mm_kpi_grid, mm_section, mm_report_section,
+    mm_col_header, mm_chart_wrap, mm_exec_bullets, mm_ai_block,
+    generate_self_contained_html, upload_html_to_monday,
+)
 from seo_utils import get_weekly_date_windows
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -436,192 +439,119 @@ def write_markdown_summary(comparison_df, commentary, current_start, current_end
 def write_html_summary(comparison_df, commentary, current_start, current_end, previous_start, previous_end):
     executive_read = build_executive_read(comparison_df)
 
-    top_keywords = comparison_df.sort_values(by=["clicks_current", "impressions_current"], ascending=[False, False]).head(15)
+    top_keywords    = comparison_df.sort_values(by=["clicks_current","impressions_current"], ascending=[False,False]).head(15)
     biggest_gainers = comparison_df[comparison_df["ranking_improved"]].sort_values(by="position_change", ascending=True).head(15)
-    biggest_losers = comparison_df[comparison_df["ranking_declined"]].sort_values(by="position_change", ascending=False).head(15)
-    entered_top_3 = comparison_df[comparison_df["entered_top_3"]].head(15)
-    entered_top_10 = comparison_df[comparison_df["entered_top_10"]].head(15)
+    biggest_losers  = comparison_df[comparison_df["ranking_declined"]].sort_values(by="position_change", ascending=False).head(15)
+    entered_top_3   = comparison_df[comparison_df["entered_top_3"]].head(15)
+    entered_top_10  = comparison_df[comparison_df["entered_top_10"]].head(15)
     lost_visibility = comparison_df[comparison_df["lost_visibility"]].head(15)
 
-    visible_now = int((comparison_df["impressions_current"] > 0).sum())
-    visible_prev = int((comparison_df["impressions_previous"] > 0).sum())
+    visible_now    = int((comparison_df["impressions_current"] > 0).sum())
+    visible_prev   = int((comparison_df["impressions_previous"] > 0).sum())
     improved_count = int(comparison_df["ranking_improved"].sum())
     declined_count = int(comparison_df["ranking_declined"].sum())
-    top_10_count = int(comparison_df["entered_top_10"].sum())
-    top_3_count = int(comparison_df["entered_top_3"].sum())
+    avg_pos_curr   = comparison_df.loc[comparison_df["position_current"] > 0, "position_current"].mean()
+    avg_pos_prev   = comparison_df.loc[comparison_df["position_previous"] > 0, "position_previous"].mean()
+    avg_pos_curr   = 0 if pd.isna(avg_pos_curr) else avg_pos_curr
+    avg_pos_prev   = 0 if pd.isna(avg_pos_prev) else avg_pos_prev
 
-    avg_pos_current_series = comparison_df.loc[comparison_df["position_current"] > 0, "position_current"]
-    avg_pos_previous_series = comparison_df.loc[comparison_df["position_previous"] > 0, "position_previous"]
-    avg_pos_current = avg_pos_current_series.mean() if not avg_pos_current_series.empty else 0
-    avg_pos_previous = avg_pos_previous_series.mean() if not avg_pos_previous_series.empty else 0
-
-    kpi_chart = make_kpi_comparison_chart(comparison_df)
+    kpi_chart          = make_kpi_comparison_chart(comparison_df)
     top_keywords_chart = make_barh_chart(top_keywords, "keyword", "clicks_current", "Top Tracked Keywords by Clicks", ACCENT_2, 10)
-    position_gainers_chart = make_barh_chart(biggest_gainers.assign(position_gain=biggest_gainers["position_previous"] - biggest_gainers["position_current"]), "keyword", "position_gain", "Best Position Improvements", ACCENT_2, 10) if not biggest_gainers.empty else ""
-    visibility_chart = make_barh_chart(top_keywords, "keyword", "impressions_current", "Top Tracked Keywords by Impressions", ACCENT_4, 10)
+    visibility_chart   = make_barh_chart(top_keywords, "keyword", "impressions_current", "Top Tracked Keywords by Impressions", ACCENT_4, 10)
     winners_losers_chart = make_diverging_position_chart(
         biggest_gainers.assign(delta=biggest_gainers["position_previous"] - biggest_gainers["position_current"]),
         biggest_losers.assign(delta=biggest_losers["position_previous"] - biggest_losers["position_current"]),
         "keyword", "delta", "Ranking Winners and Losers"
     )
 
-    html_output = f"""
-<!DOCTYPE html>
-<html lang=\"en\">
-<head>
-<meta charset=\"utf-8\">
-<title>Weekly Keyword Ranking Review</title>
-<style>
-{get_pdf_css()}
-.chart-wrap {{
-    background: #fff;
-    border: 1px solid #E2E8F0;
-    border-radius: 6px;
-    padding: 12px;
-    margin: 0 0 16px 0;
-    page-break-inside: avoid;
-}}
-.chart-wrap img {{
-    width: 100%;
-    display: block;
-}}
-.two-col {{
-    display: block;
-}}
-</style>
-</head>
-<body>
-    <div class="header-bar">
-        <h1>Weekly Keyword Ranking Review</h1>
-        <div class="subtitle">Current window: {current_start} to {current_end} | Comparison: {previous_start} to {previous_end}</div>
-    </div>
+    def tbl(df, cols, rename):
+        return html_table_from_df(df, cols, rename) if not df.empty else "<p>No data.</p>"
 
-    <div class="panel">
-        <h2>Executive Read</h2>
-        <ul>{''.join(f'<li>{html.escape(line)}</li>' for line in executive_read)}</ul>
-        
-        <h2>Executive Commentary</h2>
-        <div class="ai-block">{html.escape(commentary)}</div>
-    </div>
+    kpi_grid = mm_kpi_grid(
+        mm_kpi_card("Visible Keywords",    visible_now,    visible_prev),
+        mm_kpi_card("Ranking Improvements",improved_count, None),
+        mm_kpi_card("Ranking Declines",    declined_count, None),
+        mm_kpi_card("Avg Position",        avg_pos_curr,   avg_pos_prev, decimals=2, lower_better=True),
+    )
 
-    <div class="grid">
-        {build_card("Visible Keywords", visible_now, visible_prev)}
-        {build_card("Ranking Improvements", improved_count, None)}
-        {build_card("Ranking Declines", declined_count, None)}
-        {build_card("Avg Pos (High Priority)", avg_pos_current, avg_pos_previous, decimals=2)}
-    </div>
+    body = (
+        mm_section("Executive Summary",
+            mm_report_section(mm_exec_bullets(executive_read) + mm_ai_block(commentary))
+        ) +
+        f'<div class="section" style="padding-top:0;">{kpi_grid}</div>'
+        '<hr class="rule-thick">' +
+        mm_section("Performance Overview",
+            mm_report_section(mm_chart_wrap(kpi_chart, "Keyword visibility and ranking movement"))
+        ) +
+        mm_section("Top Demand Drivers",
+            mm_report_section(
+                mm_chart_wrap(top_keywords_chart, "Top tracked keywords by clicks") +
+                mm_chart_wrap(visibility_chart, "Top tracked keywords by impressions")
+            )
+        ) +
+        mm_section("Winners and Losers",
+            mm_report_section(mm_chart_wrap(winners_losers_chart, "Ranking winners and losers"))
+        ) +
+        mm_section("Top Tracked Keywords",
+            mm_report_section(tbl(top_keywords,
+                ["keyword","category","priority","clicks_current","impressions_current","position_current","position_change"],
+                {"keyword":"Keyword","category":"Category","priority":"Priority","clicks_current":"Clicks",
+                 "impressions_current":"Impr","position_current":"Pos","position_change":"Pos Δ"}
+            ))
+        ) +
+        mm_section("Biggest Ranking Improvements",
+            mm_report_section(tbl(biggest_gainers,
+                ["keyword","position_previous","position_current","position_change","clicks_current"],
+                {"keyword":"Keyword","position_previous":"Prev Pos","position_current":"Curr Pos","position_change":"Pos Δ","clicks_current":"Clicks"}
+            ))
+        ) +
+        mm_section("Biggest Ranking Declines",
+            mm_report_section(tbl(biggest_losers,
+                ["keyword","position_previous","position_current","position_change","clicks_current"],
+                {"keyword":"Keyword","position_previous":"Prev Pos","position_current":"Curr Pos","position_change":"Pos Δ","clicks_current":"Clicks"}
+            ))
+        ) +
+        mm_section("Entered Top 3",
+            mm_report_section(tbl(entered_top_3,
+                ["keyword","category","priority","position_previous","position_current"],
+                {"keyword":"Keyword","category":"Category","priority":"Priority","position_previous":"Prev Pos","position_current":"Curr Pos"}
+            ))
+        ) +
+        mm_section("Entered Top 10",
+            mm_report_section(tbl(entered_top_10,
+                ["keyword","category","priority","position_previous","position_current"],
+                {"keyword":"Keyword","category":"Category","priority":"Priority","position_previous":"Prev Pos","position_current":"Curr Pos"}
+            ))
+        ) +
+        mm_section("Lost Visibility",
+            mm_report_section(tbl(lost_visibility,
+                ["keyword","category","priority","impressions_previous","impressions_current"],
+                {"keyword":"Keyword","category":"Category","priority":"Priority","impressions_previous":"Prev Impr","impressions_current":"Curr Impr"}
+            ))
+        )
+    )
 
-    <h2>Performance Overview</h2>
-    <div class="chart-wrap"><img src="file://{kpi_chart}"></div>
-
-    <div class="break-before"></div>
-    <h2>Top Demand Drivers</h2>
-    <div class="chart-wrap"><img src="file://{top_keywords_chart}"></div>
-    <div class="chart-wrap"><img src="file://{visibility_chart}"></div>
-
-    <div class="break-before"></div>
-    <h2>Winners and Losers</h2>
-    <div class="chart-wrap"><img src="file://{winners_losers_chart}"></div>
-    <div class="chart-wrap"><img src="file://{position_gainers_chart}"></div>
-
-    <div class="break-before"></div>
-    <h2>Top Tracked Keywords</h2>
-    {html_table_from_df(
-        top_keywords,
-        ["keyword", "category", "priority", "clicks_current", "impressions_current", "position_current", "position_change"],
-        {
-            "keyword": "Keyword",
-            "category": "Category",
-            "priority": "Priority",
-            "clicks_current": "Clicks",
-            "impressions_current": "Impr",
-            "position_current": "Pos",
-            "position_change": "Pos Δ"
-        }
-    )}
-
-    <h2>Biggest Ranking Improvements</h2>
-    {html_table_from_df(
-        biggest_gainers,
-        ["keyword", "position_previous", "position_current", "position_change", "clicks_current"],
-        {
-            "keyword": "Keyword",
-            "position_previous": "Prev Pos",
-            "position_current": "Curr Pos",
-            "position_change": "Pos Δ",
-            "clicks_current": "Clicks"
-        }
-    )}
-
-    <h2>Biggest Ranking Declines</h2>
-    {html_table_from_df(
-        biggest_losers,
-        ["keyword", "position_previous", "position_current", "position_change", "clicks_current"],
-        {
-            "keyword": "Keyword",
-            "position_previous": "Prev Pos",
-            "position_current": "Curr Pos",
-            "position_change": "Pos Δ",
-            "clicks_current": "Clicks"
-        }
-    )}
-
-    <div class="break-before"></div>
-    <h2>Entered Top 3</h2>
-    {html_table_from_df(
-        entered_top_3,
-        ["keyword", "category", "priority", "position_previous", "position_current"],
-        {
-            "keyword": "Keyword",
-            "category": "Category",
-            "priority": "Priority",
-            "position_previous": "Prev Pos",
-            "position_current": "Curr Pos"
-        }
-    )}
-
-    <h2>Entered Top 10</h2>
-    {html_table_from_df(
-        entered_top_10,
-        ["keyword", "category", "priority", "position_previous", "position_current"],
-        {
-            "keyword": "Keyword",
-            "category": "Category",
-            "priority": "Priority",
-            "position_previous": "Prev Pos",
-            "position_current": "Curr Pos"
-        }
-    )}
-
-    <h2>Lost Visibility</h2>
-    {html_table_from_df(
-        lost_visibility,
-        ["keyword", "category", "priority", "impressions_previous", "impressions_current"],
-        {
-            "keyword": "Keyword",
-            "category": "Category",
-            "priority": "Priority",
-            "impressions_previous": "Prev Impr",
-            "impressions_current": "Curr Impr"
-        }
-    )}
-</body>
-</html>
-"""
+    doc = mm_html_shell(
+        title="Weekly Keyword Ranking Review",
+        eyebrow="Google Search Console",
+        headline="Keyword Ranking\nReview",
+        meta_line=f"{current_start} → {current_end} / prev {previous_start} → {previous_end}",
+        body_content=body,
+    )
     with open("keyword_ranking_summary.html", "w", encoding="utf-8") as f:
-        f.write(html_output)
+        f.write(doc)
+    print("Saved keyword_ranking_summary.html")
 
 
-def generate_pdf():
-    HTML("keyword_ranking_summary.html").write_pdf("keyword_ranking_summary.pdf")
-    print("Saved keyword_ranking_summary.pdf")
+def generate_self_contained():
+    generate_self_contained_html("keyword_ranking_summary.html", "keyword_ranking_summary_final.html")
 
 
-def upload_pdf_to_monday(pdf_path):
-    _upload_pdf(
-        pdf_path,
-        body_text="Keyword ranking PDF report attached.",
-        pdf_filename="keyword-ranking-review.pdf",
+def upload_to_monday():
+    upload_html_to_monday(
+        "keyword_ranking_summary_final.html",
+        "keyword-ranking-review.html",
+        body_text="Keyword Ranking Review attached as self-contained HTML.",
     )
 
 
@@ -661,27 +591,12 @@ def main():
         previous_end
     )
 
-    write_markdown_summary(
-        comparison_df,
-        commentary,
-        current_start,
-        current_end,
-        previous_start,
-        previous_end
-    )
-    write_html_summary(
-        comparison_df,
-        commentary,
-        current_start,
-        current_end,
-        previous_start,
-        previous_end
-    )
-
-    generate_pdf()
+    write_markdown_summary(comparison_df, commentary, current_start, current_end, previous_start, previous_end)
+    write_html_summary(comparison_df, commentary, current_start, current_end, previous_start, previous_end)
+    generate_self_contained()
 
     try:
-        upload_pdf_to_monday("keyword_ranking_summary.pdf")
+        upload_to_monday()
     except Exception as e:
         print(f"monday upload step failed: {e}")
 

@@ -1,7 +1,6 @@
 from collections import deque
 from datetime import date
 from openai import OpenAI
-from weasyprint import HTML
 from urllib.parse import urljoin, urlparse, urldefrag
 from bs4 import BeautifulSoup
 import asyncio
@@ -13,8 +12,12 @@ import html
 import json
 import time
 
-from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
-from monday_utils import upload_pdf_to_monday as _upload_pdf
+from pdf_report_formatter import html_table_from_df
+from html_report_utils import (
+    mm_html_shell, mm_kpi_card, mm_kpi_grid, mm_section, mm_report_section,
+    mm_col_header, mm_exec_bullets, mm_ai_block,
+    generate_self_contained_html, upload_html_to_monday,
+)
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
@@ -344,133 +347,89 @@ Issue sample:
 
 
 def write_html_summary(results_df, ai_analysis):
-    issues_df = results_df[results_df["issue_type"] != "ok"].copy()
-    broken_df = results_df[results_df["issue_type"] == "broken"].copy().head(50)
-    client_df = results_df[results_df["issue_type"] == "client_error"].copy().head(50)
-    server_df = results_df[results_df["issue_type"] == "server_error"].copy().head(50)
-    redirect_df = results_df[results_df["issue_type"] == "redirect"].copy().head(50)
-    error_df = results_df[results_df["issue_type"] == "error"].copy().head(50)
+    issues_df  = results_df[results_df["issue_type"] != "ok"].copy()
+    broken_df  = results_df[results_df["issue_type"] == "broken"].copy().head(50)
+    client_df  = results_df[results_df["issue_type"] == "client_error"].copy().head(50)
+    server_df  = results_df[results_df["issue_type"] == "server_error"].copy().head(50)
+    redirect_df= results_df[results_df["issue_type"] == "redirect"].copy().head(50)
+    error_df   = results_df[results_df["issue_type"] == "error"].copy().head(50)
 
-    executive_read = build_executive_read(results_df)
-
-    broken_count = int((results_df["issue_type"] == "broken").sum())
+    executive_read  = build_executive_read(results_df)
+    broken_count    = int((results_df["issue_type"] == "broken").sum())
     client_error_count = int((results_df["issue_type"] == "client_error").sum())
     server_error_count = int((results_df["issue_type"] == "server_error").sum())
-    redirect_count = int((results_df["issue_type"] == "redirect").sum())
-    source_count = int(results_df["source_url"].nunique())
+    redirect_count  = int((results_df["issue_type"] == "redirect").sum())
+    source_count    = int(results_df["source_url"].nunique())
 
-    html_output = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Broken Link Check</title>
-<style>
-{get_pdf_css()}
-</style>
-</head>
-<body>
-    <div class="header-bar">
-        <h1>CIM Broken Link & Technical Audit</h1>
-        <div class="subtitle">Generated: {date.today().strftime('%B %d, %Y')} | Source URLs Audited: {source_count}</div>
-    </div>
+    def tbl(df, cols, rename):
+        return html_table_from_df(df, cols, rename) if not df.empty else "<p>No issues found.</p>"
 
-    <div class="panel">
-        <h2>Executive Read</h2>
-        <ul>{''.join(f"<li>{html.escape(line)}</li>" for line in executive_read)}</ul>
+    kpi_grid = mm_kpi_grid(
+        mm_kpi_card("Source Pages",    source_count,       None),
+        mm_kpi_card("Broken (404/410)",broken_count,       None),
+        mm_kpi_card("4xx Other",       client_error_count, None),
+        mm_kpi_card("5xx Errors",      server_error_count, None),
+    )
 
-        <h2>Executive Analysis</h2>
-        <div class="ai-block">{html.escape(ai_analysis)}</div>
-    </div>
+    body = (
+        mm_section("Executive Summary",
+            mm_report_section(mm_exec_bullets(executive_read) + mm_ai_block(ai_analysis))
+        ) +
+        f'<div class="section" style="padding-top:0;">{kpi_grid}</div>'
+        '<hr class="rule-thick">' +
+        mm_section("Broken Links (404 / 410)",
+            mm_report_section(tbl(broken_df,
+                ["source_url","target_url","anchor_text","status_code","issue_type"],
+                {"source_url":"Source URL","target_url":"Broken Target","anchor_text":"Anchor Text","status_code":"Status","issue_type":"Issue Type"}
+            ))
+        ) +
+        mm_section("Other 4xx Links",
+            mm_report_section(tbl(client_df,
+                ["source_url","target_url","anchor_text","status_code","issue_type"],
+                {"source_url":"Source URL","target_url":"Target URL","anchor_text":"Anchor Text","status_code":"Status","issue_type":"Issue Type"}
+            ))
+        ) +
+        mm_section("5xx Server Errors",
+            mm_report_section(tbl(server_df,
+                ["source_url","target_url","anchor_text","status_code","issue_type"],
+                {"source_url":"Source URL","target_url":"Target URL","anchor_text":"Anchor Text","status_code":"Status","issue_type":"Issue Type"}
+            ))
+        ) +
+        mm_section("Redirected Internal Links",
+            mm_report_section(tbl(redirect_df,
+                ["source_url","target_url","final_url","redirect_count","status_code"],
+                {"source_url":"Source URL","target_url":"Original Target","final_url":"Final URL","redirect_count":"Redirects","status_code":"Final Status"}
+            ))
+        ) +
+        mm_section("Request Errors",
+            mm_report_section(tbl(error_df,
+                ["source_url","target_url","error","issue_type"],
+                {"source_url":"Source URL","target_url":"Target URL","error":"Error","issue_type":"Issue Type"}
+            ))
+        )
+    )
 
-    <div class="grid">
-        {build_card("Source Pages", source_count, None)}
-        {build_card("Broken (404/410)", broken_count, None)}
-        {build_card("4xx Other", client_error_count, None)}
-        {build_card("5xx Errors", server_error_count, None)}
-    </div>
-
-    <h2>Broken Links</h2>
-    {html_table_from_df(
-        broken_df,
-        ["source_url", "target_url", "anchor_text", "status_code", "issue_type"],
-        {
-            "source_url": "Source URL",
-            "target_url": "Broken Target",
-            "anchor_text": "Anchor Text",
-            "status_code": "Status",
-            "issue_type": "Issue Type",
-        }
-    )}
-
-    <h2>Other 4xx Links</h2>
-    {html_table_from_df(
-        client_df,
-        ["source_url", "target_url", "anchor_text", "status_code", "issue_type"],
-        {
-            "source_url": "Source URL",
-            "target_url": "Target URL",
-            "anchor_text": "Anchor Text",
-            "status_code": "Status",
-            "issue_type": "Issue Type",
-        }
-    )}
-
-    <h2>5xx Links</h2>
-    {html_table_from_df(
-        server_df,
-        ["source_url", "target_url", "anchor_text", "status_code", "issue_type"],
-        {
-            "source_url": "Source URL",
-            "target_url": "Target URL",
-            "anchor_text": "Anchor Text",
-            "status_code": "Status",
-            "issue_type": "Issue Type",
-        }
-    )}
-
-    <div class="break-before"></div>
-    <h2>Redirected Internal Links</h2>
-    {html_table_from_df(
-        redirect_df,
-        ["source_url", "target_url", "final_url", "redirect_count", "status_code"],
-        {
-            "source_url": "Source URL",
-            "target_url": "Original Target",
-            "final_url": "Final URL",
-            "redirect_count": "Redirects",
-            "status_code": "Final Status",
-        }
-    )}
-
-    <h2>Request Errors</h2>
-    {html_table_from_df(
-        error_df,
-        ["source_url", "target_url", "error", "issue_type"],
-        {
-            "source_url": "Source URL",
-            "target_url": "Target URL",
-            "error": "Error",
-            "issue_type": "Issue Type",
-        }
-    )}
-</body>
-</html>
-"""
+    doc = mm_html_shell(
+        title="Broken Link & Technical Audit",
+        eyebrow="CIM SEO — Technical Audit",
+        headline="Broken Link\nCheck",
+        meta_line=f"Generated {date.today().strftime('%B %d, %Y')} · {source_count} source URLs audited",
+        body_content=body,
+    )
     with open("broken_link_summary.html", "w", encoding="utf-8") as f:
-        f.write(html_output)
+        f.write(doc)
+    print("Saved broken_link_summary.html", flush=True)
 
 
-def generate_pdf():
-    HTML("broken_link_summary.html").write_pdf("broken_link_summary.pdf")
-    print("Saved broken_link_summary.pdf", flush=True)
+def generate_self_contained():
+    generate_self_contained_html("broken_link_summary.html", "broken_link_summary_final.html")
 
 
-def upload_pdf_to_monday(pdf_path):
-    _upload_pdf(
-        pdf_path,
-        body_text="Broken link PDF report attached.",
-        pdf_filename="broken-link-check.pdf",
+def upload_to_monday():
+    upload_html_to_monday(
+        "broken_link_summary_final.html",
+        "broken-link-check.html",
+        body_text="Broken Link Audit attached as self-contained HTML.",
     )
 
 
@@ -487,10 +446,10 @@ def main():
 
     ai_analysis = build_ai_analysis(results_df)
     write_html_summary(results_df, ai_analysis)
-    generate_pdf()
+    generate_self_contained()
 
     try:
-        upload_pdf_to_monday("broken_link_summary.pdf")
+        upload_to_monday()
     except Exception as e:
         print(f"monday upload step failed: {e}", flush=True)
 

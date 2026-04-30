@@ -1,9 +1,7 @@
-
 from datetime import date, timedelta
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from openai import OpenAI
-from weasyprint import HTML
 import pandas as pd
 import requests
 import os
@@ -12,8 +10,12 @@ import base64
 from io import BytesIO
 from pathlib import Path
 import matplotlib
-from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card, format_delta
-from monday_utils import upload_pdf_to_monday as _upload_pdf
+from pdf_report_formatter import html_table_from_df, format_delta
+from html_report_utils import (
+    mm_html_shell, mm_kpi_card, mm_kpi_grid, mm_section, mm_report_section,
+    mm_col_header, mm_chart_wrap, mm_exec_bullets, mm_ai_block,
+    generate_self_contained_html, upload_html_to_monday,
+)
 from seo_utils import get_weekly_date_windows
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -476,184 +478,116 @@ def write_markdown_summary(comparison_df, executive_commentary, current_start, c
 
 
 def write_html_summary(comparison_df, executive_commentary, current_start, current_end, previous_start, previous_end):
-    executive_read = build_executive_read(comparison_df)
-
-    top_pages = comparison_df.sort_values(by=["clicks_current", "impressions_current"], ascending=[False, False]).head(25)
+    executive_read  = build_executive_read(comparison_df)
+    top_pages       = comparison_df.sort_values(by=["clicks_current","impressions_current"], ascending=[False,False]).head(25)
     biggest_gainers = comparison_df.sort_values(by="clicks_change", ascending=False).head(15)
-    biggest_losers = comparison_df.sort_values(by="clicks_change", ascending=True).head(15)
-    position_gainers = comparison_df[comparison_df["position_improved"]].sort_values(by="position_change", ascending=True).head(15)
+    biggest_losers  = comparison_df.sort_values(by="clicks_change", ascending=True).head(15)
+    position_gainers= comparison_df[comparison_df["position_improved"]].sort_values(by="position_change", ascending=True).head(15)
     position_losers = comparison_df[comparison_df["position_declined"]].sort_values(by="position_change", ascending=False).head(15)
     lost_visibility = comparison_df[comparison_df["lost_visibility"]].head(15)
 
-    visible_now = int((comparison_df["impressions_current"] > 0).sum())
-    improved_count = int(comparison_df["position_improved"].sum())
-    declined_count = int(comparison_df["position_declined"].sum())
-    total_clicks = int(comparison_df["clicks_current"].sum())
-    total_impressions = int(comparison_df["impressions_current"].sum())
-    weighted_ctr = (comparison_df["clicks_current"].sum() / total_impressions) if total_impressions else 0
-    avg_position = comparison_df.loc[comparison_df["impressions_current"] > 0, "position_current"].mean()
-    avg_position = 0 if pd.isna(avg_position) else avg_position
+    visible_now      = int((comparison_df["impressions_current"] > 0).sum())
+    total_clicks     = int(comparison_df["clicks_current"].sum())
+    total_impressions= int(comparison_df["impressions_current"].sum())
+    weighted_ctr     = (comparison_df["clicks_current"].sum() / total_impressions) if total_impressions else 0
+    avg_position     = comparison_df.loc[comparison_df["impressions_current"] > 0, "position_current"].mean()
+    avg_position     = 0 if pd.isna(avg_position) else avg_position
 
     charts = {
-        "kpi": create_kpi_comparison_chart(comparison_df),
-        "top_pages": create_top_pages_chart(top_pages),
-        "traffic_changes": create_traffic_change_chart(biggest_gainers, biggest_losers),
+        "kpi":              create_kpi_comparison_chart(comparison_df),
+        "top_pages":        create_top_pages_chart(top_pages),
+        "traffic_changes":  create_traffic_change_chart(biggest_gainers, biggest_losers),
         "position_changes": create_position_change_chart(position_gainers, position_losers),
     }
 
-    html_output = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Critical Landing Pages to Monitor</title>
-<style>
-{get_pdf_css()}
-</style>
-</head>
-<body>
-    <div class="header-bar">
-        <h1>Critical Landing Pages Performance</h1>
-        <div class="subtitle">Reporting window: {current_start} to {current_end} | Comparison: {previous_start} to {previous_end}</div>
-    </div>
+    def tbl(df, cols, rename):
+        return html_table_from_df(df, cols, rename) if not df.empty else "<p>No data.</p>"
 
-    <div class="panel">
-        <h2>Executive Summary</h2>
-        <ul>{''.join(f"<li>{html.escape(line)}</li>" for line in executive_read)}</ul>
-        
-        <h2>Executive Commentary</h2>
-        <div class="ai-block">{html.escape(executive_commentary)}</div>
-    </div>
+    kpi_grid = mm_kpi_grid(
+        mm_kpi_card("Visible Pages",  visible_now,  None),
+        mm_kpi_card("Total Clicks",   total_clicks, None),
+        mm_kpi_card("Weighted CTR",   weighted_ctr, None, is_pct=True),
+        mm_kpi_card("Avg Position",   avg_position, None, decimals=2, lower_better=True),
+    )
 
-    <h2>KPI Snapshot</h2>
-    <div class="grid">
-        {build_card("Visible Pages", visible_now, None)}
-        {build_card("Total Clicks", total_clicks, None)}
-        {build_card("Weighted CTR", weighted_ctr, None, is_pct=True)}
-        {build_card("Avg Position", avg_position, None, decimals=2)}
-    </div>
-    <div class="grid" style="margin-top:16px;">
-        {build_card("Position Improvements", improved_count, None)}
-        {build_card("Position Declines", declined_count, None)}
-        {build_card("Newly Visible", int(comparison_df["newly_visible"].sum()), None)}
-        {build_card("Lost Visibility", int(comparison_df["lost_visibility"].sum()), None)}
-    </div>
+    body = (
+        mm_section("Executive Summary",
+            mm_report_section(mm_exec_bullets(executive_read) + mm_ai_block(executive_commentary))
+        ) +
+        f'<div class="section" style="padding-top:0;">{kpi_grid}</div>'
+        '<hr class="rule-thick">' +
+        mm_section("Performance Overview",
+            mm_report_section(mm_chart_wrap(charts["kpi"], "Current vs previous week"))
+        ) +
+        mm_section("Top Demand Drivers",
+            mm_report_section(mm_chart_wrap(charts["top_pages"], "Top landing pages by clicks"))
+        ) +
+        mm_section("Traffic Winners and Losers",
+            mm_report_section(mm_chart_wrap(charts["traffic_changes"], "Traffic winners and losers"))
+        ) +
+        mm_section("Position Movement",
+            mm_report_section(mm_chart_wrap(charts["position_changes"], "Position movement"))
+        ) +
+        mm_section("Tracked Landing Pages",
+            mm_report_section(tbl(top_pages,
+                ["page","category","priority","clicks_current","impressions_current","ctr_current","position_current","clicks_change"],
+                {"page":"Page","category":"Category","priority":"Priority","clicks_current":"Clicks","impressions_current":"Impr",
+                 "ctr_current":"CTR","position_current":"Pos","clicks_change":"Clicks Δ"}
+            ))
+        ) +
+        mm_section("Biggest Traffic Gainers",
+            mm_report_section(tbl(biggest_gainers,
+                ["page","clicks_previous","clicks_current","clicks_change","impressions_current"],
+                {"page":"Page","clicks_previous":"Prev Clicks","clicks_current":"Curr Clicks","clicks_change":"Δ","impressions_current":"Impr"}
+            ))
+        ) +
+        mm_section("Biggest Traffic Losers",
+            mm_report_section(tbl(biggest_losers,
+                ["page","clicks_previous","clicks_current","clicks_change","impressions_current"],
+                {"page":"Page","clicks_previous":"Prev Clicks","clicks_current":"Curr Clicks","clicks_change":"Δ","impressions_current":"Impr"}
+            ))
+        ) +
+        mm_section("Best Position Improvements",
+            mm_report_section(tbl(position_gainers,
+                ["page","position_previous","position_current","position_change","clicks_current"],
+                {"page":"Page","position_previous":"Prev Pos","position_current":"Curr Pos","position_change":"Pos Δ","clicks_current":"Clicks"}
+            ))
+        ) +
+        mm_section("Biggest Position Declines",
+            mm_report_section(tbl(position_losers,
+                ["page","position_previous","position_current","position_change","clicks_current"],
+                {"page":"Page","position_previous":"Prev Pos","position_current":"Curr Pos","position_change":"Pos Δ","clicks_current":"Clicks"}
+            ))
+        ) +
+        mm_section("Lost Visibility",
+            mm_report_section(tbl(lost_visibility,
+                ["page","category","priority","impressions_previous","impressions_current"],
+                {"page":"Page","category":"Category","priority":"Priority","impressions_previous":"Prev Impr","impressions_current":"Curr Impr"}
+            ))
+        )
+    )
 
-    <h2>Performance Overview</h2>
-    <div class="chart-card"><img src="{charts['kpi']}" alt="Current Week vs Previous Week"></div>
-
-    <div class="break-before"></div>
-    <h2>Top Demand Drivers</h2>
-    <div class="chart-card"><img src="{charts['top_pages']}" alt="Top landing pages by clicks"></div>
-
-    <div class="break-before"></div>
-    <h2>Traffic Winners and Losers</h2>
-    <div class="chart-card"><img src="{charts['traffic_changes']}" alt="Traffic winners and losers"></div>
-
-    <div class="break-before"></div>
-    <h2>Position Movement</h2>
-    <div class="chart-card"><img src="{charts['position_changes']}" alt="Position movement"></div>
-
-    <div class="break-before"></div>
-    <h2>Tracked Landing Pages</h2>
-    {html_table_from_df(
-        top_pages,
-        ["page", "category", "priority", "clicks_current", "impressions_current", "ctr_current", "position_current", "clicks_change"],
-        {
-            "page": "Page",
-            "category": "Category",
-            "priority": "Priority",
-            "clicks_current": "Clicks",
-            "impressions_current": "Impr",
-            "ctr_current": "CTR",
-            "position_current": "Pos",
-            "clicks_change": "Clicks Δ",
-        }
-    )}
-
-    <h2>Biggest Traffic Gainers</h2>
-    {html_table_from_df(
-        biggest_gainers,
-        ["page", "clicks_previous", "clicks_current", "clicks_change", "impressions_current"],
-        {
-            "page": "Page",
-            "clicks_previous": "Prev Clicks",
-            "clicks_current": "Curr Clicks",
-            "clicks_change": "Δ",
-            "impressions_current": "Impr",
-        }
-    )}
-
-    <h2>Biggest Traffic Losers</h2>
-    {html_table_from_df(
-        biggest_losers,
-        ["page", "clicks_previous", "clicks_current", "clicks_change", "impressions_current"],
-        {
-            "page": "Page",
-            "clicks_previous": "Prev Clicks",
-            "clicks_current": "Curr Clicks",
-            "clicks_change": "Δ",
-            "impressions_current": "Impr",
-        }
-    )}
-
-    <div class="break-before"></div>
-    <h2>Best Position Improvements</h2>
-    {html_table_from_df(
-        position_gainers,
-        ["page", "position_previous", "position_current", "position_change", "clicks_current"],
-        {
-            "page": "Page",
-            "position_previous": "Prev Pos",
-            "position_current": "Curr Pos",
-            "position_change": "Pos Δ",
-            "clicks_current": "Clicks",
-        }
-    )}
-
-    <h2>Biggest Position Declines</h2>
-    {html_table_from_df(
-        position_losers,
-        ["page", "position_previous", "position_current", "position_change", "clicks_current"],
-        {
-            "page": "Page",
-            "position_previous": "Prev Pos",
-            "position_current": "Curr Pos",
-            "position_change": "Pos Δ",
-            "clicks_current": "Clicks",
-        }
-    )}
-
-    <div class="break-before"></div>
-    <h2>Lost Visibility</h2>
-    {html_table_from_df(
-        lost_visibility,
-        ["page", "category", "priority", "impressions_previous", "impressions_current"],
-        {
-            "page": "Page",
-            "category": "Category",
-            "priority": "Priority",
-            "impressions_previous": "Prev Impr",
-            "impressions_current": "Curr Impr",
-        }
-    )}
-</body>
-</html>
-"""
+    doc = mm_html_shell(
+        title="Critical Landing Pages Performance",
+        eyebrow="Google Search Console",
+        headline="Critical Landing\nPages",
+        meta_line=f"{current_start} → {current_end} / prev {previous_start} → {previous_end}",
+        body_content=body,
+    )
     with open("landing_pages_summary.html", "w", encoding="utf-8") as f:
-        f.write(html_output)
+        f.write(doc)
+    print("Saved landing_pages_summary.html")
 
 
-def generate_pdf():
-    HTML("landing_pages_summary.html").write_pdf("landing_pages_summary.pdf")
-    print("Saved landing_pages_summary.pdf")
+def generate_self_contained():
+    generate_self_contained_html("landing_pages_summary.html", "landing_pages_summary_final.html")
 
 
-def upload_pdf_to_monday(pdf_path):
-    _upload_pdf(
-        pdf_path,
-        body_text="Critical landing pages PDF report attached.",
-        pdf_filename="critical-landing-pages-to-monitor.pdf",
+def upload_to_monday():
+    upload_html_to_monday(
+        "landing_pages_summary_final.html",
+        "critical-landing-pages.html",
+        body_text="Critical Landing Pages Report attached as self-contained HTML.",
     )
 
 
@@ -693,27 +627,12 @@ def main():
         previous_end
     )
 
-    write_markdown_summary(
-        comparison_df,
-        executive_commentary,
-        current_start,
-        current_end,
-        previous_start,
-        previous_end
-    )
-    write_html_summary(
-        comparison_df,
-        executive_commentary,
-        current_start,
-        current_end,
-        previous_start,
-        previous_end
-    )
-
-    generate_pdf()
+    write_markdown_summary(comparison_df, executive_commentary, current_start, current_end, previous_start, previous_end)
+    write_html_summary(comparison_df, executive_commentary, current_start, current_end, previous_start, previous_end)
+    generate_self_contained()
 
     try:
-        upload_pdf_to_monday("landing_pages_summary.pdf")
+        upload_to_monday()
     except Exception as e:
         print(f"monday upload step failed: {e}")
 

@@ -47,4 +47,5 @@ jobs:
             entered_top_10.csv
             keyword_ranking_summary.md
             keyword_ranking_summary.html
-            keyword_ranking_summary.pdf
+            keyword_ranking_summary_final.html
+            charts/

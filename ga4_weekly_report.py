@@ -1,6 +1,5 @@
 from datetime import date, timedelta
 from openai import OpenAI
-from weasyprint import HTML
 import pandas as pd
 import requests
 import os
@@ -8,8 +7,12 @@ import html
 import json
 
 from google_sheets_db import append_to_sheet
-from pdf_report_formatter import get_pdf_css, html_table_from_df, build_card
-from monday_utils import upload_pdf_to_monday as _upload_pdf
+from pdf_report_formatter import html_table_from_df
+from html_report_utils import (
+    mm_html_shell, mm_kpi_card, mm_kpi_grid, mm_section, mm_report_section,
+    mm_col_header, mm_exec_bullets, mm_ai_block,
+    generate_self_contained_html, upload_html_to_monday,
+)
 from seo_utils import get_weekly_date_windows
 from google.oauth2 import service_account
 from google.analytics.data_v1beta import BetaAnalyticsDataClient
@@ -230,109 +233,79 @@ Top channels:
 
 def write_html_summary(summary_df, top_pages_df, top_channels_df, device_df, country_df, ai_analysis, current_start, current_end, previous_start, previous_end):
     executive_read = build_executive_read(summary_df)
-
     metric_map = {row["metric"]: row for _, row in summary_df.iterrows()}
 
-    html_output = f"""
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>GA4 Weekly Report</title>
-<style>
-{get_pdf_css()}
-</style>
-</head>
-<body>
-    <div class="header-bar">
-        <h1>GA4 Weekly Performance Report</h1>
-        <div class="subtitle">Current window: {current_start} to {current_end} | Comparison: {previous_start} to {previous_end}</div>
-    </div>
+    kpi_grid = mm_kpi_grid(
+        mm_kpi_card("Active Users",      metric_map['activeUsers']['current'],      metric_map['activeUsers']['previous']),
+        mm_kpi_card("Sessions",          metric_map['sessions']['current'],          metric_map['sessions']['previous']),
+        mm_kpi_card("Engaged Sessions",  metric_map['engagedSessions']['current'],  metric_map['engagedSessions']['previous']),
+        mm_kpi_card("Engagement Rate",   metric_map['engagementRate']['current'],   metric_map['engagementRate']['previous'], is_pct=True),
+    )
 
-<div class="panel">
-<h2>Executive Read</h2>
-<ul>{''.join(f"<li>{html.escape(line)}</li>" for line in executive_read)}</ul>
-</div>
+    bullets_html = mm_exec_bullets(executive_read)
+    ai_html      = mm_ai_block(ai_analysis)
 
-<div class="panel">
-<h2>AI Executive Analysis</h2>
-<div class="ai-block">{html.escape(ai_analysis)}</div>
-</div>
+    def tbl(df, cols, rename):
+        return html_table_from_df(df, cols, rename) if not df.empty else "<p>No data.</p>"
 
-<div class="grid">
-{build_card("Active Users", metric_map['activeUsers']['current'], metric_map['activeUsers']['previous'])}
-{build_card("Sessions", metric_map['sessions']['current'], metric_map['sessions']['previous'])}
-{build_card("Engaged Sessions", metric_map['engagedSessions']['current'], metric_map['engagedSessions']['previous'])}
-{build_card("Engagement Rate", metric_map['engagementRate']['current'], metric_map['engagementRate']['previous'], is_pct=True)}
-</div>
+    body = (
+        mm_section("Executive Summary",
+            mm_report_section(bullets_html + ai_html)
+        ) +
+        f'<div class="section" style="padding-top:0;">{kpi_grid}</div>'
+        '<hr class="rule-thick">' +
+        mm_section("Top Landing Pages",
+            mm_report_section(tbl(
+                top_pages_df.head(15),
+                ["landingPage","sessions","activeUsers","engagementRate","averageSessionDuration","eventCount"],
+                {"landingPage":"Landing Page","sessions":"Sessions","activeUsers":"Users",
+                 "engagementRate":"Eng Rate","averageSessionDuration":"Avg Dur","eventCount":"Events"}
+            ))
+        ) +
+        mm_section("Channels",
+            mm_report_section(tbl(
+                top_channels_df,
+                ["sessionDefaultChannelGroup","sessions","activeUsers","engagementRate"],
+                {"sessionDefaultChannelGroup":"Channel","sessions":"Sessions","activeUsers":"Users","engagementRate":"Eng Rate"}
+            ))
+        ) +
+        mm_section("Device Split",
+            mm_report_section(tbl(
+                device_df,
+                ["deviceCategory","sessions","activeUsers","engagementRate"],
+                {"deviceCategory":"Device","sessions":"Sessions","activeUsers":"Users","engagementRate":"Eng Rate"}
+            ))
+        ) +
+        mm_section("Country Split",
+            mm_report_section(tbl(
+                country_df.head(15),
+                ["country","sessions","activeUsers","engagementRate"],
+                {"country":"Country","sessions":"Sessions","activeUsers":"Users","engagementRate":"Eng Rate"}
+            ))
+        )
+    )
 
-<h2>Top Landing Pages</h2>
-{html_table_from_df(
-    top_pages_df.head(15),
-    ["landingPage", "sessions", "activeUsers", "engagementRate", "averageSessionDuration", "eventCount"],
-    {
-        "landingPage": "Landing Page",
-        "sessions": "Sessions",
-        "activeUsers": "Users",
-        "engagementRate": "Eng Rate",
-        "averageSessionDuration": "Avg Dur",
-        "eventCount": "Events",
-    }
-)}
-
-<h2>Top Channels</h2>
-{html_table_from_df(
-    top_channels_df,
-    ["sessionDefaultChannelGroup", "sessions", "activeUsers", "engagementRate"],
-    {
-        "sessionDefaultChannelGroup": "Channel",
-        "sessions": "Sessions",
-        "activeUsers": "Users",
-        "engagementRate": "Eng Rate",
-    }
-)}
-
-<div class="break-before"></div>
-<h2>Device Split</h2>
-{html_table_from_df(
-    device_df,
-    ["deviceCategory", "sessions", "activeUsers", "engagementRate"],
-    {
-        "deviceCategory": "Device",
-        "sessions": "Sessions",
-        "activeUsers": "Users",
-        "engagementRate": "Eng Rate",
-    }
-)}
-
-<h2>Country Split</h2>
-{html_table_from_df(
-    country_df.head(15),
-    ["country", "sessions", "activeUsers", "engagementRate"],
-    {
-        "country": "Country",
-        "sessions": "Sessions",
-        "activeUsers": "Users",
-        "engagementRate": "Eng Rate",
-    }
-)}
-</body>
-</html>
-"""
+    doc = mm_html_shell(
+        title="GA4 Weekly Performance Report",
+        eyebrow="Google Analytics 4",
+        headline="Weekly Performance\nReport",
+        meta_line=f"{current_start} → {current_end} / prev {previous_start} → {previous_end}",
+        body_content=body,
+    )
     with open("ga4_weekly_summary.html", "w", encoding="utf-8") as f:
-        f.write(html_output)
+        f.write(doc)
+    print("Saved ga4_weekly_summary.html")
 
 
-def generate_pdf():
-    HTML("ga4_weekly_summary.html").write_pdf("ga4_weekly_summary.pdf")
-    print("Saved ga4_weekly_summary.pdf")
+def generate_self_contained():
+    generate_self_contained_html("ga4_weekly_summary.html", "ga4_weekly_summary_final.html")
 
 
-def upload_pdf_to_monday(pdf_path):
-    _upload_pdf(
-        pdf_path,
-        body_text="GA4 weekly PDF report attached.",
-        pdf_filename="ga4-weekly-report.pdf",
+def upload_to_monday():
+    upload_html_to_monday(
+        "ga4_weekly_summary_final.html",
+        "ga4-weekly-report.html",
+        body_text="GA4 Weekly Performance Report attached as self-contained HTML.",
     )
 
 
@@ -373,21 +346,12 @@ def main():
     )
 
     write_html_summary(
-        summary_df,
-        top_pages_df,
-        top_channels_df,
-        device_df,
-        country_df,
-        ai_analysis,
-        current_start,
-        current_end,
-        previous_start,
-        previous_end,
+        summary_df, top_pages_df, top_channels_df, device_df, country_df,
+        ai_analysis, current_start, current_end, previous_start, previous_end,
     )
-    generate_pdf()
-
+    generate_self_contained()
     try:
-        upload_pdf_to_monday("ga4_weekly_summary.pdf")
+        upload_to_monday()
     except Exception as e:
         print(f"monday upload step failed: {e}")
 

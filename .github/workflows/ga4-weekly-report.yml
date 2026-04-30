@@ -44,4 +44,4 @@ jobs:
             ga4_device_split.csv
             ga4_country_split.csv
             ga4_weekly_summary.html
-            ga4_weekly_summary.pdf
+            ga4_weekly_summary_final.html

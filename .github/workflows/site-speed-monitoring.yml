@@ -51,4 +51,4 @@ jobs:
             site_speed_latest_snapshot.csv
             site_speed_history.csv
             site_speed_summary.html
-            site_speed_summary.pdf
+            site_speed_summary_final.html

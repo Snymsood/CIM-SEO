@@ -1583,18 +1583,21 @@ tr:nth-child(even) td {{ background: transparent; }}
 
 <hr class="rule-thick">
 
-<!-- ══ TOP QUERIES + TOP PAGES ═══════════════════════════════════ -->
+<!-- ══ TOP QUERIES ════════════════════════════════════════════════ -->
 <div class="section">
-  <div class="section-title">Top Performers</div>
-  <div class="two-col">
-    <div class="report-section">
-      <div class="col-header">Top Queries by Clicks</div>
-      {top_queries_tbl}
-    </div>
-    <div class="report-section">
-      <div class="col-header">Top Pages by Clicks</div>
-      {top_pages_tbl}
-    </div>
+  <div class="section-title">Top Queries by Clicks</div>
+  <div class="report-section">
+    {top_queries_tbl}
+  </div>
+</div>
+
+<hr class="rule-thick">
+
+<!-- ══ TOP PAGES ═════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Top Pages by Clicks</div>
+  <div class="report-section">
+    {top_pages_tbl}
   </div>
 </div>
 
