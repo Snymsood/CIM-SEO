@@ -909,6 +909,29 @@ def write_markdown_summary(comparison_df, unified_bullets, current_start, curren
 # ═══════════════════
 # HTML REPORT BUILDER
 # ═══════════════════
+def _img_tag(path, alt="chart"):
+    """Return an <img> tag. Path is a local file — will be base64-embedded later."""
+    if not path:
+        return ""
+    return f'<img src="{html.escape(str(path))}" alt="{html.escape(alt)}" style="width:100%;display:block;border-radius:6px;border:1px solid #E2E8F0;">'
+
+
+def _chart_wrap(path, alt="chart"):
+    """Single full-width chart."""
+    if not path:
+        return ""
+    return f'<div class="chart-wrap">{_img_tag(path, alt)}</div>'
+
+
+def _chart_row_2(path_a, alt_a, path_b, alt_b):
+    """Two charts side-by-side in a CSS Grid row."""
+    a = _img_tag(path_a, alt_a) if path_a else ""
+    b = _img_tag(path_b, alt_b) if path_b else ""
+    if not a and not b:
+        return ""
+    return f'<div class="chart-row-2"><div>{a}</div><div>{b}</div></div>'
+
+
 def write_html_summary(comparison_df, unified_bullets, current_start, current_end, previous_start, previous_end):
     """Write HTML summary report matching gsc_weekly_report.py pattern."""
     top_pages       = comparison_df.sort_values(by=["clicks_current","impressions_current"], ascending=[False,False]).head(25)
@@ -1319,29 +1342,6 @@ body {{
 # ═══════════════════
 # SELF-CONTAINED HTML (base64-embed all chart images)
 # ═══════════════════
-def _img_tag(path, alt="chart"):
-    """Return an <img> tag. Path is a local file — will be base64-embedded later."""
-    if not path:
-        return ""
-    return f'<img src="{html.escape(str(path))}" alt="{html.escape(alt)}" style="width:100%;display:block;border-radius:6px;border:1px solid #E2E8F0;">'
-
-
-def _chart_wrap(path, alt="chart"):
-    """Single full-width chart."""
-    if not path:
-        return ""
-    return f'<div class="chart-wrap">{_img_tag(path, alt)}</div>'
-
-
-def _chart_row_2(path_a, alt_a, path_b, alt_b):
-    """Two charts side-by-side in a CSS Grid row."""
-    a = _img_tag(path_a, alt_a) if path_a else ""
-    b = _img_tag(path_b, alt_b) if path_b else ""
-    if not a and not b:
-        return ""
-    return f'<div class="chart-row-2"><div>{a}</div><div>{b}</div></div>'
-
-
 def embed_images_as_base64(html_content: str) -> str:
     """Replace all local file src= paths with inline base64 data URIs."""
     def replace_src(match):
