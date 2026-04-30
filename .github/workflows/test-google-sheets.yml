@@ -1,0 +1,36 @@
+name: Test Google Sheets Connection
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-sheets:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install gspread google-auth
+
+      - name: Write service account key
+        run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
+
+      - name: Test Google Sheets Connection
+        env:
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        run: python3 test_google_sheets_connection.py
+
+      - name: Show Results
+        if: always()
+        run: |
+          echo "================================"
+          echo "Test completed. Check logs above for results."
+          echo "================================"
