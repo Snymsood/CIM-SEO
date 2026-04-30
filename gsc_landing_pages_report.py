@@ -918,9 +918,13 @@ def _img_tag(path, alt="chart"):
 
 def _chart_wrap(path, alt="chart"):
     """Single full-width chart."""
+    print(f"DEBUG _chart_wrap called with path={path}, alt={alt}", flush=True)
     if not path:
+        print(f"DEBUG _chart_wrap returning empty (path is falsy)", flush=True)
         return ""
-    return f'<div class="chart-wrap">{_img_tag(path, alt)}</div>'
+    result = f'<div class="chart-wrap">{_img_tag(path, alt)}</div>'
+    print(f"DEBUG _chart_wrap returning: {result[:100]}...", flush=True)
+    return result
 
 
 def _chart_row_2(path_a, alt_a, path_b, alt_b):
@@ -962,8 +966,9 @@ def write_html_summary(comparison_df, unified_bullets, current_start, current_en
     }
     
     # Debug: print chart paths
+    print("DEBUG: Charts created", flush=True)
     for key, path in charts.items():
-        print(f"Chart '{key}': {path}")
+        print(f"Chart '{key}': {path}", flush=True)
 
     bullet_items = "".join(f"<li>{html.escape(b)}</li>" for b in unified_bullets)
 
