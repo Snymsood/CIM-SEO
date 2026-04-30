@@ -19,8 +19,8 @@ aiohttp>=3.9.0
 lxml>=4.9.0
 
 # PDF Generation
-weasyprint>=60.0
-reportlab>=4.0.0
+# weasyprint removed — reports now output self-contained HTML with base64-embedded charts
+# reportlab removed — no longer needed
 
 # Visualization
 matplotlib>=3.7.0

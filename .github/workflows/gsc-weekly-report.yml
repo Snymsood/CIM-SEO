@@ -52,5 +52,5 @@ jobs:
             search_appearance.csv
             weekly_summary.md
             weekly_summary.html
-            weekly_summary.pdf
+            weekly_summary_final.html
             charts/

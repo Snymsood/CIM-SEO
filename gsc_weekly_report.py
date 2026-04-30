@@ -2,14 +2,13 @@
 from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-import os, html, math
+import os, html, math, base64, re
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 import google_auth_httplib2
 import httplib2
 from openai import OpenAI
-from weasyprint import HTML
 import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
@@ -926,18 +925,17 @@ def build_new_lost_block(query_df):
     new_html  = mini_table(new_df,  "query", "clicks_current",  "Clicks",      C_TEAL)
     lost_html = mini_table(lost_df, "query", "clicks_previous", "Prev Clicks", C_CORAL)
 
-    # Float-based two-column — WeasyPrint supports float, not CSS grid
+    # CSS Grid two-column — works in browser, no WeasyPrint needed
     return f"""
-<div class="nl-wrap">
-  <div class="nl-col">
+<div class="nl-grid">
+  <div>
     <div class="section-label" style="color:{C_TEAL};">&#9650; New This Week ({len(new_df)})</div>
     {new_html}
   </div>
-  <div class="nl-col-right">
+  <div>
     <div class="section-label" style="color:{C_CORAL};">&#9660; Lost This Week ({len(lost_df)})</div>
     {lost_html}
   </div>
-  <div class="nl-clear"></div>
 </div>
 """
 
@@ -954,9 +952,9 @@ def get_extra_css():
         background: #F8FAFC;
         border-top: 3px solid #212878;
         border: 1px solid #E2E8F0;
-        border-radius: 4px;
-        padding: 18px 20px;
-        margin-bottom: 22px;
+        border-radius: 6px;
+        padding: 20px 24px;
+        margin-bottom: 24px;
     }
     .exec-panel .panel-label {
         font-size: 9px;
@@ -964,19 +962,18 @@ def get_extra_css():
         letter-spacing: 0.8px;
         color: #64748B;
         font-weight: 700;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
     }
     .exec-bullets {
         margin: 0;
-        padding-left: 16px;
+        padding-left: 18px;
         list-style: disc;
     }
     .exec-bullets li {
-        font-size: 10.5px;
+        font-size: 11px;
         color: #1E293B;
-        line-height: 1.65;
-        margin-bottom: 5px;
-        padding-left: 2px;
+        line-height: 1.7;
+        margin-bottom: 6px;
     }
 
     /* ── Section label ──────────────────────────────────────────── */
@@ -985,82 +982,109 @@ def get_extra_css():
         text-transform: uppercase;
         letter-spacing: 0.7px;
         font-weight: 700;
-        margin-bottom: 6px;
+        margin-bottom: 8px;
     }
 
     /* ── Inline delta spans ─────────────────────────────────────── */
-    .chg        { font-size: 9.5px; font-weight: 600; padding: 1px 5px;
+    .chg        { font-size: 9.5px; font-weight: 600; padding: 2px 6px;
                   border-radius: 3px; display: inline-block; }
     .chg.pos    { background: #ECFDF5; color: #059669; }
     .chg.neg    { background: #FEF2F2; color: #DC2626; }
     .chg.neu    { background: #F8FAFC; color: #94A3B8; }
 
     /* ── Position band badges ───────────────────────────────────── */
-    .badge      { font-size: 8px; font-weight: 700; padding: 2px 6px;
+    .badge      { font-size: 8px; font-weight: 700; padding: 2px 7px;
                   border-radius: 10px; display: inline-block; white-space: nowrap; }
     .badge-top3 { background: #DCFCE7; color: #15803D; }
     .badge-p1   { background: #DBEAFE; color: #1D4ED8; }
     .badge-p2   { background: #FEF9C3; color: #A16207; }
     .badge-p3   { background: #FEE2E2; color: #B91C1C; }
 
-    /* ── Chart: full width, no forced page break on the image itself ── */
+    /* ── Chart wrapper ──────────────────────────────────────────── */
     .chart-wrap {
         width: 100%;
-        margin-bottom: 6px;
-        page-break-inside: avoid;
+        margin-bottom: 20px;
     }
     .chart-wrap img {
         width: 100%;
         display: block;
-        border-radius: 4px;
+        border-radius: 6px;
         border: 1px solid #E2E8F0;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
     }
-    /* Alias — same as chart-wrap, kept for compatibility */
-    .chart-wrap-first {
-        width: 100%;
-        margin-bottom: 6px;
-        page-break-inside: avoid;
+
+    /* ── Two-chart row (CSS Grid — works in browser) ────────────── */
+    .chart-row-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 20px;
     }
-    .chart-wrap-first img {
+    .chart-row-2 img {
         width: 100%;
         display: block;
-        border-radius: 4px;
+        border-radius: 6px;
         border: 1px solid #E2E8F0;
-    }
-    /* Section wrapper that starts a new page */
-    .page-section {
-        page-break-before: always;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
     }
 
     /* ── Section header bar ─────────────────────────────────────── */
     .col-header {
-        font-size: 9px;
+        font-size: 10px;
         text-transform: uppercase;
         letter-spacing: 0.7px;
         font-weight: 700;
         color: #212878;
         border-left: 3px solid #212878;
-        padding-left: 8px;
-        margin-top: 20px;
-        margin-bottom: 8px;
+        padding-left: 10px;
+        margin-top: 28px;
+        margin-bottom: 10px;
+    }
+    .col-header:first-child { margin-top: 0; }
+
+    /* ── Report section card ────────────────────────────────────── */
+    .report-section {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 8px;
+        padding: 20px 24px;
+        margin-bottom: 24px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
     }
 
-    /* ── Table: prevent URL character-splitting ─────────────────── */
-    table { font-size: 9.5px; width: 100%; table-layout: fixed; }
-    th    { font-size: 8px; }
-    td    { padding: 7px 10px; overflow-wrap: break-word; word-break: normal; }
+    /* ── Table ──────────────────────────────────────────────────── */
+    table { font-size: 10px; width: 100%; border-collapse: collapse; margin-bottom: 0; }
+    th    { font-size: 8.5px; padding: 9px 12px; }
+    td    { padding: 8px 12px; overflow-wrap: break-word; word-break: normal; }
     td.url-cell {
-        max-width: 200px;
+        max-width: 220px;
         overflow-wrap: break-word;
         word-break: break-word;
-        font-size: 8.5px;
+        font-size: 9px;
     }
 
-    /* ── New/lost two-column: float-based (WeasyPrint safe) ─────── */
-    .nl-wrap { width: 100%; overflow: hidden; margin-bottom: 20px; }
-    .nl-col  { float: left; width: 48%; }
-    .nl-col-right { float: right; width: 48%; }
-    .nl-clear { clear: both; }
+    /* ── New/lost two-column (CSS Grid) ─────────────────────────── */
+    .nl-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
+    }
+
+    /* ── Scrollable page body ───────────────────────────────────── */
+    body {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 24px 32px 48px 32px;
+        background: #F1F5F9;
+    }
+    .report-body {
+        background: #FFFFFF;
+        border-radius: 10px;
+        padding: 32px 36px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        margin-bottom: 24px;
+    }
     """
 
 
@@ -1068,22 +1092,63 @@ def get_extra_css():
 # HTML REPORT BUILDER
 # ══════════════════════════════════════════════════════════════════════════════
 
-def _img(path, alt="chart", first_on_page=False):
-    """Full-width chart image. first_on_page=True skips the page-break-before."""
+# ══════════════════════════════════════════════════════════════════════════════
+# SELF-CONTAINED HTML  (base64-embed all chart images)
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _img_tag(path, alt="chart"):
+    """Return an <img> tag. Path is a local file — will be base64-embedded later."""
     if not path:
         return ""
-    css_class = "chart-wrap-first" if first_on_page else "chart-wrap"
-    return f'<div class="{css_class}"><img src="{html.escape(str(path))}" alt="{html.escape(alt)}"></div>'
+    return f'<img src="{html.escape(str(path))}" alt="{html.escape(alt)}" style="width:100%;display:block;border-radius:6px;border:1px solid #E2E8F0;">'
+
+
+def _chart_wrap(path, alt="chart"):
+    """Single full-width chart."""
+    if not path:
+        return ""
+    return f'<div class="chart-wrap">{_img_tag(path, alt)}</div>'
+
+
+def _chart_row_2(path_a, alt_a, path_b, alt_b):
+    """Two charts side-by-side in a CSS Grid row."""
+    a = _img_tag(path_a, alt_a) if path_a else ""
+    b = _img_tag(path_b, alt_b) if path_b else ""
+    if not a and not b:
+        return ""
+    return f'<div class="chart-row-2"><div>{a}</div><div>{b}</div></div>'
+
+
+def embed_images_as_base64(html_content: str) -> str:
+    """Replace all local file src= paths with inline base64 data URIs."""
+    def replace_src(match):
+        src = match.group(1)
+        img_path = Path(src)
+        if img_path.exists():
+            ext  = img_path.suffix.lstrip(".").lower()
+            mime = "image/png" if ext == "png" else f"image/{ext}"
+            b64  = base64.b64encode(img_path.read_bytes()).decode()
+            return f'src="data:{mime};base64,{b64}"'
+        return match.group(0)  # leave unchanged if file not found
+
+    return re.sub(r'src="([^"]+\.(png|jpg|jpeg|svg|gif))"', replace_src, html_content)
+
+
+def generate_self_contained_html():
+    """Read weekly_summary.html, embed all chart images as base64, write final file."""
+    raw = Path("weekly_summary.html").read_text(encoding="utf-8")
+    final = embed_images_as_base64(raw)
+    Path("weekly_summary_final.html").write_text(final, encoding="utf-8")
+    size_kb = len(final.encode()) // 1024
+    print(f"Saved weekly_summary_final.html ({size_kb} KB, self-contained)")
 
 
 def write_html_summary(query_df, page_df, exec_bullets, kpis,
                        chart_paths, device_df, appearance_df,
                        current_start, current_end, previous_start, previous_end):
 
-    # ── Executive bullets ──────────────────────────────────────────────────
     bullet_items = "".join(f"<li>{html.escape(b)}</li>" for b in exec_bullets)
 
-    # ── KPI cards ─────────────────────────────────────────────────────────
     kpi_cards = "".join([
         build_card("Clicks",       kpis["clicks_current"],      kpis["clicks_previous"]),
         build_card("Impressions",  kpis["impressions_current"],  kpis["impressions_previous"]),
@@ -1091,9 +1156,8 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
         build_card("Avg Position", kpis["position_current"],     kpis["position_previous"], decimals=2),
     ])
 
-    # ── Tables ─────────────────────────────────────────────────────────────
-    top_queries_tbl  = build_top_table(query_df, "query", is_page=False, n=15)
-    top_pages_tbl    = build_top_table(page_df,  "page",  is_page=True,  n=15)
+    top_queries_tbl = build_top_table(query_df, "query", is_page=False, n=15)
+    top_pages_tbl   = build_top_table(page_df,  "page",  is_page=True,  n=15)
 
     q_gainers = query_df.nlargest(15, "clicks_change")
     q_losers  = query_df.nsmallest(15, "clicks_change")
@@ -1104,7 +1168,6 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
     page_movers_tbl  = build_movers_table(p_gainers, p_losers, "page",  n=10)
     new_lost_block   = build_new_lost_block(query_df)
 
-    # ── Device table ───────────────────────────────────────────────────────
     device_rows = ""
     if not device_df.empty:
         for _, row in device_df.iterrows():
@@ -1126,15 +1189,73 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GSC Weekly Performance Summary</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-{get_pdf_css()}
+* {{ box-sizing: border-box; margin: 0; padding: 0; }}
+body {{
+    font-family: 'Poppins', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 12px;
+    color: #1A1A1A;
+    background: #F1F5F9;
+    line-height: 1.6;
+    padding: 24px 32px 48px;
+    max-width: 1200px;
+    margin: 0 auto;
+}}
+.header-bar {{
+    background: #212878;
+    color: #FFFFFF;
+    padding: 24px 32px;
+    border-radius: 10px;
+    border-bottom: 4px solid #000;
+    margin-bottom: 20px;
+}}
+.header-bar h1 {{ font-size: 24px; font-weight: 700; margin-bottom: 4px; }}
+.header-bar .subtitle {{
+    font-size: 10px; text-transform: uppercase;
+    letter-spacing: 1px; opacity: 0.85;
+}}
+.report-section {{
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 24px 28px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}}
+.grid {{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 20px;
+}}
+.card {{
+    background: #FFFFFF;
+    border: 1px solid #E2E8F0;
+    border-radius: 8px;
+    padding: 16px 18px;
+    border-bottom: 3px solid #E2E8F0;
+}}
+.label {{ font-size: 9px; text-transform: uppercase; color: #64748B; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 6px; }}
+.value {{ font-size: 26px; font-weight: 700; color: #212878; margin-bottom: 4px; }}
+.sub   {{ font-size: 10px; color: #94A3B8; margin-bottom: 4px; }}
+.delta {{ font-weight: 600; font-size: 11px; padding: 2px 7px; border-radius: 3px; display: inline-block; }}
+.delta.pos {{ background: #ECFDF5; color: #059669; }}
+.delta.neg {{ background: #FEF2F2; color: #DC2626; }}
+.delta.neu {{ background: #F8FAFC; color: #64748B; }}
 {get_extra_css()}
+table {{ width: 100%; border-collapse: collapse; font-size: 10px; }}
+th {{ background: #212878; color: #FFF; font-weight: 600; text-transform: uppercase;
+      font-size: 8.5px; letter-spacing: 0.5px; padding: 9px 12px; text-align: left; }}
+td {{ padding: 8px 12px; border-bottom: 1px solid #E2E8F0; }}
+tr:nth-child(even) td {{ background: #F8FAFC; }}
+tr:hover td {{ background: #F1F5F9; }}
 </style>
 </head>
 <body>
 
-<!-- ── PAGE 1: HEADER + EXECUTIVE SUMMARY + KPI CARDS ────────────────── -->
 <div class="header-bar">
   <h1>GSC Weekly Performance Summary</h1>
   <div class="subtitle">
@@ -1143,71 +1264,77 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
   </div>
 </div>
 
-<div class="exec-panel">
-  <div class="panel-label">Executive Summary</div>
-  <ul class="exec-bullets">{bullet_items}</ul>
+<!-- Executive Summary -->
+<div class="report-section">
+  <div class="exec-panel" style="border:none;padding:0;margin:0;background:transparent;">
+    <div class="panel-label">Executive Summary</div>
+    <ul class="exec-bullets">{bullet_items}</ul>
+  </div>
 </div>
 
+<!-- KPI Cards -->
 <div class="grid">{kpi_cards}</div>
 
-<!-- ── PAGE 2: KPI GRID + TREND LINE (two half-page charts) ───────────── -->
-<div class="page-section">
+<!-- KPI Chart + Trend -->
+<div class="report-section">
   <div class="col-header" style="margin-top:0;">KPI Comparison — Current vs Previous Week</div>
-  {_img(chart_paths.get("kpi_grid"), "KPI comparison grid", first_on_page=True)}
+  {_chart_wrap(chart_paths.get("kpi_grid"), "KPI comparison grid")}
   <div class="col-header">7-Day Daily Trend</div>
-  {_img(chart_paths.get("trend"), "7-day daily trend")}
+  {_chart_wrap(chart_paths.get("trend"), "7-day daily trend")}
 </div>
 
-<!-- ── PAGE 3: DEVICE SPLIT + SEARCH APPEARANCE (two half-page charts) ── -->
-<div class="page-section">
-  <div class="col-header" style="margin-top:0;">Device Split</div>
-  {_img(chart_paths.get("device"), "Device split", first_on_page=True)}
-  <div class="col-header">Search Appearance / SERP Features</div>
-  {_img(chart_paths.get("appearance"), "Search appearance")}
+<!-- Device + Search Appearance -->
+<div class="report-section">
+  {_chart_row_2(chart_paths.get("device"), "Device split",
+                chart_paths.get("appearance"), "Search appearance")}
 </div>
 
-<!-- ── PAGE 4: CTR vs POSITION SCATTER (full page) ────────────────────── -->
-<div class="page-section">
+<!-- CTR vs Position Scatter -->
+<div class="report-section">
   <div class="col-header" style="margin-top:0;">CTR vs Average Position</div>
-  {_img(chart_paths.get("scatter"), "CTR vs position scatter", first_on_page=True)}
+  {_chart_wrap(chart_paths.get("scatter"), "CTR vs position scatter")}
 </div>
 
-<!-- ── PAGE 5: QUERY + PAGE LOLLIPOPS (two half-page charts) ──────────── -->
-<div class="page-section">
-  <div class="col-header" style="margin-top:0;">Query Winners &amp; Losers</div>
-  {_img(chart_paths.get("query_movers"), "Query winners and losers", first_on_page=True)}
-  <div class="col-header">Page Winners &amp; Losers</div>
-  {_img(chart_paths.get("page_movers"), "Page winners and losers")}
+<!-- Lollipop Movers -->
+<div class="report-section">
+  {_chart_row_2(chart_paths.get("query_movers"), "Query winners & losers",
+                chart_paths.get("page_movers"),  "Page winners & losers")}
 </div>
 
-<!-- ── PAGE 6: NEW / LOST + TOP QUERIES ───────────────────────────────── -->
-<div class="page-section">
-<div class="col-header" style="margin-top:0;">New &amp; Lost Queries This Week</div>
-{new_lost_block}
-
-<div class="col-header">Top Queries by Clicks</div>
-{top_queries_tbl}
+<!-- New / Lost Queries -->
+<div class="report-section">
+  <div class="col-header" style="margin-top:0;">New &amp; Lost Queries This Week</div>
+  {new_lost_block}
 </div>
 
-<!-- ── PAGE 7: TOP PAGES ───────────────────────────────────────────────── -->
-<div class="page-section">
-<div class="col-header" style="margin-top:0;">Top Pages by Clicks</div>
-{top_pages_tbl}
+<!-- Top Queries + Top Pages side by side -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
+  <div class="report-section" style="margin-bottom:0;">
+    <div class="col-header" style="margin-top:0;">Top Queries by Clicks</div>
+    {top_queries_tbl}
+  </div>
+  <div class="report-section" style="margin-bottom:0;">
+    <div class="col-header" style="margin-top:0;">Top Pages by Clicks</div>
+    {top_pages_tbl}
+  </div>
 </div>
 
-<!-- ── PAGE 8: QUERY MOVEMENT ─────────────────────────────────────────── -->
-<div class="page-section">
-<div class="col-header" style="margin-top:0;">Query Movement — Gainers &amp; Losers</div>
-{query_movers_tbl}
+<!-- Query Movement -->
+<div class="report-section">
+  <div class="col-header" style="margin-top:0;">Query Movement — Gainers &amp; Losers</div>
+  {query_movers_tbl}
 </div>
 
-<!-- ── PAGE 9: PAGE MOVEMENT + DEVICE ─────────────────────────────────── -->
-<div class="page-section">
-<div class="col-header" style="margin-top:0;">Page Movement — Gainers &amp; Losers</div>
-{page_movers_tbl}
+<!-- Page Movement -->
+<div class="report-section">
+  <div class="col-header" style="margin-top:0;">Page Movement — Gainers &amp; Losers</div>
+  {page_movers_tbl}
+</div>
 
-<div class="col-header">Device Breakdown</div>
-{device_table}
+<!-- Device Breakdown -->
+<div class="report-section">
+  <div class="col-header" style="margin-top:0;">Device Breakdown</div>
+  {device_table}
 </div>
 
 </body>
@@ -1265,23 +1392,70 @@ def write_markdown_summary(query_df, page_df, exec_bullets, kpis,
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# PDF + MONDAY UPLOAD
+# MONDAY UPLOAD  (post HTML body + attach self-contained HTML file)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def generate_pdf():
-    HTML("weekly_summary.html", base_url=os.getcwd()).write_pdf("weekly_summary.pdf")
-    print("Saved weekly_summary.pdf")
-
-
 def upload_to_monday():
-    try:
-        _upload_pdf(
-            "weekly_summary.pdf",
-            body_text="GSC weekly PDF report attached.",
-            pdf_filename="google-search-console-weekly.pdf",
+    """Post a text summary update to Monday.com and attach the self-contained HTML."""
+    api_token = os.getenv("MONDAY_API_TOKEN")
+    item_id   = os.getenv("MONDAY_ITEM_ID")
+
+    if not api_token or not item_id:
+        print("Monday upload skipped: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.")
+        return
+
+    import requests as _requests
+
+    # Step 1 — create a text update on the item
+    body_text = (
+        "GSC Weekly Performance Report attached as a self-contained HTML file. "
+        "Open in any browser — all charts are embedded inline."
+    )
+    update_query = """
+    mutation ($item_id: ID!, $body: String!) {
+      create_update(item_id: $item_id, body: $body) { id }
+    }
+    """
+    resp = _requests.post(
+        "https://api.monday.com/v2",
+        headers={"Authorization": api_token, "Content-Type": "application/json"},
+        json={"query": update_query, "variables": {"item_id": str(item_id), "body": body_text}},
+        timeout=60,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if "errors" in data:
+        raise RuntimeError(f"Monday update creation failed: {data['errors']}")
+    update_id = data["data"]["create_update"]["id"]
+
+    # Step 2 — attach the self-contained HTML file to that update
+    file_query = """
+    mutation ($update_id: ID!, $file: File!) {
+      add_file_to_update(update_id: $update_id, file: $file) { id }
+    }
+    """
+    html_path = Path("weekly_summary_final.html")
+    if not html_path.exists():
+        print("Monday file attach skipped: weekly_summary_final.html not found.")
+        return
+
+    with open(html_path, "rb") as f:
+        file_resp = _requests.post(
+            "https://api.monday.com/v2/file",
+            headers={"Authorization": api_token},
+            data={
+                "query": file_query,
+                "variables": '{"update_id": "' + str(update_id) + '", "file": null}',
+                "map": '{"file": ["variables.file"]}',
+            },
+            files={"file": ("gsc-weekly-report.html", f, "text/html")},
+            timeout=120,
         )
-    except Exception as e:
-        print(f"Monday upload failed: {e}")
+    file_resp.raise_for_status()
+    file_data = file_resp.json()
+    if "errors" in file_data:
+        raise RuntimeError(f"Monday file attach failed: {file_data['errors']}")
+    print("Uploaded gsc-weekly-report.html to Monday.com successfully.")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1357,8 +1531,12 @@ def main():
                        chart_paths, device_df, appearance_df,
                        current_start, current_end, previous_start, previous_end)
 
-    generate_pdf()
-    upload_to_monday()
+    generate_self_contained_html()
+
+    try:
+        upload_to_monday()
+    except Exception as e:
+        print(f"Monday upload failed: {e}")
 
     print("GSC Weekly Report — complete")
 
