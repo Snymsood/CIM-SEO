@@ -241,7 +241,7 @@ def _save(fig, name):
     path = CHARTS_DIR / name
     fig.savefig(path, dpi=150, bbox_inches="tight", facecolor="white")
     plt.close(fig)
-    return f"file://{path.absolute()}"
+    return path
 
 
 def short_page_label(url, max_len=52):
