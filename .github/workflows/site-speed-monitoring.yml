@@ -48,7 +48,9 @@ jobs:
             tracked_speed_pages.csv
             site_speed_current_snapshot.csv
             site_speed_comparison.csv
+            site_speed_opportunities.csv
             site_speed_latest_snapshot.csv
             site_speed_history.csv
             site_speed_summary.html
             site_speed_summary_final.html
+            site_speed_charts/
