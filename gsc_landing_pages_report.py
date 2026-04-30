@@ -911,9 +911,12 @@ def write_markdown_summary(comparison_df, unified_bullets, current_start, curren
 # ═══════════════════
 def _img_tag(path, alt="chart"):
     """Return an <img> tag. Path is a local file — will be base64-embedded later."""
+    print(f"DEBUG _img_tag: path={path}, type={type(path)}", flush=True)
     if not path:
         return ""
-    return f'<img src="{html.escape(str(path))}" alt="{html.escape(alt)}" style="width:100%;display:block;border-radius:6px;border:1px solid #E2E8F0;">'
+    path_str = str(path)
+    print(f"DEBUG _img_tag: path_str={path_str}", flush=True)
+    return f'<img src="{html.escape(path_str)}" alt="{html.escape(alt)}" style="width:100%;display:block;border-radius:6px;border:1px solid #E2E8F0;">'
 
 
 def _chart_wrap(path, alt="chart"):
