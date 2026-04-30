@@ -960,6 +960,10 @@ def write_html_summary(comparison_df, unified_bullets, current_start, current_en
         "traffic_changes":  create_traffic_change_chart(biggest_gainers, biggest_losers),
         "position_changes": create_position_change_chart(position_gainers, position_losers),
     }
+    
+    # Debug: print chart paths
+    for key, path in charts.items():
+        print(f"Chart '{key}': {path}")
 
     bullet_items = "".join(f"<li>{html.escape(b)}</li>" for b in unified_bullets)
 
