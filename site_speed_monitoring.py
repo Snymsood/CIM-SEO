@@ -111,7 +111,12 @@ def get_field_metric(data, metric_key):
         is_origin = True
     if not metric:
         return None, None, False
-    return metric.get("percentile"), metric.get("category"), is_origin
+    percentile = metric.get("percentile")
+    # CLS percentile is returned as an integer scaled ×1000 (e.g. 8 = 0.008).
+    # All other metrics are in ms. Normalise CLS to the 0–1 decimal range.
+    if percentile is not None and metric_key == "CUMULATIVE_LAYOUT_SHIFT_SCORE":
+        percentile = float(percentile) / 1000.0
+    return percentile, metric.get("category"), is_origin
 
 
 def get_overall_field_category(data):
@@ -280,10 +285,22 @@ def prepare_comparison(current_df, previous_df):
         for col in PREV_COLS:
             work[f"{col}_previous"] = None
     else:
+        # Restore cwv_pass boolean from CSV (read back as string "True"/"False")
+        if "cwv_pass" in previous_df.columns:
+            previous_df["cwv_pass"] = previous_df["cwv_pass"].map(
+                {"True": True, "False": False, True: True, False: False}
+            )
         prev_small = previous_df[["page", "strategy"] + PREV_COLS].rename(
             columns={c: f"{c}_previous" for c in PREV_COLS}
         )
         work = pd.merge(current_df, prev_small, on=["page", "strategy"], how="left")
+
+    # Restore cwv_pass boolean in current data too (defensive)
+    if "cwv_pass" in work.columns:
+        work["cwv_pass"] = work["cwv_pass"].map(
+            {"True": True, "False": False, True: True, False: False,
+             1: True, 0: False, 1.0: True, 0.0: False}
+        )
 
     for col in PREV_COLS:
         work[f"{col}_change"] = pd.to_numeric(work[col], errors="coerce") - \
@@ -912,6 +929,8 @@ def _build_speed_table(df, cols, rename, badge_cols=None):
             elif "change" in col or "\u0394" in display_name:
                 try:
                     fval = float(val)
+                    if pd.isna(fval):
+                        raise ValueError("nan")
                     lower_better = any(k in col for k in ["lcp", "fcp", "tbt", "ttfb", "inp"])
                     if lower_better:
                         cls = "pos" if fval < 0 else ("neg" if fval > 0 else "neu")
@@ -920,7 +939,7 @@ def _build_speed_table(df, cols, rename, badge_cols=None):
                     sign = "+" if fval > 0 else ""
                     disp = (sign + "{:.1f}".format(fval)) if fval != 0 else "-"
                 except (TypeError, ValueError):
-                    cls, disp = "neu", "-"
+                    cls, disp = "neu", "—"
                 cells.append(
                     '<td style="white-space:nowrap;"><span class="chg ' + cls + '">' + _html.escape(disp) + '</span></td>'
                 )
@@ -928,13 +947,16 @@ def _build_speed_table(df, cols, rename, badge_cols=None):
                 try:
                     fval = float(val)
                     if pd.isna(fval) or fval == 0:
-                        disp = "-"
-                    elif fval < 10:
+                        disp = "—"
+                    elif fval < 1:
+                        # CLS and other sub-1 decimals: show 3 decimal places
                         disp = "{:.3f}".format(fval)
+                    elif fval < 10:
+                        disp = "{:.1f}".format(fval)
                     else:
                         disp = "{:,.0f}".format(fval)
                 except (TypeError, ValueError):
-                    disp = _html.escape(str(val)) if str(val) not in ("nan", "None", "") else "-"
+                    disp = _html.escape(str(val)) if str(val) not in ("nan", "None", "", "NaN") else "—"
                 cells.append('<td style="white-space:nowrap;">' + disp + '</td>')
         rows.append("<tr>" + "".join(cells) + "</tr>")
     return (
@@ -1056,12 +1078,29 @@ def write_html_summary(comparison_df, opp_df):
     cwv_total   = len(cwv_known)
     slow_ttfb   = int((mobile["ttfb_lab_ms"] > TTFB_WARN_MS).sum()) if "ttfb_lab_ms" in mobile.columns else 0
 
+    def _count_card(label, value, subtitle=""):
+        """KPI card that correctly shows 0 as '0', not '-'."""
+        sub_html = (
+            f'<div class="kpi-card__prev">{_html.escape(subtitle)}</div>'
+            if subtitle else '<div class="kpi-card__prev">&nbsp;</div>'
+        )
+        return (
+            '<div class="kpi-card">'
+            f'<div class="kpi-card__label">{_html.escape(label)}</div>'
+            f'<div class="kpi-card__value">{value}</div>'
+            f'{sub_html}'
+            '<span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#525252;">—</span>'
+            '</div>'
+        )
+
     kpi_grid = mm_kpi_grid(
-        mm_kpi_card("Tracked URLs",      comparison_df["page"].nunique(), None),
-        mm_kpi_card("Mobile Avg Score",  mobile["performance_score"].mean() if not mobile.empty else 0,
+        mm_kpi_card("Tracked URLs",     comparison_df["page"].nunique(), None),
+        mm_kpi_card("Mobile Avg Score", mobile["performance_score"].mean() if not mobile.empty else 0,
                     None, decimals=1),
-        mm_kpi_card("CWV Passing",       cwv_passing, None),
-        mm_kpi_card("Slow TTFB Pages",   slow_ttfb, None),
+        _count_card("CWV Passing",    f"{cwv_passing} / {cwv_total}",
+                    subtitle="pages passing LCP + INP + CLS"),
+        _count_card("Slow TTFB Pages", str(slow_ttfb),
+                    subtitle=f"exceeding {TTFB_WARN_MS} ms threshold"),
     )
 
     # ── Body ──────────────────────────────────────────────────────────────────
