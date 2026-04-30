@@ -199,7 +199,7 @@ def aggregate_monthly_kpis(data):
 # MONDAY.COM UPLOAD
 # ══════════════════════════════════════════════════════════════════════════════
 
-def upload_to_monday(html_path, bullets, date_range):
+def upload_to_monday(html_path, bullets, date_range, run_id=None):
     """
     Upload the HTML dashboard to Monday.com.
     
@@ -207,6 +207,7 @@ def upload_to_monday(html_path, bullets, date_range):
         html_path: Path to the generated HTML file
         bullets: List of executive summary bullets
         date_range: Dict with date information
+        run_id: GitHub Actions run ID (optional, for artifact link)
     """
     if not MONDAY_API_TOKEN or not MONDAY_MONTHLY_ITEM_ID:
         print("⚠ Monday.com upload skipped: MONDAY_API_TOKEN or MONDAY_MONTHLY_ITEM_ID not set")
@@ -217,14 +218,33 @@ def upload_to_monday(html_path, bullets, date_range):
     print("=" * 80)
     
     current_month = date_range["current_start"].strftime("%B %Y")
+    current_month_slug = date_range["current_start"].strftime("%Y-%m")
     
     # Create update body with executive summary
     bullet_html = "".join(f"<li>{b}</li>" for b in bullets[:5])  # Top 5 bullets
+    
+    # Build dashboard links
+    dashboard_links = []
+    
+    # GitHub Pages link (if available)
+    dashboard_links.append(
+        f'<a href="https://snymsood.github.io/CIM-SEO/monthly_dashboard.html">📊 View Live Dashboard</a>'
+    )
+    
+    # GitHub Artifacts link (if run_id provided)
+    if run_id:
+        dashboard_links.append(
+            f'<a href="https://github.com/Snymsood/CIM-SEO/actions/runs/{run_id}">📥 Download Dashboard (Artifacts)</a>'
+        )
+    
+    links_html = " | ".join(dashboard_links)
+    
     body_text = (
         f"<h2>Monthly SEO Master Report — {current_month}</h2>"
         f"<p><strong>Executive Summary:</strong></p>"
         f"<ul>{bullet_html}</ul>"
-        f"<br><p>📊 Full dashboard attached as HTML file</p>"
+        f"<br><p>{links_html}</p>"
+        f"<p><em>Dashboard generated on {date.today().strftime('%B %d, %Y')}</em></p>"
     )
     
     try:
@@ -374,7 +394,8 @@ def main():
     # Phase 6: Monday.com Upload
     print("PHASE 6: MONDAY.COM UPLOAD")
     print("-" * 80)
-    upload_to_monday(html_path, bullets, date_range)
+    github_run_id = os.getenv("GITHUB_RUN_ID")  # Available in GitHub Actions
+    upload_to_monday(html_path, bullets, date_range, github_run_id)
     print()
     
     # Phase 7: Google Sheets Logging

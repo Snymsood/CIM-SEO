@@ -64,3 +64,42 @@ jobs:
           name: monthly-dashboard-archive
           path: archives/
           retention-days: 365
+
+      - name: Copy Dashboard to Root for GitHub Pages
+        run: |
+          # Copy the dashboard to root so it's accessible via GitHub Pages
+          cp monthly_dashboard.html index.html
+          echo "Dashboard copied to index.html for GitHub Pages"
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: monthly-dashboard
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Download Dashboard Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: monthly-dashboard-artifacts
+          path: .
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "."
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
