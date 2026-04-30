@@ -947,144 +947,194 @@ def build_new_lost_block(query_df):
 
 def get_extra_css():
     return """
-    /* ── Executive bullets ─────────────────────────────────────── */
-    .exec-panel {
-        background: #F8FAFC;
-        border-top: 3px solid #212878;
-        border: 1px solid #E2E8F0;
-        border-radius: 6px;
-        padding: 20px 24px;
-        margin-bottom: 24px;
+    /* ══════════════════════════════════════════════════════════════
+       MINIMALIST MONOCHROME — Design System
+       Playfair Display (display) · Source Serif 4 (body) · JetBrains Mono (data)
+    ══════════════════════════════════════════════════════════════ */
+
+    /* ── Noise texture overlay (paper quality) ──────────────────── */
+    body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+        opacity: 0.018;
+        pointer-events: none;
+        z-index: 9999;
     }
-    .exec-panel .panel-label {
-        font-size: 9px;
+
+    /* ── Executive summary panel ────────────────────────────────── */
+    .exec-panel {
+        border: none;
+        padding: 0;
+        margin: 0;
+        background: transparent;
+    }
+    .panel-label {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
         text-transform: uppercase;
-        letter-spacing: 0.8px;
-        color: #64748B;
-        font-weight: 700;
-        margin-bottom: 12px;
+        letter-spacing: 0.15em;
+        color: #525252;
+        margin-bottom: 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .panel-label::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: #E5E5E5;
     }
     .exec-bullets {
         margin: 0;
-        padding-left: 18px;
-        list-style: disc;
+        padding: 0;
+        list-style: none;
     }
     .exec-bullets li {
-        font-size: 11px;
-        color: #1E293B;
+        font-family: 'Source Serif 4', Georgia, serif;
+        font-size: 14px;
+        color: #000000;
         line-height: 1.7;
-        margin-bottom: 6px;
+        padding: 10px 0;
+        border-bottom: 1px solid #E5E5E5;
+        padding-left: 20px;
+        position: relative;
     }
+    .exec-bullets li::before {
+        content: '—';
+        position: absolute;
+        left: 0;
+        color: #525252;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .exec-bullets li:last-child { border-bottom: none; }
 
     /* ── Section label ──────────────────────────────────────────── */
     .section-label {
-        font-size: 9px;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
         text-transform: uppercase;
-        letter-spacing: 0.7px;
-        font-weight: 700;
+        letter-spacing: 0.12em;
+        color: #525252;
         margin-bottom: 8px;
     }
 
-    /* ── Inline delta spans ─────────────────────────────────────── */
-    .chg        { font-size: 9.5px; font-weight: 600; padding: 2px 6px;
-                  border-radius: 3px; display: inline-block; }
-    .chg.pos    { background: #ECFDF5; color: #059669; }
-    .chg.neg    { background: #FEF2F2; color: #DC2626; }
-    .chg.neu    { background: #F8FAFC; color: #94A3B8; }
+    /* ── Delta spans — monochrome, border-based ─────────────────── */
+    .chg {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 0;
+        display: inline-block;
+        border: 1px solid #000;
+    }
+    .chg.pos { background: #000; color: #fff; border-color: #000; }
+    .chg.neg { background: #fff; color: #000; border-color: #000; }
+    .chg.neu { background: #fff; color: #525252; border-color: #E5E5E5; }
 
-    /* ── Position band badges ───────────────────────────────────── */
-    .badge      { font-size: 8px; font-weight: 700; padding: 2px 7px;
-                  border-radius: 10px; display: inline-block; white-space: nowrap; }
-    .badge-top3 { background: #DCFCE7; color: #15803D; }
-    .badge-p1   { background: #DBEAFE; color: #1D4ED8; }
-    .badge-p2   { background: #FEF9C3; color: #A16207; }
-    .badge-p3   { background: #FEE2E2; color: #B91C1C; }
+    /* ── Position band badges — sharp, monochrome ───────────────── */
+    .badge {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 8px;
+        font-weight: 700;
+        padding: 2px 6px;
+        border-radius: 0;
+        display: inline-block;
+        white-space: nowrap;
+        border: 1px solid #000;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    .badge-top3 { background: #000; color: #fff; }
+    .badge-p1   { background: #fff; color: #000; }
+    .badge-p2   { background: #fff; color: #525252; border-color: #525252; }
+    .badge-p3   { background: #fff; color: #E5E5E5; border-color: #E5E5E5; }
 
     /* ── Chart wrapper ──────────────────────────────────────────── */
-    .chart-wrap {
-        width: 100%;
-        margin-bottom: 20px;
-    }
+    .chart-wrap { width: 100%; margin-bottom: 24px; }
     .chart-wrap img {
         width: 100%;
         display: block;
-        border-radius: 6px;
-        border: 1px solid #E2E8F0;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        border: 2px solid #000;
+        border-radius: 0;
     }
 
-    /* ── Two-chart row (CSS Grid — works in browser) ────────────── */
+    /* ── Two-chart row ──────────────────────────────────────────── */
     .chart-row-2 {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 16px;
-        margin-bottom: 20px;
+        gap: 20px;
+        margin-bottom: 24px;
     }
     .chart-row-2 img {
         width: 100%;
         display: block;
-        border-radius: 6px;
-        border: 1px solid #E2E8F0;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+        border: 2px solid #000;
+        border-radius: 0;
     }
 
-    /* ── Section header bar ─────────────────────────────────────── */
+    /* ── Section header ─────────────────────────────────────────── */
     .col-header {
-        font-size: 10px;
-        text-transform: uppercase;
-        letter-spacing: 0.7px;
+        font-family: 'Playfair Display', Georgia, serif;
+        font-size: 13px;
         font-weight: 700;
-        color: #212878;
-        border-left: 3px solid #212878;
-        padding-left: 10px;
+        color: #000;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
         margin-top: 28px;
-        margin-bottom: 10px;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #000;
     }
     .col-header:first-child { margin-top: 0; }
 
-    /* ── Report section card ────────────────────────────────────── */
-    .report-section {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-radius: 8px;
-        padding: 20px 24px;
-        margin-bottom: 24px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    /* ── New/lost two-column ────────────────────────────────────── */
+    .nl-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+        margin-bottom: 0;
     }
 
     /* ── Table ──────────────────────────────────────────────────── */
-    table { font-size: 10px; width: 100%; border-collapse: collapse; margin-bottom: 0; }
-    th    { font-size: 8.5px; padding: 9px 12px; }
-    td    { padding: 8px 12px; overflow-wrap: break-word; word-break: normal; }
+    table {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 10px;
+        width: 100%;
+        border-collapse: collapse;
+        margin-bottom: 0;
+    }
+    th {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 8px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        padding: 10px 12px;
+        text-align: left;
+        background: #000;
+        color: #fff;
+        border: none;
+    }
+    td {
+        padding: 9px 12px;
+        border-bottom: 1px solid #E5E5E5;
+        overflow-wrap: break-word;
+        word-break: normal;
+        color: #000;
+    }
     td.url-cell {
         max-width: 220px;
         overflow-wrap: break-word;
         word-break: break-word;
         font-size: 9px;
+        color: #525252;
     }
-
-    /* ── New/lost two-column (CSS Grid) ─────────────────────────── */
-    .nl-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-        margin-bottom: 20px;
-    }
-
-    /* ── Scrollable page body ───────────────────────────────────── */
-    body {
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 24px 32px 48px 32px;
-        background: #F1F5F9;
-    }
-    .report-body {
-        background: #FFFFFF;
-        border-radius: 10px;
-        padding: 32px 36px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        margin-bottom: 24px;
-    }
+    tr:hover td { background: #F5F5F5; }
+    tr:nth-child(even) td { background: transparent; }
     """
 
 
@@ -1149,11 +1199,39 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
 
     bullet_items = "".join(f"<li>{html.escape(b)}</li>" for b in exec_bullets)
 
-    kpi_cards = "".join([
-        build_card("Clicks",       kpis["clicks_current"],      kpis["clicks_previous"]),
-        build_card("Impressions",  kpis["impressions_current"],  kpis["impressions_previous"]),
-        build_card("CTR",          kpis["ctr_current"],          kpis["ctr_previous"],  is_pct=True),
-        build_card("Avg Position", kpis["position_current"],     kpis["position_previous"], decimals=2),
+    # ── KPI cards — inverted (black bg, white text) ────────────────────────
+    def _kpi_card(label, curr_val, prev_val, is_pct=False, decimals=0, lower_better=False):
+        from pdf_report_formatter import format_num, format_pct_change
+        curr_str  = format_num(curr_val, decimals, as_percent=is_pct)
+        prev_str  = format_num(prev_val, decimals, as_percent=is_pct)
+        delta_str = format_pct_change(curr_val, prev_val)
+        if delta_str == "-":
+            delta_html_str = '<span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#525252;">—</span>'
+        else:
+            is_pos = delta_str.startswith("+")
+            good   = (is_pos and not lower_better) or (not is_pos and lower_better)
+            d_color = "#fff" if good else "#000"
+            d_bg    = "#000" if good else "#fff"
+            d_border = "1px solid #000"
+            delta_html_str = (
+                f'<span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;'
+                f'font-weight:700;padding:2px 8px;background:{d_bg};color:{d_color};'
+                f'border:{d_border};">{delta_str}</span>'
+            )
+        return f"""
+        <div style="background:#000;color:#fff;padding:24px 20px;border:2px solid #000;position:relative;overflow:hidden;">
+          <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,transparent,transparent 1px,#fff 1px,#fff 2px);background-size:4px 100%;opacity:0.03;pointer-events:none;"></div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.15em;color:#999;margin-bottom:12px;">{html.escape(label)}</div>
+          <div style="font-family:'Playfair Display',Georgia,serif;font-size:36px;font-weight:700;color:#fff;line-height:1;margin-bottom:10px;">{html.escape(curr_str)}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#999;margin-bottom:8px;">prev {html.escape(prev_str)}</div>
+          {delta_html_str}
+        </div>"""
+
+    kpi_grid = "".join([
+        _kpi_card("Clicks",       kpis["clicks_current"],      kpis["clicks_previous"]),
+        _kpi_card("Impressions",  kpis["impressions_current"],  kpis["impressions_previous"]),
+        _kpi_card("CTR",          kpis["ctr_current"],          kpis["ctr_previous"],  is_pct=True),
+        _kpi_card("Avg Position", kpis["position_current"],     kpis["position_previous"], decimals=1, lower_better=True),
     ])
 
     top_queries_tbl = build_top_table(query_df, "query", is_page=False, n=15)
@@ -1182,8 +1260,12 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
         f"<table><thead><tr>"
         f"<th>Device</th><th>Clicks</th><th>Impressions</th><th>CTR</th><th>Avg Pos</th>"
         f"</tr></thead><tbody>{device_rows}</tbody></table>"
-        if device_rows else "<p style='color:#94A3B8;font-size:10px;'>No device data.</p>"
+        if device_rows else '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#525252;">No device data.</p>'
     )
+
+    # ── Horizontal rule between sections ──────────────────────────────────
+    HR = '<hr style="border:none;border-top:4px solid #000;margin:40px 0;">'
+    HR_THIN = '<hr style="border:none;border-top:1px solid #E5E5E5;margin:32px 0;">'
 
     doc = f"""<!DOCTYPE html>
 <html lang="en">
@@ -1191,151 +1273,362 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GSC Weekly Performance Summary</title>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-* {{ box-sizing: border-box; margin: 0; padding: 0; }}
+*, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+
+/* ── Global horizontal line texture ── */
+html {{
+    background: #fff;
+    background-image: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 1px,
+        #000 1px,
+        #000 2px
+    );
+    background-size: 100% 4px;
+    background-attachment: fixed;
+}}
+html::before {{
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(255,255,255,0.97);
+    pointer-events: none;
+    z-index: 0;
+}}
+
 body {{
-    font-family: 'Poppins', 'Helvetica Neue', Arial, sans-serif;
-    font-size: 12px;
-    color: #1A1A1A;
-    background: #F1F5F9;
-    line-height: 1.6;
-    padding: 24px 32px 48px;
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 14px;
+    color: #000;
+    background: transparent;
+    line-height: 1.625;
     max-width: 1200px;
     margin: 0 auto;
+    padding: 0 40px 80px;
+    position: relative;
+    z-index: 1;
 }}
-.header-bar {{
-    background: #212878;
-    color: #FFFFFF;
-    padding: 24px 32px;
-    border-radius: 10px;
-    border-bottom: 4px solid #000;
-    margin-bottom: 20px;
+
+/* ── Header ── */
+.site-header {{
+    background: #000;
+    color: #fff;
+    padding: 40px 48px;
+    margin: 0 -40px 0;
+    position: relative;
+    overflow: hidden;
 }}
-.header-bar h1 {{ font-size: 24px; font-weight: 700; margin-bottom: 4px; }}
-.header-bar .subtitle {{
-    font-size: 10px; text-transform: uppercase;
-    letter-spacing: 1px; opacity: 0.85;
+.site-header::before {{
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 1px,
+        #fff 1px,
+        #fff 2px
+    );
+    background-size: 4px 100%;
+    opacity: 0.03;
+    pointer-events: none;
 }}
-.report-section {{
-    background: #FFFFFF;
-    border: 1px solid #E2E8F0;
-    border-radius: 8px;
-    padding: 24px 28px;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+.site-header__eyebrow {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    color: #999;
+    margin-bottom: 12px;
 }}
-.grid {{
+.site-header__title {{
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: clamp(32px, 5vw, 64px);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: #fff;
+    margin-bottom: 16px;
+}}
+.site-header__meta {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: #666;
+    letter-spacing: 0.05em;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}}
+.site-header__meta::before {{
+    content: '';
+    display: inline-block;
+    width: 24px;
+    height: 2px;
+    background: #fff;
+    flex-shrink: 0;
+}}
+
+/* ── Section wrapper ── */
+.section {{
+    padding: 40px 0;
+}}
+
+/* ── Section title ── */
+.section-title {{
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #000;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}}
+.section-title::before {{
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    background: #000;
+    flex-shrink: 0;
+}}
+
+/* ── KPI grid ── */
+.kpi-grid {{
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 14px;
-    margin-bottom: 20px;
+    gap: 2px;
+    margin-bottom: 0;
+    border: 2px solid #000;
 }}
-.card {{
-    background: #FFFFFF;
-    border: 1px solid #E2E8F0;
-    border-radius: 8px;
-    padding: 16px 18px;
-    border-bottom: 3px solid #E2E8F0;
+.kpi-grid > div {{
+    border-right: 2px solid #000;
 }}
-.label {{ font-size: 9px; text-transform: uppercase; color: #64748B; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 6px; }}
-.value {{ font-size: 26px; font-weight: 700; color: #212878; margin-bottom: 4px; }}
-.sub   {{ font-size: 10px; color: #94A3B8; margin-bottom: 4px; }}
-.delta {{ font-weight: 600; font-size: 11px; padding: 2px 7px; border-radius: 3px; display: inline-block; }}
-.delta.pos {{ background: #ECFDF5; color: #059669; }}
-.delta.neg {{ background: #FEF2F2; color: #DC2626; }}
-.delta.neu {{ background: #F8FAFC; color: #64748B; }}
+.kpi-grid > div:last-child {{ border-right: none; }}
+
+/* ── Report section ── */
+.report-section {{
+    background: #fff;
+    border: 2px solid #000;
+    padding: 28px 32px;
+    margin-bottom: 0;
+}}
+
+/* ── Two-column layout ── */
+.two-col {{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2px;
+}}
+.two-col > .report-section {{
+    border-right: none;
+}}
+.two-col > .report-section:last-child {{
+    border-left: 2px solid #000;
+    border-right: 2px solid #000;
+}}
+
+/* ── Thick rule ── */
+.rule-thick {{
+    border: none;
+    border-top: 4px solid #000;
+    margin: 0;
+}}
+.rule-thin {{
+    border: none;
+    border-top: 1px solid #E5E5E5;
+    margin: 24px 0;
+}}
+
 {get_extra_css()}
-table {{ width: 100%; border-collapse: collapse; font-size: 10px; }}
-th {{ background: #212878; color: #FFF; font-weight: 600; text-transform: uppercase;
-      font-size: 8.5px; letter-spacing: 0.5px; padding: 9px 12px; text-align: left; }}
-td {{ padding: 8px 12px; border-bottom: 1px solid #E2E8F0; }}
-tr:nth-child(even) td {{ background: #F8FAFC; }}
-tr:hover td {{ background: #F1F5F9; }}
+
+/* ── Table overrides for monochrome ── */
+table {{
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    width: 100%;
+    border-collapse: collapse;
+}}
+th {{
+    background: #000;
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    padding: 10px 12px;
+    text-align: left;
+    border: none;
+}}
+td {{
+    padding: 9px 12px;
+    border-bottom: 1px solid #E5E5E5;
+    color: #000;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+}}
+td.url-cell {{
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 11px;
+    color: #000;
+    max-width: 220px;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}}
+tr:hover td {{ background: #F5F5F5; }}
+tr:nth-child(even) td {{ background: transparent; }}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {{
+    body {{ padding: 0 20px 60px; }}
+    .site-header {{ padding: 28px 24px; margin: 0 -20px 0; }}
+    .kpi-grid {{ grid-template-columns: 1fr 1fr; }}
+    .two-col {{ grid-template-columns: 1fr; }}
+    .chart-row-2 {{ grid-template-columns: 1fr; }}
+    .nl-grid {{ grid-template-columns: 1fr; }}
+}}
 </style>
 </head>
 <body>
 
-<div class="header-bar">
-  <h1>GSC Weekly Performance Summary</h1>
-  <div class="subtitle">
-    Current: {current_start} → {current_end} &nbsp;|&nbsp;
-    Previous: {previous_start} → {previous_end}
+<!-- ══ HEADER ══════════════════════════════════════════════════════ -->
+<header class="site-header">
+  <div class="site-header__eyebrow">Google Search Console</div>
+  <h1 class="site-header__title">Weekly Performance<br>Summary</h1>
+  <div class="site-header__meta">
+    {current_start} → {current_end} &nbsp;/&nbsp; prev {previous_start} → {previous_end}
   </div>
-</div>
+</header>
 
-<!-- Executive Summary -->
-<div class="report-section">
-  <div class="exec-panel" style="border:none;padding:0;margin:0;background:transparent;">
-    <div class="panel-label">Executive Summary</div>
+<hr class="rule-thick">
+
+<!-- ══ EXECUTIVE SUMMARY ══════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Executive Summary</div>
+  <div class="exec-panel">
     <ul class="exec-bullets">{bullet_items}</ul>
   </div>
 </div>
 
-<!-- KPI Cards -->
-<div class="grid">{kpi_cards}</div>
+<hr class="rule-thick">
 
-<!-- KPI Chart + Trend -->
-<div class="report-section">
-  <div class="col-header" style="margin-top:0;">KPI Comparison — Current vs Previous Week</div>
-  {_chart_wrap(chart_paths.get("kpi_grid"), "KPI comparison grid")}
-  <div class="col-header">7-Day Daily Trend</div>
-  {_chart_wrap(chart_paths.get("trend"), "7-day daily trend")}
+<!-- ══ KPI CARDS ══════════════════════════════════════════════════ -->
+<div class="section" style="padding-top:0;">
+  <div class="kpi-grid">{kpi_grid}</div>
 </div>
 
-<!-- Device + Search Appearance -->
-<div class="report-section">
-  {_chart_row_2(chart_paths.get("device"), "Device split",
-                chart_paths.get("appearance"), "Search appearance")}
-</div>
+<hr class="rule-thick">
 
-<!-- CTR vs Position Scatter -->
-<div class="report-section">
-  <div class="col-header" style="margin-top:0;">CTR vs Average Position</div>
-  {_chart_wrap(chart_paths.get("scatter"), "CTR vs position scatter")}
-</div>
-
-<!-- Lollipop Movers -->
-<div class="report-section">
-  {_chart_row_2(chart_paths.get("query_movers"), "Query winners & losers",
-                chart_paths.get("page_movers"),  "Page winners & losers")}
-</div>
-
-<!-- New / Lost Queries -->
-<div class="report-section">
-  <div class="col-header" style="margin-top:0;">New &amp; Lost Queries This Week</div>
-  {new_lost_block}
-</div>
-
-<!-- Top Queries + Top Pages side by side -->
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px;">
-  <div class="report-section" style="margin-bottom:0;">
-    <div class="col-header" style="margin-top:0;">Top Queries by Clicks</div>
-    {top_queries_tbl}
-  </div>
-  <div class="report-section" style="margin-bottom:0;">
-    <div class="col-header" style="margin-top:0;">Top Pages by Clicks</div>
-    {top_pages_tbl}
+<!-- ══ KPI CHART + TREND ══════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Performance Overview</div>
+  <div class="report-section">
+    <div class="col-header">KPI Comparison — Current vs Previous Week</div>
+    {_chart_wrap(chart_paths.get("kpi_grid"), "KPI comparison grid")}
+    <div class="col-header">7-Day Daily Trend</div>
+    {_chart_wrap(chart_paths.get("trend"), "7-day daily trend")}
   </div>
 </div>
 
-<!-- Query Movement -->
-<div class="report-section">
-  <div class="col-header" style="margin-top:0;">Query Movement — Gainers &amp; Losers</div>
-  {query_movers_tbl}
+<hr class="rule-thick">
+
+<!-- ══ DEVICE + SEARCH APPEARANCE ════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Audience &amp; Visibility</div>
+  <div class="report-section">
+    {_chart_row_2(chart_paths.get("device"), "Device split",
+                  chart_paths.get("appearance"), "Search appearance")}
+  </div>
 </div>
 
-<!-- Page Movement -->
-<div class="report-section">
-  <div class="col-header" style="margin-top:0;">Page Movement — Gainers &amp; Losers</div>
-  {page_movers_tbl}
+<hr class="rule-thick">
+
+<!-- ══ CTR vs POSITION SCATTER ═══════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">CTR vs Average Position</div>
+  <div class="report-section">
+    {_chart_wrap(chart_paths.get("scatter"), "CTR vs position scatter")}
+  </div>
 </div>
 
-<!-- Device Breakdown -->
-<div class="report-section">
-  <div class="col-header" style="margin-top:0;">Device Breakdown</div>
-  {device_table}
+<hr class="rule-thick">
+
+<!-- ══ MOVERS ════════════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Winners &amp; Losers</div>
+  <div class="report-section">
+    {_chart_row_2(chart_paths.get("query_movers"), "Query winners & losers",
+                  chart_paths.get("page_movers"),  "Page winners & losers")}
+  </div>
 </div>
+
+<hr class="rule-thick">
+
+<!-- ══ NEW / LOST QUERIES ════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Query Signals</div>
+  <div class="report-section">
+    <div class="col-header">New &amp; Lost Queries This Week</div>
+    {new_lost_block}
+  </div>
+</div>
+
+<hr class="rule-thick">
+
+<!-- ══ TOP QUERIES + TOP PAGES ═══════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Top Performers</div>
+  <div class="two-col">
+    <div class="report-section">
+      <div class="col-header">Top Queries by Clicks</div>
+      {top_queries_tbl}
+    </div>
+    <div class="report-section">
+      <div class="col-header">Top Pages by Clicks</div>
+      {top_pages_tbl}
+    </div>
+  </div>
+</div>
+
+<hr class="rule-thick">
+
+<!-- ══ QUERY MOVEMENT ════════════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Query Movement</div>
+  <div class="report-section">
+    <div class="col-header">Gainers &amp; Losers</div>
+    {query_movers_tbl}
+  </div>
+</div>
+
+<hr class="rule-thick">
+
+<!-- ══ PAGE MOVEMENT + DEVICE ════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Page Movement</div>
+  <div class="report-section">
+    <div class="col-header">Gainers &amp; Losers</div>
+    {page_movers_tbl}
+    <div class="col-header">Device Breakdown</div>
+    {device_table}
+  </div>
+</div>
+
+<hr class="rule-thick">
+
+<!-- ══ FOOTER ════════════════════════════════════════════════════ -->
+<footer style="padding:32px 0;display:flex;justify-content:space-between;align-items:center;">
+  <span style="font-family:'Playfair Display',Georgia,serif;font-size:13px;font-weight:700;letter-spacing:0.05em;">CIM SEO Intelligence</span>
+  <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#525252;text-transform:uppercase;letter-spacing:0.12em;">Generated {date.today().strftime('%B %d, %Y')}</span>
+</footer>
 
 </body>
 </html>"""
