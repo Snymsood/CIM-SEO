@@ -1,0 +1,66 @@
+name: Monthly SEO Master Dashboard
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 9 1 * *" # Runs at 9:00 AM UTC on the 1st of each month
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  monthly-dashboard:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Write service account key
+        run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
+
+      - name: Run Monthly Master Report
+        env:
+          GA4_PROPERTY_ID: "341629008"
+          GSC_PROPERTY: "https://www.cim.org/"
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_MONTHLY_ITEM_ID: ${{ secrets.MONDAY_MONTHLY_ITEM_ID }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+        run: python -u monthly_master_report.py
+
+      - name: Upload Monthly Dashboard Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: monthly-dashboard-artifacts
+          path: |
+            monthly_dashboard.html
+            monthly_data/*.csv
+            charts/monthly_*.png
+          retention-days: 90
+
+      - name: Archive Monthly Dashboard
+        run: |
+          MONTH=$(date -d "last month" +%Y-%m)
+          mkdir -p archives/$MONTH
+          cp monthly_dashboard.html archives/$MONTH/
+          cp -r monthly_data archives/$MONTH/
+          echo "Archived dashboard for $MONTH"
+
+      - name: Upload Archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: monthly-dashboard-archive
+          path: archives/
+          retention-days: 365
