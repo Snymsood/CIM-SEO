@@ -426,6 +426,66 @@ def prepare_page_comparison(current_pages, previous_pages):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PAGESPEED DATA FETCHING
+# ══════════════════════════════════════════════════════════════════════════════
+
+def load_pagespeed_data():
+    """Load latest PageSpeed snapshot data if available."""
+    snapshot_file = Path("site_speed_latest_snapshot.csv")
+    if snapshot_file.exists():
+        try:
+            df = pd.read_csv(snapshot_file)
+            print("  ✓ Loaded PageSpeed snapshot data")
+            return df
+        except Exception as e:
+            print(f"  ⚠ Failed to load PageSpeed data: {e}")
+            return pd.DataFrame()
+    else:
+        print("  ⚠ No PageSpeed snapshot found (run site_speed_monitoring.py first)")
+        return pd.DataFrame()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AI SNIPPET DATA FETCHING
+# ══════════════════════════════════════════════════════════════════════════════
+
+def load_ai_snippet_data():
+    """Load latest AI snippet verification data if available."""
+    report_file = Path("reports/ai_snippet_verification.csv")
+    if report_file.exists():
+        try:
+            df = pd.read_csv(report_file)
+            print("  ✓ Loaded AI snippet verification data")
+            return df
+        except Exception as e:
+            print(f"  ⚠ Failed to load AI snippet data: {e}")
+            return pd.DataFrame()
+    else:
+        print("  ⚠ No AI snippet data found (run ai_snippet_verification.py first)")
+        return pd.DataFrame()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CONTENT AUDIT DATA FETCHING
+# ══════════════════════════════════════════════════════════════════════════════
+
+def load_content_audit_data():
+    """Load latest content audit data if available."""
+    candidates_file = Path("content_audit_candidates.csv")
+    if candidates_file.exists():
+        try:
+            df = pd.read_csv(candidates_file)
+            print("  ✓ Loaded content audit data")
+            return df
+        except Exception as e:
+            print(f"  ⚠ Failed to load content audit data: {e}")
+            return pd.DataFrame()
+    else:
+        print("  ⚠ No content audit data found (run content_audit_schedule_report.py first)")
+        return pd.DataFrame()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MAIN COLLECTION FUNCTION
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -448,13 +508,13 @@ def collect_all_monthly_data():
     print()
     
     # Initialize clients
-    print("[1/2] Initializing API clients...")
+    print("[1/4] Initializing API clients...")
     ga4_client = get_ga4_client()
     gsc_service = get_gsc_service()
     print("✓ Clients initialized")
     
     # Fetch GA4 data
-    print("\n[2/2] Fetching data...")
+    print("\n[2/4] Fetching GA4 & GSC data...")
     print("  → GA4 summary (current)...")
     ga4_summary_current = fetch_ga4_summary(ga4_client, current_start, current_end)
     print("  → GA4 summary (previous)...")
@@ -486,17 +546,23 @@ def collect_all_monthly_data():
     print("  → GSC devices (current)...")
     gsc_devices_current = fetch_gsc_devices(gsc_service, current_start, current_end)
     
-    print("✓ Data fetching complete")
+    print("✓ GA4 & GSC data fetching complete")
+    
+    # Load additional data sources
+    print("\n[3/4] Loading additional data sources...")
+    pagespeed_data = load_pagespeed_data()
+    ai_snippet_data = load_ai_snippet_data()
+    content_audit_data = load_content_audit_data()
     
     # Prepare comparisons
-    print("\n[3/3] Preparing comparisons...")
+    print("\n[4/4] Preparing comparisons...")
     ga4_summary_comparison = prepare_summary_comparison(ga4_summary_current, ga4_summary_previous)
     gsc_queries_comparison = prepare_query_comparison(gsc_queries_current, gsc_queries_previous)
     gsc_pages_comparison = prepare_page_comparison(gsc_pages_current, gsc_pages_previous)
     print("✓ Comparisons prepared")
     
     # Save to CSV
-    print("\n[4/4] Saving data to CSV...")
+    print("\n[5/5] Saving data to CSV...")
     ga4_summary_comparison.to_csv(OUTPUT_DIR / "monthly_ga4_summary.csv", index=False)
     ga4_daily_current.to_csv(OUTPUT_DIR / "monthly_ga4_daily.csv", index=False)
     ga4_pages_current.to_csv(OUTPUT_DIR / "monthly_ga4_pages_current.csv", index=False)
@@ -508,6 +574,14 @@ def collect_all_monthly_data():
     gsc_pages_comparison.to_csv(OUTPUT_DIR / "monthly_gsc_pages.csv", index=False)
     gsc_daily_current.to_csv(OUTPUT_DIR / "monthly_gsc_daily.csv", index=False)
     gsc_devices_current.to_csv(OUTPUT_DIR / "monthly_gsc_devices.csv", index=False)
+    
+    # Save additional data sources
+    if not pagespeed_data.empty:
+        pagespeed_data.to_csv(OUTPUT_DIR / "monthly_pagespeed.csv", index=False)
+    if not ai_snippet_data.empty:
+        ai_snippet_data.to_csv(OUTPUT_DIR / "monthly_ai_snippet.csv", index=False)
+    if not content_audit_data.empty:
+        content_audit_data.to_csv(OUTPUT_DIR / "monthly_content_audit.csv", index=False)
     
     print("✓ Data saved to monthly_data/")
     
@@ -526,6 +600,9 @@ def collect_all_monthly_data():
         "gsc_pages": gsc_pages_comparison,
         "gsc_daily": gsc_daily_current,
         "gsc_devices": gsc_devices_current,
+        "pagespeed": pagespeed_data,
+        "ai_snippet": ai_snippet_data,
+        "content_audit": content_audit_data,
         "date_range": {
             "current_start": current_start,
             "current_end": current_end,

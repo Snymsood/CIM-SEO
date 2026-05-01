@@ -602,66 +602,399 @@ def chart_sessions_vs_clicks(ga4_pages, gsc_pages):
 # CHART FUNCTIONS - PAGE 5: TECHNICAL HEALTH & SPEED
 # ══════════════════════════════════════════════════════════════════════════════
 
-def chart_placeholder_technical(name, title):
+def chart_core_web_vitals(pagespeed_data):
     """
-    Placeholder for technical charts that require PageSpeed data.
-    These will be implemented when PageSpeed data is integrated.
+    3-panel gauge chart: LCP, INP, CLS pass rates.
+    Shows percentage of pages passing each Core Web Vital.
     """
-    return _placeholder(name, f"{title}\n(Requires PageSpeed Insights data - coming soon)")
+    if pagespeed_data.empty:
+        return _placeholder("monthly_core_web_vitals.png", "No PageSpeed data available.\nRun site_speed_monitoring.py first.")
+    
+    # Filter to mobile data only
+    mobile = pagespeed_data[pagespeed_data["strategy"] == "mobile"].copy()
+    
+    if mobile.empty:
+        return _placeholder("monthly_core_web_vitals.png", "No mobile PageSpeed data available.")
+    
+    # Calculate pass rates for each metric
+    lcp_data = mobile[mobile["lcp_field_category"].notna()]
+    inp_data = mobile[mobile["inp_field_category"].notna()]
+    cls_data = mobile[mobile["cls_field_category"].notna()]
+    
+    lcp_pass = (lcp_data["lcp_field_category"] == "FAST").sum() / len(lcp_data) * 100 if len(lcp_data) > 0 else 0
+    inp_pass = (inp_data["inp_field_category"] == "FAST").sum() / len(inp_data) * 100 if len(inp_data) > 0 else 0
+    cls_pass = (cls_data["cls_field_category"] == "FAST").sum() / len(cls_data) * 100 if len(cls_data) > 0 else 0
+    
+    fig, axes = plt.subplots(1, 3, figsize=(13, 4.8))
+    fig.patch.set_facecolor("white")
+    
+    metrics = [
+        ("LCP", lcp_pass, len(lcp_data)),
+        ("INP", inp_pass, len(inp_data)),
+        ("CLS", cls_pass, len(cls_data))
+    ]
+    
+    for ax, (label, pass_rate, count) in zip(axes, metrics):
+        # Create donut chart
+        sizes = [pass_rate, 100 - pass_rate]
+        colors = [C_GREEN if pass_rate >= 75 else C_AMBER if pass_rate >= 50 else C_CORAL, C_LIGHT]
+        
+        wedges, texts = ax.pie(sizes, colors=colors, startangle=90, counterclock=False,
+                               wedgeprops=dict(width=0.4, edgecolor='white', linewidth=2))
+        
+        # Add center text
+        ax.text(0, 0, f"{pass_rate:.0f}%", ha="center", va="center",
+                fontsize=24, fontweight="700", color="#1A1A1A")
+        ax.text(0, -0.25, f"{label}\n({count} pages)", ha="center", va="top",
+                fontsize=9, color="#64748B")
+        
+        ax.set_title(f"{label} Pass Rate", fontsize=10, fontweight="600", 
+                    color="#1A1A1A", pad=12)
+    
+    fig.tight_layout(pad=2.0)
+    return _save(fig, "monthly_core_web_vitals.png")
 
 
-def chart_core_web_vitals():
-    """Placeholder for Core Web Vitals dashboard."""
-    return chart_placeholder_technical("monthly_core_web_vitals.png", 
-                                       "Core Web Vitals Dashboard")
+def chart_performance_distribution(pagespeed_data):
+    """
+    Histogram: Distribution of performance scores by score band.
+    Shows how many pages fall into each performance category.
+    """
+    if pagespeed_data.empty:
+        return _placeholder("monthly_performance_distribution.png", "No PageSpeed data available.\nRun site_speed_monitoring.py first.")
+    
+    # Filter to mobile data with valid scores
+    mobile = pagespeed_data[
+        (pagespeed_data["strategy"] == "mobile") & 
+        (pagespeed_data["performance_score"].notna())
+    ].copy()
+    
+    if mobile.empty:
+        return _placeholder("monthly_performance_distribution.png", "No mobile performance scores available.")
+    
+    # Define score bands
+    bins = [0, 50, 90, 100]
+    labels = ["Poor (0-49)", "Needs Improvement (50-89)", "Good (90-100)"]
+    colors_map = {
+        "Poor (0-49)": C_CORAL,
+        "Needs Improvement (50-89)": C_AMBER,
+        "Good (90-100)": C_GREEN
+    }
+    
+    mobile["score_band"] = pd.cut(mobile["performance_score"], bins=bins, labels=labels, include_lowest=True)
+    counts = mobile["score_band"].value_counts().reindex(labels).fillna(0)
+    
+    fig, ax = plt.subplots(figsize=(13, 4.8))
+    fig.patch.set_facecolor("white")
+    
+    colors = [colors_map[label] for label in labels]
+    bars = ax.bar(labels, counts.values, color=colors, width=0.6, zorder=2)
+    
+    # Add value labels
+    max_v = counts.max() or 1
+    for bar, val in zip(bars, counts.values):
+        if val > 0:
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + max_v * 0.02,
+                    f"{int(val)}", ha="center", va="bottom", fontsize=10,
+                    color="#374151", fontweight="600")
+    
+    ax.set_ylim(0, max_v * 1.2)
+    ax.grid(axis="y", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
+    _style_ax(ax, title="Performance Score Distribution — Mobile Pages", ylabel="Number of Pages")
+    fig.tight_layout(pad=2.0)
+    return _save(fig, "monthly_performance_distribution.png")
 
 
-def chart_performance_distribution():
-    """Placeholder for performance score distribution."""
-    return chart_placeholder_technical("monthly_performance_distribution.png",
-                                       "Performance Score Distribution")
+def chart_speed_traffic_correlation(pagespeed_data, ga4_pages):
+    """
+    Scatter plot: Performance score vs sessions.
+    Identifies high-traffic pages with poor performance.
+    """
+    if pagespeed_data.empty or ga4_pages.empty:
+        return _placeholder("monthly_speed_traffic_correlation.png", "Insufficient data for correlation analysis.")
+    
+    # Get mobile performance scores
+    mobile = pagespeed_data[
+        (pagespeed_data["strategy"] == "mobile") & 
+        (pagespeed_data["performance_score"].notna())
+    ].copy()
+    
+    if mobile.empty:
+        return _placeholder("monthly_speed_traffic_correlation.png", "No mobile performance data available.")
+    
+    # Normalize URLs for matching
+    mobile["url"] = mobile["page"].str.lower().str.rstrip("/")
+    ga4_pages["url"] = ga4_pages["landingPage"].str.lower().str.rstrip("/")
+    
+    # Merge data
+    merged = pd.merge(
+        mobile[["url", "performance_score"]],
+        ga4_pages[["url", "sessions"]],
+        on="url",
+        how="inner"
+    )
+    
+    if merged.empty or len(merged) < 3:
+        return _placeholder("monthly_speed_traffic_correlation.png", "Insufficient matching pages for correlation.")
+    
+    merged["sessions"] = pd.to_numeric(merged["sessions"], errors="coerce").fillna(0)
+    merged = merged[merged["sessions"] > 10]  # Filter to meaningful traffic
+    
+    if merged.empty:
+        return _placeholder("monthly_speed_traffic_correlation.png", "No pages with sufficient traffic.")
+    
+    fig, ax = plt.subplots(figsize=(13, 4.8))
+    fig.patch.set_facecolor("white")
+    
+    # Color by performance score
+    colors = []
+    for score in merged["performance_score"]:
+        if score >= 90:
+            colors.append(C_GREEN)
+        elif score >= 50:
+            colors.append(C_AMBER)
+        else:
+            colors.append(C_CORAL)
+    
+    ax.scatter(merged["performance_score"], merged["sessions"],
+               s=100, alpha=0.6, c=colors, edgecolors="white", linewidth=1.5, zorder=2)
+    
+    # Add reference line at score=90
+    ax.axvline(90, color=C_BORDER, linestyle="--", linewidth=1, alpha=0.7, zorder=1)
+    
+    ax.grid(True, linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
+    _style_ax(ax, title="Performance vs Traffic — Identify High-Impact Optimization Targets",
+              xlabel="Performance Score", ylabel="Sessions")
+    
+    # Add legend
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], marker='o', color='w', markerfacecolor=C_GREEN, markersize=8, label='Good (≥90)'),
+        Line2D([0], [0], marker='o', color='w', markerfacecolor=C_AMBER, markersize=8, label='Needs Improvement (50-89)'),
+        Line2D([0], [0], marker='o', color='w', markerfacecolor=C_CORAL, markersize=8, label='Poor (<50)'),
+    ]
+    ax.legend(handles=legend_elements, frameon=False, fontsize=7, loc="upper right")
+    
+    fig.tight_layout(pad=2.0)
+    return _save(fig, "monthly_speed_traffic_correlation.png")
 
 
-def chart_speed_traffic_correlation():
-    """Placeholder for speed vs traffic correlation."""
-    return chart_placeholder_technical("monthly_speed_traffic_correlation.png",
-                                       "Speed vs Traffic Correlation")
-
-
-def chart_technical_issues():
-    """Placeholder for technical issues summary."""
-    return chart_placeholder_technical("monthly_technical_issues.png",
-                                       "Technical Issues Summary")
+def chart_technical_issues(pagespeed_data):
+    """
+    Horizontal bar chart: Count of pages with technical issues.
+    Shows pages failing each Core Web Vital.
+    """
+    if pagespeed_data.empty:
+        return _placeholder("monthly_technical_issues.png", "No PageSpeed data available.\nRun site_speed_monitoring.py first.")
+    
+    mobile = pagespeed_data[pagespeed_data["strategy"] == "mobile"].copy()
+    
+    if mobile.empty:
+        return _placeholder("monthly_technical_issues.png", "No mobile PageSpeed data available.")
+    
+    # Count issues
+    issues = {
+        "Poor LCP": (mobile["lcp_field_category"] == "SLOW").sum(),
+        "Poor INP": (mobile["inp_field_category"] == "SLOW").sum(),
+        "Poor CLS": (mobile["cls_field_category"] == "SLOW").sum(),
+        "Low Performance Score": (mobile["performance_score"] < 50).sum(),
+        "Failed CWV": (~mobile["cwv_pass"]).sum() if "cwv_pass" in mobile.columns else 0,
+    }
+    
+    # Filter to non-zero issues
+    issues = {k: v for k, v in issues.items() if v > 0}
+    
+    if not issues:
+        return _placeholder("monthly_technical_issues.png", "No significant technical issues detected.\nAll pages performing well!")
+    
+    labels = list(issues.keys())
+    values = list(issues.values())
+    
+    fig, ax = plt.subplots(figsize=(13, 4.8))
+    fig.patch.set_facecolor("white")
+    
+    bars = ax.barh(labels, values, color=C_CORAL, zorder=2)
+    
+    max_v = max(values) or 1
+    for bar, val in zip(bars, values):
+        ax.text(val + max_v * 0.02, bar.get_y() + bar.get_height() / 2,
+                f"{int(val)}", va="center", fontsize=9, color="#374151", fontweight="600")
+    
+    ax.set_xlim(0, max_v * 1.2)
+    ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
+    _style_ax(ax, title="Technical Issues Summary — Pages Requiring Attention", xlabel="Number of Pages")
+    fig.tight_layout(pad=2.0)
+    return _save(fig, "monthly_technical_issues.png")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
 # CHART FUNCTIONS - PAGE 6: AI & INNOVATION METRICS
 # ══════════════════════════════════════════════════════════════════════════════
 
-def chart_placeholder_ai(name, title):
+def chart_ai_readiness(ai_snippet_data):
     """
-    Placeholder for AI/innovation charts that require additional data sources.
-    These will be implemented when AI snippet and content audit data is integrated.
+    Gauge + bar chart: AI readiness scores by page.
+    Shows overall AI readiness and breakdown by page.
     """
-    return _placeholder(name, f"{title}\n(Requires AI snippet verification data - coming soon)")
+    if ai_snippet_data.empty:
+        return _placeholder("monthly_ai_readiness.png", "No AI snippet data available.\nRun ai_snippet_verification.py first.")
+    
+    # Calculate overall readiness score (average of all scores)
+    df = ai_snippet_data.copy()
+    
+    # Ensure numeric columns
+    for col in ["access_score", "summary_score", "cta_score"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+    
+    df["overall_score"] = (df["access_score"] + df["summary_score"] + df["cta_score"]) / 3
+    
+    overall_avg = df["overall_score"].mean()
+    
+    # Create figure with 2 subplots
+    fig = plt.figure(figsize=(13, 4.8))
+    fig.patch.set_facecolor("white")
+    gs = fig.add_gridspec(1, 2, width_ratios=[1, 2], wspace=0.3)
+    
+    # Left: Gauge chart for overall score
+    ax1 = fig.add_subplot(gs[0])
+    
+    # Create donut chart as gauge
+    score_pct = overall_avg / 5 * 100
+    sizes = [score_pct, 100 - score_pct]
+    colors = [C_GREEN if score_pct >= 80 else C_AMBER if score_pct >= 60 else C_CORAL, C_LIGHT]
+    
+    wedges, texts = ax1.pie(sizes, colors=colors, startangle=90, counterclock=False,
+                            wedgeprops=dict(width=0.5, edgecolor='white', linewidth=2))
+    
+    ax1.text(0, 0, f"{overall_avg:.1f}/5", ha="center", va="center",
+            fontsize=28, fontweight="700", color="#1A1A1A")
+    ax1.text(0, -0.3, "Overall AI\nReadiness", ha="center", va="top",
+            fontsize=9, color="#64748B")
+    ax1.set_title("Average Score", fontsize=10, fontweight="600", color="#1A1A1A", pad=12)
+    
+    # Right: Bar chart by page
+    ax2 = fig.add_subplot(gs[1])
+    
+    top_pages = df.nlargest(8, "overall_score")
+    labels = [short_url(p, 35) for p in top_pages["page_name"]]
+    values = top_pages["overall_score"].tolist()
+    
+    colors_bar = [C_GREEN if v >= 4 else C_AMBER if v >= 3 else C_CORAL for v in values]
+    bars = ax2.barh(labels, values, color=colors_bar, zorder=2)
+    
+    ax2.invert_yaxis()
+    ax2.set_xlim(0, 5.5)
+    ax2.axvline(4, color=C_BORDER, linestyle="--", linewidth=1, alpha=0.5, zorder=1)
+    ax2.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
+    
+    for bar, val in zip(bars, values):
+        ax2.text(val + 0.1, bar.get_y() + bar.get_height() / 2,
+                f"{val:.1f}", va="center", fontsize=8, color="#374151", fontweight="600")
+    
+    _style_ax(ax2, title="Top Pages by AI Readiness", xlabel="Score (0-5)")
+    
+    fig.tight_layout(pad=2.0)
+    return _save(fig, "monthly_ai_readiness.png")
 
 
-def chart_ai_readiness():
-    """Placeholder for AI readiness score."""
-    return chart_placeholder_ai("monthly_ai_readiness.png",
-                                "AI Readiness Score")
+def chart_structured_data(ai_snippet_data):
+    """
+    Donut chart: Pages with vs without structured data coverage.
+    Shows percentage of pages ready for AI extraction.
+    """
+    if ai_snippet_data.empty:
+        return _placeholder("monthly_structured_data.png", "No AI snippet data available.\nRun ai_snippet_verification.py first.")
+    
+    df = ai_snippet_data.copy()
+    
+    # Use summary_score as proxy for structured data readiness
+    # Score >= 4 = good structured data, < 4 = needs improvement
+    if "summary_score" not in df.columns:
+        return _placeholder("monthly_structured_data.png", "No summary score data available.")
+    
+    df["summary_score"] = pd.to_numeric(df["summary_score"], errors="coerce").fillna(0)
+    
+    good_structure = (df["summary_score"] >= 4).sum()
+    needs_improvement = len(df) - good_structure
+    
+    fig, ax = plt.subplots(figsize=(13, 4.8))
+    fig.patch.set_facecolor("white")
+    
+    sizes = [good_structure, needs_improvement]
+    labels = [f"Good Structure\n({good_structure} pages)", 
+              f"Needs Improvement\n({needs_improvement} pages)"]
+    colors = [C_GREEN, C_AMBER]
+    
+    wedges, texts, autotexts = ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%',
+                                       startangle=90, textprops={'fontsize': 10, 'fontweight': '600'},
+                                       wedgeprops=dict(width=0.5, edgecolor='white', linewidth=2))
+    
+    # Style percentage text
+    for autotext in autotexts:
+        autotext.set_color('white')
+        autotext.set_fontsize(12)
+        autotext.set_fontweight('700')
+    
+    ax.set_title("Structured Data Coverage — AI Extraction Readiness", 
+                fontsize=10, fontweight="600", color="#1A1A1A", pad=12, loc="left")
+    
+    fig.tight_layout(pad=2.0)
+    return _save(fig, "monthly_structured_data.png")
 
 
-def chart_structured_data():
-    """Placeholder for structured data coverage."""
-    return chart_placeholder_ai("monthly_structured_data.png",
-                                "Structured Data Coverage")
-
-
-def chart_content_freshness():
-    """Placeholder for content freshness analysis."""
-    return chart_placeholder_ai("monthly_content_freshness.png",
-                                "Content Freshness")
+def chart_content_freshness(content_audit_data):
+    """
+    Stacked bar chart: Pages by performance category.
+    Shows distribution of content that needs refresh vs archive.
+    """
+    if content_audit_data.empty:
+        return _placeholder("monthly_content_freshness.png", "No content audit data available.\nRun content_audit_schedule_report.py first.")
+    
+    df = content_audit_data.copy()
+    
+    if "recommended_action" not in df.columns:
+        return _placeholder("monthly_content_freshness.png", "No recommendation data available.")
+    
+    # Count by action
+    action_counts = df["recommended_action"].value_counts()
+    
+    # Define categories
+    categories = ["Refresh", "Archive", "Monitor"]
+    counts = []
+    colors_map = {"Refresh": C_AMBER, "Archive": C_CORAL, "Monitor": C_GREEN}
+    colors = []
+    
+    for cat in categories:
+        count = action_counts.get(cat, 0)
+        counts.append(count)
+        colors.append(colors_map.get(cat, C_SLATE))
+    
+    # Filter to non-zero
+    non_zero = [(cat, cnt, col) for cat, cnt, col in zip(categories, counts, colors) if cnt > 0]
+    
+    if not non_zero:
+        return _placeholder("monthly_content_freshness.png", "No content audit recommendations available.")
+    
+    categories, counts, colors = zip(*non_zero)
+    
+    fig, ax = plt.subplots(figsize=(13, 4.8))
+    fig.patch.set_facecolor("white")
+    
+    bars = ax.bar(categories, counts, color=colors, width=0.5, zorder=2)
+    
+    max_v = max(counts) or 1
+    for bar, val in zip(bars, counts):
+        if val > 0:
+            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + max_v * 0.02,
+                    f"{int(val)}", ha="center", va="bottom", fontsize=10,
+                    color="#374151", fontweight="600")
+    
+    ax.set_ylim(0, max_v * 1.2)
+    ax.grid(axis="y", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
+    _style_ax(ax, title="Content Audit Recommendations — Pages by Action", ylabel="Number of Pages")
+    fig.tight_layout(pad=2.0)
+    return _save(fig, "monthly_content_freshness.png")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1048,28 +1381,39 @@ def build_all_monthly_charts(data):
     
     # Page 5: Technical Health & Speed
     print("\n[5/8] Generating Technical Health charts...")
-    chart_paths["core_web_vitals"] = chart_core_web_vitals()
-    print("  ✓ Core Web Vitals (placeholder)")
+    pagespeed_data = data.get("pagespeed", pd.DataFrame())
     
-    chart_paths["performance_distribution"] = chart_performance_distribution()
-    print("  ✓ Performance distribution (placeholder)")
+    chart_paths["core_web_vitals"] = chart_core_web_vitals(pagespeed_data)
+    status = "✓" if not pagespeed_data.empty else "⚠"
+    print(f"  {status} Core Web Vitals")
     
-    chart_paths["speed_traffic_correlation"] = chart_speed_traffic_correlation()
-    print("  ✓ Speed vs traffic (placeholder)")
+    chart_paths["performance_distribution"] = chart_performance_distribution(pagespeed_data)
+    print(f"  {status} Performance distribution")
     
-    chart_paths["technical_issues"] = chart_technical_issues()
-    print("  ✓ Technical issues (placeholder)")
+    chart_paths["speed_traffic_correlation"] = chart_speed_traffic_correlation(
+        pagespeed_data,
+        data.get("ga4_pages", pd.DataFrame())
+    )
+    print(f"  {status} Speed vs traffic")
+    
+    chart_paths["technical_issues"] = chart_technical_issues(pagespeed_data)
+    print(f"  {status} Technical issues")
     
     # Page 6: AI & Innovation Metrics
     print("\n[6/8] Generating AI & Innovation charts...")
-    chart_paths["ai_readiness"] = chart_ai_readiness()
-    print("  ✓ AI readiness (placeholder)")
+    ai_snippet_data = data.get("ai_snippet", pd.DataFrame())
+    content_audit_data = data.get("content_audit", pd.DataFrame())
     
-    chart_paths["structured_data"] = chart_structured_data()
-    print("  ✓ Structured data (placeholder)")
+    chart_paths["ai_readiness"] = chart_ai_readiness(ai_snippet_data)
+    status = "✓" if not ai_snippet_data.empty else "⚠"
+    print(f"  {status} AI readiness")
     
-    chart_paths["content_freshness"] = chart_content_freshness()
-    print("  ✓ Content freshness (placeholder)")
+    chart_paths["structured_data"] = chart_structured_data(ai_snippet_data)
+    print(f"  {status} Structured data")
+    
+    chart_paths["content_freshness"] = chart_content_freshness(content_audit_data)
+    status = "✓" if not content_audit_data.empty else "⚠"
+    print(f"  {status} Content freshness")
     
     # Page 7: Channel & Audience Insights
     print("\n[7/8] Generating Channel & Audience charts...")

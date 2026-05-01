@@ -324,46 +324,46 @@ def generate_monthly_dashboard(bullets, chart_paths, data, kpis, date_range):
 
 {_section("Traffic Trends & Patterns",
     _img_tag(chart_paths.get("traffic_trend"), "Monthly traffic trend") +
-    _chart_row_2(chart_paths.get("channel_performance"), "Channel performance",
-                 chart_paths.get("device_distribution"), "Device distribution"),
+    _img_tag(chart_paths.get("channel_performance"), "Channel performance") +
+    _img_tag(chart_paths.get("device_distribution"), "Device distribution"),
     "traffic-trends"
 )}
 
 {_section("Search Performance Deep Dive",
     _img_tag(chart_paths.get("search_funnel"), "Search funnel") +
-    _chart_row_2(chart_paths.get("top_movers_queries"), "Top query movers",
-                 chart_paths.get("ctr_by_position"), "CTR by position") +
-    _chart_row_2(chart_paths.get("top_queries"), "Top queries",
-                 chart_paths.get("top_pages"), "Top pages") +
+    _img_tag(chart_paths.get("top_movers_queries"), "Top query movers") +
+    _img_tag(chart_paths.get("ctr_by_position"), "CTR by position") +
+    _img_tag(chart_paths.get("top_queries"), "Top queries") +
+    _img_tag(chart_paths.get("top_pages"), "Top pages") +
     _img_tag(chart_paths.get("impressions_vs_clicks"), "Impressions vs clicks"),
     "search-performance"
 )}
 
 {_section("Content Performance Analysis",
-    _chart_row_2(chart_paths.get("ga4_landing_pages"), "GA4 landing pages",
-                 chart_paths.get("engagement_by_channel"), "Engagement by channel") +
+    _img_tag(chart_paths.get("ga4_landing_pages"), "GA4 landing pages") +
+    _img_tag(chart_paths.get("engagement_by_channel"), "Engagement by channel") +
     _img_tag(chart_paths.get("sessions_vs_clicks"), "Landing page efficiency"),
     "content-performance"
 )}
 
 {_section("Technical Health & Speed",
-    _chart_row_2(chart_paths.get("core_web_vitals"), "Core Web Vitals",
-                 chart_paths.get("performance_distribution"), "Performance distribution") +
-    _chart_row_2(chart_paths.get("speed_traffic_correlation"), "Speed vs traffic",
-                 chart_paths.get("technical_issues"), "Technical issues"),
+    _img_tag(chart_paths.get("core_web_vitals"), "Core Web Vitals") +
+    _img_tag(chart_paths.get("performance_distribution"), "Performance distribution") +
+    _img_tag(chart_paths.get("speed_traffic_correlation"), "Speed vs traffic") +
+    _img_tag(chart_paths.get("technical_issues"), "Technical issues"),
     "technical-health"
 )}
 
 {_section("AI & Innovation Metrics",
-    _chart_row_2(chart_paths.get("ai_readiness"), "AI readiness",
-                 chart_paths.get("structured_data"), "Structured data coverage") +
+    _img_tag(chart_paths.get("ai_readiness"), "AI readiness") +
+    _img_tag(chart_paths.get("structured_data"), "Structured data coverage") +
     _img_tag(chart_paths.get("content_freshness"), "Content freshness"),
     "ai-innovation"
 )}
 
 {_section("Channel & Audience Insights",
-    _chart_row_2(chart_paths.get("device_comparison"), "Device comparison",
-                 chart_paths.get("channel_efficiency"), "Channel efficiency") +
+    _img_tag(chart_paths.get("device_comparison"), "Device comparison") +
+    _img_tag(chart_paths.get("channel_efficiency"), "Channel efficiency") +
     _img_tag(chart_paths.get("engagement_trend"), "Engagement trend"),
     "channel-audience"
 )}
