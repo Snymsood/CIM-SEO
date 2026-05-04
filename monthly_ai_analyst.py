@@ -149,7 +149,37 @@ def build_deterministic_bullets(data, kpis, date_range):
                     f"Mobile traffic: {mobile_pct:.1f}% of total sessions "
                     f"({mobile_sessions:,.0f} sessions)."
                 )
-    
+
+    # Broken link health
+    broken_link_data = data.get("broken_links", pd.DataFrame())
+    if not broken_link_data.empty and "issue_type" in broken_link_data.columns:
+        broken_count   = int((broken_link_data["issue_type"] == "broken").sum())
+        redirect_count = int((broken_link_data["issue_type"] == "redirect").sum())
+        total_links    = len(broken_link_data)
+        if broken_count == 0:
+            bullets.append("No broken links (404/410) were detected — internal link integrity is clean.")
+        else:
+            pct = broken_count / total_links * 100 if total_links else 0
+            bullets.append(
+                f"{broken_count:,} broken links (404/410) found across {total_links:,} checked "
+                f"({pct:.1f}%); {redirect_count:,} internal links resolve through redirects."
+            )
+
+    # Content category top performer
+    cat_data = data.get("content_categories", pd.DataFrame())
+    if not cat_data.empty and "sessions" in cat_data.columns:
+        cat_data["sessions"] = pd.to_numeric(cat_data["sessions"], errors="coerce").fillna(0)
+        top_cat = cat_data.nlargest(1, "sessions")
+        if not top_cat.empty:
+            cat_name = top_cat.iloc[0]["category"]
+            cat_sess = top_cat.iloc[0]["sessions"]
+            total_cat = cat_data["sessions"].sum()
+            share = cat_sess / total_cat * 100 if total_cat > 0 else 0
+            bullets.append(
+                f"Top content category: {cat_name} with {cat_sess:,.0f} sessions "
+                f"({share:.1f}% of total)."
+            )
+
     return bullets
 
 
@@ -206,19 +236,54 @@ CTR: {kpis.get('ctr', {}).get('curr', 0):.2%} ({format_pct_change(kpis.get('ctr'
     # Channels
     ga4_channels = data.get("ga4_channels_current", pd.DataFrame())
     channels_context = _csv_snippet(ga4_channels)
-    
+
+    # Technical health context
+    pagespeed_data = data.get("pagespeed", pd.DataFrame())
+    tech_context = ""
+    if not pagespeed_data.empty and "performance_score" in pagespeed_data.columns:
+        mobile = pagespeed_data[pagespeed_data["strategy"] == "mobile"]
+        if not mobile.empty:
+            avg_score = mobile["performance_score"].mean()
+            cwv_pass  = mobile["cwv_pass"].sum() if "cwv_pass" in mobile.columns else 0
+            tech_context = f"\nSite Speed: avg mobile score {avg_score:.1f}, {int(cwv_pass)} pages pass CWV."
+
+    # Broken link context
+    broken_link_data = data.get("broken_links", pd.DataFrame())
+    broken_context = ""
+    if not broken_link_data.empty and "issue_type" in broken_link_data.columns:
+        broken_count   = int((broken_link_data["issue_type"] == "broken").sum())
+        redirect_count = int((broken_link_data["issue_type"] == "redirect").sum())
+        broken_context = f"\nBroken Links: {broken_count} broken (404/410), {redirect_count} redirects."
+
+    # Content category context
+    cat_data = data.get("content_categories", pd.DataFrame())
+    cat_context = ""
+    if not cat_data.empty and "sessions" in cat_data.columns:
+        top_cat = cat_data.nlargest(3, "sessions")[["category", "sessions"]].to_csv(index=False)
+        cat_context = f"\nTop content categories by sessions:\n{top_cat}"
+
+    # AI snippet context
+    ai_data = data.get("ai_snippet", pd.DataFrame())
+    ai_context = ""
+    if not ai_data.empty:
+        score_cols = [c for c in ["access_score", "summary_score", "cta_score"] if c in ai_data.columns]
+        if score_cols:
+            avg = ai_data[score_cols].mean().mean()
+            high_risk = int((ai_data.get("hallucination_flag", pd.Series()).astype(str).str.startswith("High")).sum())
+            ai_context = f"\nAI Snippet Readiness: avg score {avg:.2f}/5, {high_risk} high-risk pages."
+
     # Build prompt
     prompt = f"""
 You are writing a concise executive summary for a monthly SEO report comparing {current_month} to {previous_month}.
 
 Output ONLY bullet points. No headings, no bold, no markdown symbols, no numbered lists.
-Each bullet is one sentence. Maximum 8 bullets total.
+Each bullet is one sentence. Maximum 10 bullets total.
 Do not invent data. Do not mention AI, models, or automation.
-Focus on cross-channel insights, strategic opportunities, and actionable recommendations.
+Focus on cross-channel insights, strategic opportunities, technical risks, and actionable recommendations.
 Write as if this is part of a manually produced executive report.
 
 KPI Summary:
-{kpi_summary}
+{kpi_summary}{tech_context}{broken_context}{cat_context}{ai_context}
 
 Top Search Queries (GSC):
 {queries_context}
@@ -233,8 +298,8 @@ Provide insights on:
 1. Cross-channel correlations (e.g., high impressions but low sessions)
 2. Strategic opportunities (e.g., queries with high impressions but low CTR)
 3. Performance trends (e.g., which channels are growing/declining)
-4. Risks or concerns (e.g., declining engagement, position drops)
-5. Actionable recommendations (e.g., optimize for specific queries, improve CTR)
+4. Technical risks (e.g., broken links, CWV failures, slow pages)
+5. Actionable recommendations (e.g., optimize for specific queries, fix broken links)
 """
     
     try:

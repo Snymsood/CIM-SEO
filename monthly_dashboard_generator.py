@@ -196,12 +196,14 @@ def _table_of_contents():
   <div style="font-family:'Playfair Display',Georgia,serif;font-size:16px;font-weight:700;margin-bottom:16px;">Table of Contents</div>
   <ol style="font-family:'Source Serif 4',Georgia,serif;font-size:14px;line-height:2;margin:0;padding-left:20px;">
     <li><a href="#executive-overview" style="color:#212878;text-decoration:none;">Executive Overview</a></li>
-    <li><a href="#traffic-trends" style="color:#212878;text-decoration:none;">Traffic Trends & Patterns</a></li>
+    <li><a href="#traffic-trends" style="color:#212878;text-decoration:none;">Traffic Trends &amp; Patterns</a></li>
     <li><a href="#search-performance" style="color:#212878;text-decoration:none;">Search Performance Deep Dive</a></li>
     <li><a href="#content-performance" style="color:#212878;text-decoration:none;">Content Performance Analysis</a></li>
-    <li><a href="#technical-health" style="color:#212878;text-decoration:none;">Technical Health & Speed</a></li>
-    <li><a href="#ai-innovation" style="color:#212878;text-decoration:none;">AI & Innovation Metrics</a></li>
-    <li><a href="#channel-audience" style="color:#212878;text-decoration:none;">Channel & Audience Insights</a></li>
+    <li><a href="#content-categories" style="color:#212878;text-decoration:none;">Content Category Performance</a></li>
+    <li><a href="#technical-health" style="color:#212878;text-decoration:none;">Technical Health &amp; Speed</a></li>
+    <li><a href="#link-health" style="color:#212878;text-decoration:none;">Link Health &amp; Internal Architecture</a></li>
+    <li><a href="#ai-innovation" style="color:#212878;text-decoration:none;">AI &amp; Innovation Metrics</a></li>
+    <li><a href="#channel-audience" style="color:#212878;text-decoration:none;">Channel &amp; Audience Insights</a></li>
     <li><a href="#detailed-data" style="color:#212878;text-decoration:none;">Detailed Data Tables</a></li>
   </ol>
 </nav>
@@ -239,34 +241,44 @@ def generate_monthly_dashboard(bullets, chart_paths, data, kpis, date_range):
     print(f"Previous period: {previous_month}")
     print(f"Generated:       {today}")
     
-    # Build KPI grid (12 cards, 2 rows × 6 columns)
+    # Build KPI grid — 2 rows × 8 columns = 16 cards covering all data sources
     print("\n[1/9] Building KPI grid...")
-    kpi_cards = (
-        _kpi_card("Sessions", kpis["sessions"]["curr"], kpis["sessions"]["prev"]) +
-        _kpi_card("Active Users", kpis["users"]["curr"], kpis["users"]["prev"]) +
+    kpi_cards_row1 = (
+        _kpi_card("Sessions",        kpis["sessions"]["curr"],        kpis["sessions"]["prev"]) +
+        _kpi_card("Active Users",    kpis["users"]["curr"],           kpis["users"]["prev"]) +
         _kpi_card("Engagement Rate", kpis["engagement_rate"]["curr"], kpis["engagement_rate"]["prev"], is_pct=True, decimals=1) +
-        _kpi_card("Avg Duration", kpis["avg_duration"]["curr"], kpis["avg_duration"]["prev"], decimals=0) +
-        _kpi_card("Bounce Rate", kpis["bounce_rate"]["curr"], kpis["bounce_rate"]["prev"], lower_better=True, is_pct=True, decimals=1) +
-        _kpi_card("Events/Session", kpis["events_per_session"]["curr"], kpis["events_per_session"]["prev"], decimals=1) +
-        _kpi_card("GSC Clicks", kpis["clicks"]["curr"], kpis["clicks"]["prev"]) +
-        _kpi_card("GSC Impressions", kpis["impressions"]["curr"], kpis["impressions"]["prev"]) +
-        _kpi_card("CTR", kpis["ctr"]["curr"], kpis["ctr"]["prev"], is_pct=True, decimals=2) +
-        _kpi_card("Avg Position", kpis["avg_position"]["curr"], kpis["avg_position"]["prev"], lower_better=True, decimals=1) +
-        _kpi_card("Mobile Speed", kpis.get("mobile_score", {}).get("curr", 0), kpis.get("mobile_score", {}).get("prev", 0), decimals=0) +
-        _kpi_card("CWV Pass Rate", kpis.get("cwv_pass_rate", {}).get("curr", 0), kpis.get("cwv_pass_rate", {}).get("prev", 0), is_pct=True, decimals=0)
+        _kpi_card("Avg Duration",    kpis["avg_duration"]["curr"],    kpis["avg_duration"]["prev"],    decimals=0) +
+        _kpi_card("Bounce Rate",     kpis["bounce_rate"]["curr"],     kpis["bounce_rate"]["prev"],     lower_better=True, is_pct=True, decimals=1) +
+        _kpi_card("Events/Session",  kpis["events_per_session"]["curr"], kpis["events_per_session"]["prev"], decimals=1) +
+        _kpi_card("GSC Clicks",      kpis["clicks"]["curr"],          kpis["clicks"]["prev"]) +
+        _kpi_card("GSC Impressions", kpis["impressions"]["curr"],     kpis["impressions"]["prev"])
     )
-    
+    kpi_cards_row2 = (
+        _kpi_card("CTR",                  kpis["ctr"]["curr"],                          kpis["ctr"]["prev"],                          is_pct=True, decimals=2) +
+        _kpi_card("Avg Position",         kpis["avg_position"]["curr"],                 kpis["avg_position"]["prev"],                 lower_better=True, decimals=1) +
+        _kpi_card("Mobile Speed",         kpis.get("mobile_score", {}).get("curr", 0),  kpis.get("mobile_score", {}).get("prev", 0),  decimals=0) +
+        _kpi_card("CWV Pass Rate",        kpis.get("cwv_pass_rate", {}).get("curr", 0), kpis.get("cwv_pass_rate", {}).get("prev", 0), is_pct=True, decimals=0) +
+        _kpi_card("Broken Links",         kpis.get("broken_links", {}).get("curr", 0),  kpis.get("broken_links", {}).get("prev", 0),  lower_better=True) +
+        _kpi_card("Internal Link Pages",  kpis.get("internal_link_pages", {}).get("curr", 0), kpis.get("internal_link_pages", {}).get("prev", 0)) +
+        _kpi_card("AI Readiness",         kpis.get("ai_readiness_avg", {}).get("curr", 0), kpis.get("ai_readiness_avg", {}).get("prev", 0), decimals=2) +
+        _kpi_card("Refresh Candidates",   kpis.get("content_refresh_candidates", {}).get("curr", 0), kpis.get("content_refresh_candidates", {}).get("prev", 0), lower_better=True)
+    )
+
     kpi_grid = (
-        f'<div style="display:grid;grid-template-columns:repeat(6,1fr);border:2px solid #000;margin-bottom:0;">'
-        f'{kpi_cards}</div>'
+        f'<div style="display:grid;grid-template-columns:repeat(8,1fr);border:2px solid #000;margin-bottom:2px;">'
+        f'{kpi_cards_row1}</div>'
+        f'<div style="display:grid;grid-template-columns:repeat(8,1fr);border:2px solid #000;border-top:none;margin-bottom:0;">'
+        f'{kpi_cards_row2}</div>'
     )
     
     # Build tables
     print("[2/9] Building data tables...")
-    ga4_pages = data.get("ga4_pages", pd.DataFrame())
+    ga4_pages   = data.get("ga4_pages",   pd.DataFrame())
     gsc_queries = data.get("gsc_queries", pd.DataFrame())
-    gsc_pages = data.get("gsc_pages", pd.DataFrame())
-    
+    gsc_pages   = data.get("gsc_pages",   pd.DataFrame())
+    broken_link_data     = data.get("broken_links",       pd.DataFrame())
+    content_category_data = data.get("content_categories", pd.DataFrame())
+
     # GA4 landing pages table
     page_col = "landingPage" if "landingPage" in ga4_pages.columns else (ga4_pages.columns[0] if not ga4_pages.empty else "page")
     ga4_tbl = _build_html_table(
@@ -274,31 +286,54 @@ def generate_monthly_dashboard(bullets, chart_paths, data, kpis, date_range):
         [page_col, "sessions", "activeUsers", "engagementRate"],
         ["Landing Page", "Sessions", "Users", "Engagement Rate"]
     )
-    
+
     # GSC queries table
-    q_col = "query" if "query" in gsc_queries.columns else (gsc_queries.columns[0] if not gsc_queries.empty else "query")
-    c_col = "clicks_current" if "clicks_current" in gsc_queries.columns else "clicks"
-    i_col = "impressions_current" if "impressions_current" in gsc_queries.columns else "impressions"
-    p_col = "position_current" if "position_current" in gsc_queries.columns else "position"
-    ctr_col = "ctr_current" if "ctr_current" in gsc_queries.columns else "ctr"
-    
+    q_col   = "query"              if "query"              in gsc_queries.columns else (gsc_queries.columns[0] if not gsc_queries.empty else "query")
+    c_col   = "clicks_current"     if "clicks_current"     in gsc_queries.columns else "clicks"
+    i_col   = "impressions_current"if "impressions_current"in gsc_queries.columns else "impressions"
+    p_col   = "position_current"   if "position_current"   in gsc_queries.columns else "position"
+    ctr_col = "ctr_current"        if "ctr_current"        in gsc_queries.columns else "ctr"
     gsc_tbl = _build_html_table(
         gsc_queries.head(25),
         [q_col, c_col, i_col, ctr_col, p_col],
         ["Query", "Clicks", "Impressions", "CTR", "Position"]
     )
-    
+
     # GSC pages table
-    page_col_gsc = "page" if "page" in gsc_pages.columns else (gsc_pages.columns[0] if not gsc_pages.empty else "page")
-    c_col_gsc = "clicks_current" if "clicks_current" in gsc_pages.columns else "clicks"
-    i_col_gsc = "impressions_current" if "impressions_current" in gsc_pages.columns else "impressions"
-    p_col_gsc = "position_current" if "position_current" in gsc_pages.columns else "position"
-    
+    page_col_gsc = "page"               if "page"               in gsc_pages.columns else (gsc_pages.columns[0] if not gsc_pages.empty else "page")
+    c_col_gsc    = "clicks_current"     if "clicks_current"     in gsc_pages.columns else "clicks"
+    i_col_gsc    = "impressions_current"if "impressions_current"in gsc_pages.columns else "impressions"
+    p_col_gsc    = "position_current"   if "position_current"   in gsc_pages.columns else "position"
     gsc_pages_tbl = _build_html_table(
         gsc_pages.head(25),
         [page_col_gsc, c_col_gsc, i_col_gsc, p_col_gsc],
         ["Page", "Clicks", "Impressions", "Position"]
     )
+
+    # Broken links issues table (top 25 broken only)
+    broken_issues_tbl = '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#94A3B8;">No broken link data available.</p>'
+    if not broken_link_data.empty and "issue_type" in broken_link_data.columns:
+        broken_df = broken_link_data[broken_link_data["issue_type"] == "broken"].head(25)
+        if not broken_df.empty:
+            src_col = "source_url" if "source_url" in broken_df.columns else broken_df.columns[0]
+            tgt_col = "target_url" if "target_url" in broken_df.columns else broken_df.columns[1]
+            broken_issues_tbl = _build_html_table(
+                broken_df,
+                [src_col, tgt_col, "status_code"],
+                ["Source Page", "Broken Target", "Status"]
+            )
+
+    # Content category table
+    cat_tbl = '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#94A3B8;">No content category data available.</p>'
+    if not content_category_data.empty and "category" in content_category_data.columns:
+        cat_cols    = [c for c in ["category", "sessions", "clicks", "impressions", "engagement_rate"] if c in content_category_data.columns]
+        cat_headers = {"category": "Category", "sessions": "Sessions", "clicks": "Clicks",
+                       "impressions": "Impressions", "engagement_rate": "Eng Rate"}
+        cat_tbl = _build_html_table(
+            content_category_data.sort_values("sessions", ascending=False) if "sessions" in content_category_data.columns else content_category_data,
+            cat_cols,
+            [cat_headers.get(c, c) for c in cat_cols]
+        )
     
     # Build HTML body
     print("[3/9] Building HTML structure...")
@@ -308,7 +343,7 @@ def generate_monthly_dashboard(bullets, chart_paths, data, kpis, date_range):
   <h1 style="font-family:'Playfair Display',Georgia,serif;font-size:clamp(28px,4vw,56px);font-weight:900;line-height:1;letter-spacing:-0.02em;color:#fff;margin-bottom:16px;">Monthly SEO<br>Master Report</h1>
   <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#666;letter-spacing:0.05em;">
     <span style="display:inline-block;width:24px;height:2px;background:#fff;vertical-align:middle;margin-right:16px;"></span>
-    {current_month} vs {previous_month} • Generated {today}
+    {current_month} vs {previous_month} &bull; Generated {today}
   </div>
 </header>
 <hr style="border:none;border-top:4px solid #000;margin:0;">
@@ -323,48 +358,61 @@ def generate_monthly_dashboard(bullets, chart_paths, data, kpis, date_range):
 {_section("Executive Summary", _panel_label("Cross-Channel Analysis") + _exec_bullets(bullets), "executive-summary")}
 
 {_section("Traffic Trends & Patterns",
-    _img_tag(chart_paths.get("traffic_trend"), "Monthly traffic trend") +
+    _img_tag(chart_paths.get("traffic_trend"),       "Monthly traffic trend") +
     _img_tag(chart_paths.get("channel_performance"), "Channel performance") +
     _img_tag(chart_paths.get("device_distribution"), "Device distribution"),
     "traffic-trends"
 )}
 
 {_section("Search Performance Deep Dive",
-    _img_tag(chart_paths.get("search_funnel"), "Search funnel") +
-    _img_tag(chart_paths.get("top_movers_queries"), "Top query movers") +
-    _img_tag(chart_paths.get("ctr_by_position"), "CTR by position") +
-    _img_tag(chart_paths.get("top_queries"), "Top queries") +
-    _img_tag(chart_paths.get("top_pages"), "Top pages") +
+    _img_tag(chart_paths.get("search_funnel"),         "Search funnel") +
+    _img_tag(chart_paths.get("top_movers_queries"),    "Top query movers") +
+    _img_tag(chart_paths.get("ctr_by_position"),       "CTR by position") +
+    _img_tag(chart_paths.get("top_queries"),           "Top queries") +
+    _img_tag(chart_paths.get("top_pages"),             "Top pages") +
     _img_tag(chart_paths.get("impressions_vs_clicks"), "Impressions vs clicks"),
     "search-performance"
 )}
 
 {_section("Content Performance Analysis",
-    _img_tag(chart_paths.get("ga4_landing_pages"), "GA4 landing pages") +
+    _img_tag(chart_paths.get("ga4_landing_pages"),     "GA4 landing pages") +
     _img_tag(chart_paths.get("engagement_by_channel"), "Engagement by channel") +
-    _img_tag(chart_paths.get("sessions_vs_clicks"), "Landing page efficiency"),
+    _img_tag(chart_paths.get("sessions_vs_clicks"),    "Landing page efficiency"),
     "content-performance"
 )}
 
+{_section("Content Category Performance",
+    _img_tag(chart_paths.get("content_category_sessions"),   "Sessions by content category") +
+    _img_tag(chart_paths.get("content_category_engagement"), "Content category ecosystem map"),
+    "content-categories"
+)}
+
 {_section("Technical Health & Speed",
-    _img_tag(chart_paths.get("core_web_vitals"), "Core Web Vitals") +
-    _img_tag(chart_paths.get("performance_distribution"), "Performance distribution") +
+    _img_tag(chart_paths.get("core_web_vitals"),           "Core Web Vitals") +
+    _img_tag(chart_paths.get("performance_distribution"),  "Performance distribution") +
     _img_tag(chart_paths.get("speed_traffic_correlation"), "Speed vs traffic") +
-    _img_tag(chart_paths.get("technical_issues"), "Technical issues"),
+    _img_tag(chart_paths.get("technical_issues"),          "Technical issues"),
     "technical-health"
 )}
 
+{_section("Link Health & Internal Architecture",
+    _img_tag(chart_paths.get("broken_link_issue_breakdown"), "Broken link issue breakdown") +
+    _img_tag(chart_paths.get("broken_link_domain_health"),   "Broken links by domain") +
+    _img_tag(chart_paths.get("internal_link_distribution"),  "Internal link distribution"),
+    "link-health"
+)}
+
 {_section("AI & Innovation Metrics",
-    _img_tag(chart_paths.get("ai_readiness"), "AI readiness") +
-    _img_tag(chart_paths.get("structured_data"), "Structured data coverage") +
-    _img_tag(chart_paths.get("content_freshness"), "Content freshness"),
+    _img_tag(chart_paths.get("ai_readiness"),     "AI readiness") +
+    _img_tag(chart_paths.get("structured_data"),  "Structured data coverage") +
+    _img_tag(chart_paths.get("content_freshness"),"Content freshness"),
     "ai-innovation"
 )}
 
 {_section("Channel & Audience Insights",
-    _img_tag(chart_paths.get("device_comparison"), "Device comparison") +
+    _img_tag(chart_paths.get("device_comparison"),  "Device comparison") +
     _img_tag(chart_paths.get("channel_efficiency"), "Channel efficiency") +
-    _img_tag(chart_paths.get("engagement_trend"), "Engagement trend"),
+    _img_tag(chart_paths.get("engagement_trend"),   "Engagement trend"),
     "channel-audience"
 )}
 
@@ -373,14 +421,18 @@ def generate_monthly_dashboard(bullets, chart_paths, data, kpis, date_range):
     "<br><br>" +
     _panel_label("Top 25 Search Queries (GSC)") + gsc_tbl +
     "<br><br>" +
-    _panel_label("Top 25 Landing Pages (GSC)") + gsc_pages_tbl,
+    _panel_label("Top 25 Landing Pages (GSC)") + gsc_pages_tbl +
+    "<br><br>" +
+    _panel_label("Content Category Performance") + cat_tbl +
+    "<br><br>" +
+    _panel_label("Top 25 Broken Links (404/410)") + broken_issues_tbl,
     "detailed-data"
 )}
 
 <hr style="border:none;border-top:4px solid #000;margin:0;">
 <footer style="padding:32px 0;display:flex;justify-content:space-between;align-items:center;">
   <span style="font-family:'Playfair Display',Georgia,serif;font-size:13px;font-weight:700;letter-spacing:0.05em;">CIM SEO Intelligence</span>
-  <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#525252;text-transform:uppercase;letter-spacing:0.12em;">{current_month} Report • Generated {today}</span>
+  <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#525252;text-transform:uppercase;letter-spacing:0.12em;">{current_month} Report &bull; Generated {today}</span>
 </footer>
 """
     

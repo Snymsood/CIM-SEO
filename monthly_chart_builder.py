@@ -1285,6 +1285,246 @@ def chart_impressions_vs_clicks(gsc_queries):
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# CHART FUNCTIONS - PAGE 8: BROKEN LINKS & INTERNAL LINKING
+# ══════════════════════════════════════════════════════════════════════════════
+
+def chart_broken_link_domain_health(broken_link_data):
+    """
+    Grouped bar: broken / redirect / server-error counts per domain.
+    """
+    if broken_link_data.empty or "issue_type" not in broken_link_data.columns:
+        return _placeholder("monthly_broken_link_domain_health.png",
+                            "No broken link data available.\nRun broken_link_check.py first.")
+
+    from urllib.parse import urlparse
+    df = broken_link_data.copy()
+    df["domain"] = df["source_url"].apply(
+        lambda u: urlparse(str(u)).netloc.replace("www.", "")
+    )
+
+    pivot = (
+        df[df["issue_type"] != "ok"]
+        .groupby(["domain", "issue_type"])
+        .size()
+        .unstack(fill_value=0)
+    )
+    for col in ["broken", "redirect", "server_error", "client_error"]:
+        if col not in pivot.columns:
+            pivot[col] = 0
+    pivot = pivot[["broken", "redirect", "server_error", "client_error"]]
+    pivot["total"] = pivot.sum(axis=1)
+    pivot = pivot.sort_values("total", ascending=True).drop(columns="total")
+
+    x = np.arange(len(pivot))
+    width = 0.2
+    bar_colors = [C_RED, C_TEAL, C_CORAL, C_AMBER]
+    bar_labels = ["Broken", "Redirect", "5xx", "4xx Other"]
+
+    fig, ax = plt.subplots(figsize=(13, 4.8))
+    fig.patch.set_facecolor("white")
+    offsets = [-1.5, -0.5, 0.5, 1.5]
+    for i, (col, color, label) in enumerate(zip(pivot.columns, bar_colors, bar_labels)):
+        bars = ax.bar(x + offsets[i] * width, pivot[col], width=width,
+                      color=color, label=label, zorder=2)
+        for bar in bars:
+            h = bar.get_height()
+            if h > 0:
+                ax.text(bar.get_x() + bar.get_width() / 2, h + 0.2,
+                        str(int(h)), ha="center", va="bottom", fontsize=7,
+                        color="#374151", fontweight="600")
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(pivot.index, fontsize=8, rotation=15, ha="right")
+    ax.legend(frameon=False, fontsize=8, ncol=4)
+    ax.grid(axis="y", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
+    _style_ax(ax, title="Broken Link Issues by Domain", ylabel="Issue Count")
+    fig.tight_layout(pad=2.0)
+    return _save(fig, "monthly_broken_link_domain_health.png")
+
+
+def chart_broken_link_issue_breakdown(broken_link_data):
+    """
+    Horizontal stacked bar: issue type distribution across all links.
+    """
+    if broken_link_data.empty or "issue_type" not in broken_link_data.columns:
+        return _placeholder("monthly_broken_link_issue_breakdown.png",
+                            "No broken link data available.\nRun broken_link_check.py first.")
+
+    counts = broken_link_data["issue_type"].value_counts()
+    order  = ["broken", "server_error", "client_error", "redirect", "error", "ok"]
+    colors = {
+        "broken": C_RED, "server_error": C_CORAL, "client_error": C_AMBER,
+        "redirect": C_TEAL, "error": C_SLATE, "ok": C_GREEN,
+    }
+    labels_map = {
+        "broken": "Broken (404/410)", "server_error": "5xx Server",
+        "client_error": "4xx Other", "redirect": "Redirect",
+        "error": "Timeout/Error", "ok": "OK",
+    }
+    total = len(broken_link_data)
+
+    fig, ax = plt.subplots(figsize=(13, 4.8))
+    fig.patch.set_facecolor("white")
+    left = 0
+    for issue in order:
+        val = counts.get(issue, 0)
+        if val == 0:
+            continue
+        pct = val / total * 100
+        ax.barh(0, pct, left=left, color=colors[issue], height=0.55,
+                label=f"{labels_map[issue]} ({val:,})")
+        if pct > 4:
+            ax.text(left + pct / 2, 0, f"{labels_map[issue]}\n{pct:.1f}%",
+                    ha="center", va="center", fontsize=8, color="white", fontweight="600")
+        left += pct
+
+    ax.set_xlim(0, 100)
+    ax.set_yticks([])
+    ax.legend(loc="lower right", frameon=False, fontsize=7, ncol=3)
+    _style_ax(ax, title=f"Link Health Distribution — {total:,} total links checked")
+    ax.spines["left"].set_visible(False)
+    ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
+    fig.tight_layout(pad=2.0)
+    return _save(fig, "monthly_broken_link_issue_breakdown.png")
+
+
+def chart_internal_link_distribution(internal_link_data):
+    """
+    Horizontal bar: pages ranked by inbound internal link count.
+    Highlights orphan pages (0 inlinks) and over-linked pages.
+    """
+    if internal_link_data.empty:
+        return _placeholder("monthly_internal_link_distribution.png",
+                            "No internal linking data available.\nRun internal_linking_audit.py first.")
+
+    df = internal_link_data.copy()
+    # Try common column names from internal_linking_audit.py
+    inlink_col = next((c for c in ["inlink_count", "inlinks", "in_links", "inbound_links"]
+                       if c in df.columns), None)
+    page_col   = next((c for c in ["page", "url", "source_url"] if c in df.columns), None)
+
+    if not inlink_col or not page_col:
+        return _placeholder("monthly_internal_link_distribution.png",
+                            "Internal link data missing expected columns.")
+
+    df[inlink_col] = pd.to_numeric(df[inlink_col], errors="coerce").fillna(0)
+    orphans = int((df[inlink_col] == 0).sum())
+
+    work = df.sort_values(inlink_col, ascending=True).tail(15)
+    labels = [short_url(str(u), 45) for u in work[page_col]]
+    vals   = work[inlink_col].tolist()
+    colors = [C_CORAL if v == 0 else C_NAVY for v in vals]
+    max_v  = max(vals) if vals else 1
+
+    fig, ax = plt.subplots(figsize=(13, 4.8))
+    fig.patch.set_facecolor("white")
+    bars = ax.barh(labels, vals, color=colors, height=0.55, zorder=2)
+    for bar, v in zip(bars, vals):
+        ax.text(v + max_v * 0.01, bar.get_y() + bar.get_height() / 2,
+                str(int(v)), va="center", fontsize=8, color="#374151")
+    ax.set_xlim(0, max_v * 1.18)
+    ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
+    _style_ax(ax, title=f"Internal Link Distribution — Top 15 Pages by Inbound Links  ·  {orphans} orphan pages",
+              xlabel="Inbound Internal Links")
+    fig.tight_layout(pad=2.0)
+    return _save(fig, "monthly_internal_link_distribution.png")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CHART FUNCTIONS - PAGE 9: CONTENT CATEGORY PERFORMANCE
+# ══════════════════════════════════════════════════════════════════════════════
+
+def chart_content_category_sessions(content_category_data):
+    """
+    Horizontal bar: sessions by content category (current month).
+    """
+    if content_category_data.empty or "sessions" not in content_category_data.columns:
+        return _placeholder("monthly_content_category_sessions.png",
+                            "No content category data available.\nRun content_category_performance.py first.")
+
+    df = content_category_data.copy()
+    df["sessions"] = pd.to_numeric(df["sessions"], errors="coerce").fillna(0)
+    df = df[df["sessions"] > 0].sort_values("sessions", ascending=True)
+
+    if df.empty:
+        return _placeholder("monthly_content_category_sessions.png", "No session data by category.")
+
+    CATEGORY_COLORS = [C_NAVY, C_TEAL, C_CORAL, C_AMBER, C_GREEN, C_SLATE,
+                       C_RED, "#8B5CF6", "#F59E0B", "#10B981", "#6366F1", "#EC4899"]
+    colors = [CATEGORY_COLORS[i % len(CATEGORY_COLORS)] for i in range(len(df))]
+    total  = df["sessions"].sum()
+    max_v  = df["sessions"].max()
+
+    fig, ax = plt.subplots(figsize=(13, 4.8))
+    fig.patch.set_facecolor("white")
+    bars = ax.barh(df["category"], df["sessions"], color=colors, height=0.55, zorder=2)
+    for bar, v in zip(bars, df["sessions"]):
+        pct = v / total * 100
+        ax.text(v + max_v * 0.01, bar.get_y() + bar.get_height() / 2,
+                f"{v:,.0f} ({pct:.1f}%)", va="center", fontsize=8, color="#374151")
+    ax.set_xlim(0, max_v * 1.25)
+    ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
+    _style_ax(ax, title="Sessions by Content Category", xlabel="Sessions")
+    fig.tight_layout(pad=2.0)
+    return _save(fig, "monthly_content_category_sessions.png")
+
+
+def chart_content_category_engagement(content_category_data):
+    """
+    Scatter: impressions vs engagement rate per category, sized by sessions.
+    """
+    if content_category_data.empty:
+        return _placeholder("monthly_content_category_engagement.png",
+                            "No content category data available.\nRun content_category_performance.py first.")
+
+    df = content_category_data.copy()
+    for col in ["impressions", "engagement_rate", "sessions"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+
+    if "impressions" not in df.columns or "engagement_rate" not in df.columns:
+        return _placeholder("monthly_content_category_engagement.png",
+                            "Missing impressions or engagement_rate columns.")
+
+    df = df[(df["impressions"] > 0) | (df["engagement_rate"] > 0)]
+    if df.empty:
+        return _placeholder("monthly_content_category_engagement.png", "No data to plot.")
+
+    df["log_impr"] = np.log10(df["impressions"].clip(lower=1))
+    max_sess = df["sessions"].max() if "sessions" in df.columns and df["sessions"].max() > 0 else 1
+    sizes = (df["sessions"] / max_sess * 800).clip(lower=60) if "sessions" in df.columns else 100
+
+    CATEGORY_COLORS = [C_NAVY, C_TEAL, C_CORAL, C_AMBER, C_GREEN, C_SLATE,
+                       C_RED, "#8B5CF6", "#F59E0B", "#10B981", "#6366F1", "#EC4899"]
+    colors = [CATEGORY_COLORS[i % len(CATEGORY_COLORS)] for i in range(len(df))]
+
+    fig, ax = plt.subplots(figsize=(13, 6.5))
+    fig.patch.set_facecolor("white")
+    ax.scatter(df["log_impr"], df["engagement_rate"], s=sizes, c=colors,
+               alpha=0.80, edgecolors="white", linewidths=0.8, zorder=3)
+
+    # Quadrant reference lines
+    mid_x = df["log_impr"].median()
+    mid_y = df["engagement_rate"].median()
+    ax.axvline(mid_x, color=C_BORDER, linewidth=1, linestyle="--", zorder=1)
+    ax.axhline(mid_y, color=C_BORDER, linewidth=1, linestyle="--", zorder=1)
+
+    for i, (_, row) in enumerate(df.iterrows()):
+        ax.annotate(row["category"],
+                    (row["log_impr"], row["engagement_rate"]),
+                    textcoords="offset points", xytext=(6, 4),
+                    fontsize=7, color="#374151")
+
+    ax.grid(linestyle="--", alpha=0.2, color=C_BORDER, zorder=1)
+    _style_ax(ax,
+              title="Content Category Ecosystem  ·  bubble = sessions  ·  x = log impressions  ·  y = engagement rate",
+              xlabel="Search Visibility (Log10 Impressions)",
+              ylabel="Engagement Rate")
+    fig.tight_layout(pad=2.0)
+    return _save(fig, "monthly_content_category_engagement.png")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MAIN BUILD FUNCTION
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -1433,13 +1673,37 @@ def build_all_monthly_charts(data):
     )
     print("  ✓ Engagement trend")
     
-    # Page 8: Additional Insights (no new charts, uses tables)
-    print("\n[8/8] Page 8 uses data tables (no charts)")
-    
+    # Page 8: Technical Health — Broken Links & Internal Linking
+    print("\n[8/9] Generating Technical Health (Link Audit) charts...")
+    broken_link_data   = data.get("broken_links",   pd.DataFrame())
+    internal_link_data = data.get("internal_links", pd.DataFrame())
+
+    chart_paths["broken_link_domain_health"] = chart_broken_link_domain_health(broken_link_data)
+    status = "✓" if not broken_link_data.empty else "⚠"
+    print(f"  {status} Broken link domain health")
+
+    chart_paths["broken_link_issue_breakdown"] = chart_broken_link_issue_breakdown(broken_link_data)
+    print(f"  {status} Broken link issue breakdown")
+
+    chart_paths["internal_link_distribution"] = chart_internal_link_distribution(internal_link_data)
+    status = "✓" if not internal_link_data.empty else "⚠"
+    print(f"  {status} Internal link distribution")
+
+    # Page 9: Content Category Performance
+    print("\n[9/9] Generating Content Category charts...")
+    content_category_data = data.get("content_categories", pd.DataFrame())
+
+    chart_paths["content_category_sessions"] = chart_content_category_sessions(content_category_data)
+    status = "✓" if not content_category_data.empty else "⚠"
+    print(f"  {status} Content category sessions")
+
+    chart_paths["content_category_engagement"] = chart_content_category_engagement(content_category_data)
+    print(f"  {status} Content category engagement")
+
     print("\n" + "=" * 80)
     print(f"MONTHLY CHART GENERATION - COMPLETE ({len(chart_paths)} charts)")
     print("=" * 80)
-    
+
     return chart_paths
 
 

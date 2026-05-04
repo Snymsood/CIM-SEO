@@ -486,6 +486,66 @@ def load_content_audit_data():
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# BROKEN LINK DATA FETCHING
+# ══════════════════════════════════════════════════════════════════════════════
+
+def load_broken_link_data():
+    """Load latest broken link results if available."""
+    results_file = Path("broken_link_results.csv")
+    if results_file.exists():
+        try:
+            df = pd.read_csv(results_file)
+            print("  ✓ Loaded broken link results data")
+            return df
+        except Exception as e:
+            print(f"  ⚠ Failed to load broken link data: {e}")
+            return pd.DataFrame()
+    else:
+        print("  ⚠ No broken link data found (run broken_link_check.py first)")
+        return pd.DataFrame()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# INTERNAL LINKING DATA FETCHING
+# ══════════════════════════════════════════════════════════════════════════════
+
+def load_internal_linking_data():
+    """Load latest internal linking page summary if available."""
+    summary_file = Path("internal_linking_page_summary.csv")
+    if summary_file.exists():
+        try:
+            df = pd.read_csv(summary_file)
+            print("  ✓ Loaded internal linking page summary")
+            return df
+        except Exception as e:
+            print(f"  ⚠ Failed to load internal linking data: {e}")
+            return pd.DataFrame()
+    else:
+        print("  ⚠ No internal linking data found (run internal_linking_audit.py first)")
+        return pd.DataFrame()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# CONTENT CATEGORY DATA FETCHING
+# ══════════════════════════════════════════════════════════════════════════════
+
+def load_content_category_data():
+    """Load latest content category performance data if available."""
+    cat_file = Path("content_category_performance.csv")
+    if cat_file.exists():
+        try:
+            df = pd.read_csv(cat_file)
+            print("  ✓ Loaded content category performance data")
+            return df
+        except Exception as e:
+            print(f"  ⚠ Failed to load content category data: {e}")
+            return pd.DataFrame()
+    else:
+        print("  ⚠ No content category data found (run content_category_performance.py first)")
+        return pd.DataFrame()
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # MAIN COLLECTION FUNCTION
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -550,9 +610,12 @@ def collect_all_monthly_data():
     
     # Load additional data sources
     print("\n[3/4] Loading additional data sources...")
-    pagespeed_data = load_pagespeed_data()
-    ai_snippet_data = load_ai_snippet_data()
-    content_audit_data = load_content_audit_data()
+    pagespeed_data       = load_pagespeed_data()
+    ai_snippet_data      = load_ai_snippet_data()
+    content_audit_data   = load_content_audit_data()
+    broken_link_data     = load_broken_link_data()
+    internal_link_data   = load_internal_linking_data()
+    content_category_data = load_content_category_data()
     
     # Prepare comparisons
     print("\n[4/4] Preparing comparisons...")
@@ -582,6 +645,12 @@ def collect_all_monthly_data():
         ai_snippet_data.to_csv(OUTPUT_DIR / "monthly_ai_snippet.csv", index=False)
     if not content_audit_data.empty:
         content_audit_data.to_csv(OUTPUT_DIR / "monthly_content_audit.csv", index=False)
+    if not broken_link_data.empty:
+        broken_link_data.to_csv(OUTPUT_DIR / "monthly_broken_links.csv", index=False)
+    if not internal_link_data.empty:
+        internal_link_data.to_csv(OUTPUT_DIR / "monthly_internal_links.csv", index=False)
+    if not content_category_data.empty:
+        content_category_data.to_csv(OUTPUT_DIR / "monthly_content_categories.csv", index=False)
     
     print("✓ Data saved to monthly_data/")
     
@@ -603,6 +672,9 @@ def collect_all_monthly_data():
         "pagespeed": pagespeed_data,
         "ai_snippet": ai_snippet_data,
         "content_audit": content_audit_data,
+        "broken_links": broken_link_data,
+        "internal_links": internal_link_data,
+        "content_categories": content_category_data,
         "date_range": {
             "current_start": current_start,
             "current_end": current_end,

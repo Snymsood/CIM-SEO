@@ -30,8 +30,8 @@ from seo_utils import get_monthly_date_windows
 from pdf_report_formatter import format_pct_change
 
 # Monday.com and Google Sheets integration
-from monday_utils import upload_pdf_to_monday
 from google_sheets_db import append_to_sheet
+import requests as _requests
 
 # ══════════════════════════════════════════════════════════════════════════════
 # CONFIGURATION
@@ -71,6 +71,10 @@ def aggregate_monthly_kpis(data):
         "avg_position": {"curr": 0, "prev": 0},
         "mobile_score": {"curr": 0, "prev": 0},
         "cwv_pass_rate": {"curr": 0, "prev": 0},
+        "broken_links": {"curr": 0, "prev": 0},
+        "internal_link_pages": {"curr": 0, "prev": 0},
+        "ai_readiness_avg": {"curr": 0, "prev": 0},
+        "content_refresh_candidates": {"curr": 0, "prev": 0},
     }
     
     # GA4 metrics
@@ -177,16 +181,62 @@ def aggregate_monthly_kpis(data):
                     weighted_pos_prev = (valid_prev["position_previous"] * valid_prev["impressions_previous"]).sum() / total_impr
                     kpis["avg_position"]["prev"] = round(weighted_pos_prev, 1)
     
-    # Placeholder for PageSpeed metrics (to be implemented)
-    # These will be populated when PageSpeed data is integrated
-    kpis["mobile_score"] = {"curr": 0, "prev": 0}
-    kpis["cwv_pass_rate"] = {"curr": 0, "prev": 0}
+    # PageSpeed / Core Web Vitals KPIs — derived from site_speed_latest_snapshot.csv
+    pagespeed_data = data.get("pagespeed", pd.DataFrame())
+    if not pagespeed_data.empty:
+        mobile = pagespeed_data[pagespeed_data["strategy"] == "mobile"].copy()
+        if not mobile.empty:
+            scored = mobile[pd.to_numeric(mobile["performance_score"], errors="coerce").notna()]
+            if not scored.empty:
+                kpis["mobile_score"]["curr"] = round(
+                    pd.to_numeric(scored["performance_score"], errors="coerce").mean(), 1
+                )
+            cwv_known = mobile[mobile["cwv_pass"].notna()]
+            if not cwv_known.empty:
+                cwv_known = cwv_known.copy()
+                cwv_known["cwv_pass"] = cwv_known["cwv_pass"].map(
+                    {"True": True, "False": False, True: True, False: False,
+                     1: True, 0: False, 1.0: True, 0.0: False}
+                )
+                passing = cwv_known["cwv_pass"].sum()
+                kpis["cwv_pass_rate"]["curr"] = round(passing / len(cwv_known), 3)
+
+    # Broken link KPIs — derived from broken_link_results.csv
+    broken_link_data = data.get("broken_links", pd.DataFrame())
+    if not broken_link_data.empty and "issue_type" in broken_link_data.columns:
+        kpis["broken_links"]["curr"] = int((broken_link_data["issue_type"] == "broken").sum())
+
+    # Internal linking KPIs — derived from internal_linking_page_summary.csv
+    internal_link_data = data.get("internal_links", pd.DataFrame())
+    if not internal_link_data.empty:
+        kpis["internal_link_pages"]["curr"] = int(len(internal_link_data))
+
+    # AI readiness KPIs — derived from ai_snippet_verification.csv
+    ai_snippet_data = data.get("ai_snippet", pd.DataFrame())
+    if not ai_snippet_data.empty:
+        score_cols = [c for c in ["access_score", "summary_score", "cta_score"] if c in ai_snippet_data.columns]
+        if score_cols:
+            for col in score_cols:
+                ai_snippet_data[col] = pd.to_numeric(ai_snippet_data[col], errors="coerce").fillna(0)
+            ai_snippet_data["_overall"] = ai_snippet_data[score_cols].mean(axis=1)
+            kpis["ai_readiness_avg"]["curr"] = round(ai_snippet_data["_overall"].mean(), 2)
+
+    # Content audit KPIs — derived from content_audit_candidates.csv
+    content_audit_data = data.get("content_audit", pd.DataFrame())
+    if not content_audit_data.empty and "recommended_action" in content_audit_data.columns:
+        kpis["content_refresh_candidates"]["curr"] = int(
+            (content_audit_data["recommended_action"].str.lower() == "refresh").sum()
+        )
     
     print("\n✓ KPI aggregation complete")
-    print(f"  Sessions: {kpis['sessions']['curr']:,.0f} (prev: {kpis['sessions']['prev']:,.0f})")
-    print(f"  Clicks: {kpis['clicks']['curr']:,.0f} (prev: {kpis['clicks']['prev']:,.0f})")
-    print(f"  Impressions: {kpis['impressions']['curr']:,.0f} (prev: {kpis['impressions']['prev']:,.0f})")
-    print(f"  Avg Position: {kpis['avg_position']['curr']:.1f} (prev: {kpis['avg_position']['prev']:.1f})")
+    print(f"  Sessions:      {kpis['sessions']['curr']:,.0f} (prev: {kpis['sessions']['prev']:,.0f})")
+    print(f"  Clicks:        {kpis['clicks']['curr']:,.0f} (prev: {kpis['clicks']['prev']:,.0f})")
+    print(f"  Impressions:   {kpis['impressions']['curr']:,.0f} (prev: {kpis['impressions']['prev']:,.0f})")
+    print(f"  Avg Position:  {kpis['avg_position']['curr']:.1f} (prev: {kpis['avg_position']['prev']:.1f})")
+    print(f"  Mobile Score:  {kpis['mobile_score']['curr']:.1f}")
+    print(f"  CWV Pass Rate: {kpis['cwv_pass_rate']['curr']:.1%}")
+    print(f"  Broken Links:  {kpis['broken_links']['curr']:,}")
+    print(f"  AI Readiness:  {kpis['ai_readiness_avg']['curr']:.2f}/5")
     
     print("\n" + "=" * 80)
     print("KPI AGGREGATION - COMPLETE")
@@ -200,91 +250,81 @@ def aggregate_monthly_kpis(data):
 # ══════════════════════════════════════════════════════════════════════════════
 
 def upload_to_monday(html_path, bullets, date_range, run_id=None):
-    """
-    Upload the HTML dashboard to Monday.com.
-    
-    Args:
-        html_path: Path to the generated HTML file
-        bullets: List of executive summary bullets
-        date_range: Dict with date information
-        run_id: GitHub Actions run ID (optional, for artifact link)
-    """
+    """Post executive summary update and attach the self-contained HTML to Monday.com."""
     if not MONDAY_API_TOKEN or not MONDAY_MONTHLY_ITEM_ID:
         print("⚠ Monday.com upload skipped: MONDAY_API_TOKEN or MONDAY_MONTHLY_ITEM_ID not set")
         return
-    
+
     print("=" * 80)
     print("MONDAY.COM UPLOAD - STARTING")
     print("=" * 80)
-    
+
     current_month = date_range["current_start"].strftime("%B %Y")
-    current_month_slug = date_range["current_start"].strftime("%Y-%m")
-    
-    # Create update body with executive summary
-    bullet_html = "".join(f"<li>{b}</li>" for b in bullets[:5])  # Top 5 bullets
-    
-    # Build dashboard links
-    dashboard_links = []
-    
-    # GitHub Pages link (if available)
-    dashboard_links.append(
-        f'<a href="https://snymsood.github.io/CIM-SEO/monthly_dashboard.html">📊 View Live Dashboard</a>'
-    )
-    
-    # GitHub Artifacts link (if run_id provided)
-    if run_id:
-        dashboard_links.append(
-            f'<a href="https://github.com/Snymsood/CIM-SEO/actions/runs/{run_id}">📥 Download Dashboard (Artifacts)</a>'
-        )
-    
-    links_html = " | ".join(dashboard_links)
-    
+    bullet_html = "".join(f"<li>{b}</li>" for b in bullets[:5])
     body_text = (
         f"<h2>Monthly SEO Master Report — {current_month}</h2>"
         f"<p><strong>Executive Summary:</strong></p>"
         f"<ul>{bullet_html}</ul>"
-        f"<br><p>{links_html}</p>"
         f"<p><em>Dashboard generated on {date.today().strftime('%B %d, %Y')}</em></p>"
     )
-    
+
+    MONDAY_API_URL      = "https://api.monday.com/v2"
+    MONDAY_FILE_API_URL = "https://api.monday.com/v2/file"
+
     try:
-        # Note: Monday.com doesn't support HTML file uploads directly
-        # We'll post the summary as an update with a link to the dashboard
-        import requests
-        
-        mutation = """
+        # Step 1 — create text update
+        update_query = """
         mutation ($item_id: ID!, $body: String!) {
           create_update(item_id: $item_id, body: $body) { id }
         }
         """
-        
-        response = requests.post(
-            "https://api.monday.com/v2",
-            headers={
-                "Authorization": MONDAY_API_TOKEN,
-                "Content-Type": "application/json"
-            },
-            json={
-                "query": mutation,
-                "variables": {
-                    "item_id": str(MONDAY_MONTHLY_ITEM_ID),
-                    "body": body_text
-                }
-            },
-            timeout=60
+        resp = _requests.post(
+            MONDAY_API_URL,
+            headers={"Authorization": MONDAY_API_TOKEN, "Content-Type": "application/json"},
+            json={"query": update_query, "variables": {
+                "item_id": str(MONDAY_MONTHLY_ITEM_ID), "body": body_text
+            }},
+            timeout=60,
         )
-        
-        response.raise_for_status()
-        data = response.json()
-        
+        resp.raise_for_status()
+        data = resp.json()
         if "errors" in data:
-            print(f"✗ Monday.com update error: {data['errors']}")
-        else:
-            print(f"✓ Posted monthly summary to Monday.com item {MONDAY_MONTHLY_ITEM_ID}")
-    
+            raise RuntimeError(f"Monday update failed: {data['errors']}")
+        update_id = data["data"]["create_update"]["id"]
+        print(f"✓ Posted monthly summary to Monday.com item {MONDAY_MONTHLY_ITEM_ID}")
+
+        # Step 2 — attach self-contained HTML file
+        file_query = """
+        mutation ($update_id: ID!, $file: File!) {
+          add_file_to_update(update_id: $update_id, file: $file) { id }
+        }
+        """
+        html_file = Path(html_path)
+        if not html_file.exists():
+            print(f"⚠ HTML file not found at {html_path}, skipping attachment")
+            return
+
+        with open(html_file, "rb") as f:
+            file_resp = _requests.post(
+                MONDAY_FILE_API_URL,
+                headers={"Authorization": MONDAY_API_TOKEN},
+                data={
+                    "query": file_query,
+                    "variables": '{"update_id": "' + str(update_id) + '", "file": null}',
+                    "map": '{"file": ["variables.file"]}',
+                },
+                files={"file": ("monthly-seo-dashboard.html", f, "text/html")},
+                timeout=120,
+            )
+        file_resp.raise_for_status()
+        file_data = file_resp.json()
+        if "errors" in file_data:
+            raise RuntimeError(f"Monday file attach failed: {file_data['errors']}")
+        print("✓ Attached monthly-seo-dashboard.html to Monday.com update")
+
     except Exception as e:
         print(f"✗ Monday.com upload failed: {e}")
-    
+
     print("\n" + "=" * 80)
     print("MONDAY.COM UPLOAD - COMPLETE")
     print("=" * 80)
@@ -323,6 +363,10 @@ def log_to_google_sheets(kpis, date_range):
         "avg_position": [kpis["avg_position"]["curr"]],
         "mobile_score": [kpis["mobile_score"]["curr"]],
         "cwv_pass_rate": [kpis["cwv_pass_rate"]["curr"]],
+        "broken_links": [kpis["broken_links"]["curr"]],
+        "internal_link_pages": [kpis["internal_link_pages"]["curr"]],
+        "ai_readiness_avg": [kpis["ai_readiness_avg"]["curr"]],
+        "content_refresh_candidates": [kpis["content_refresh_candidates"]["curr"]],
     }
     
     df = pd.DataFrame(kpi_data)
