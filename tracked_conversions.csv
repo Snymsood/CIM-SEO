@@ -1,0 +1,9 @@
+conversion_event,display_name,category,priority,business_value_proxy,notes
+event_registration_click,Event Registration Click,Event,high,100,Click to external registration platform (CIM Connect etc)
+membership_signup_click,Membership Signup Click,Membership,high,150,Membership signup CTA click
+form_submit,Form Submission,Lead,high,75,Generic contact or inquiry form submission
+newsletter_signup,Newsletter Signup,Engagement,medium,25,Newsletter subscription conversion
+sponsor_inquiry_click,Sponsor Inquiry Click,Sponsorship,high,200,Sponsorship or exhibitor lead click
+contact_click,Contact Click,Lead,medium,50,Contact page or email link click
+outbound_registration_click,Outbound Registration Click,Event,high,100,Any outbound click to registration URL
+cta_click,CTA Click,Engagement,medium,30,Generic important CTA click

@@ -16,6 +16,46 @@ def get_sheets_client():
         print(f"Error authenticating with Google Sheets: {e}")
         return None
 
+def read_sheet_as_dataframe(tab_name: str) -> pd.DataFrame:
+    """
+    Read a Google Sheets tab back as a pandas DataFrame.
+    Returns an empty DataFrame on any error (missing sheet, auth failure, etc.).
+    The first row is treated as the header.
+    """
+    if not GOOGLE_SHEET_ID:
+        print(f"GOOGLE_SHEET_ID not configured. Cannot read '{tab_name}'.")
+        return pd.DataFrame()
+
+    client = get_sheets_client()
+    if not client:
+        return pd.DataFrame()
+
+    try:
+        spreadsheet = client.open_by_key(GOOGLE_SHEET_ID)
+    except Exception as e:
+        print(f"Error opening spreadsheet for read: {e}")
+        return pd.DataFrame()
+
+    try:
+        worksheet = spreadsheet.worksheet(tab_name)
+    except Exception:
+        print(f"Tab '{tab_name}' not found in Google Sheets.")
+        return pd.DataFrame()
+
+    try:
+        records = worksheet.get_all_records()
+        if not records:
+            return pd.DataFrame()
+        df = pd.DataFrame(records)
+        # Coerce date_added column if present
+        if "date_added" in df.columns:
+            df["date_added"] = pd.to_datetime(df["date_added"], errors="coerce")
+        return df
+    except Exception as e:
+        print(f"Error reading tab '{tab_name}': {e}")
+        return pd.DataFrame()
+
+
 def append_to_sheet(df, tab_name):
     """
     Appends a Pandas DataFrame to a specific tab in the Google Sheet.

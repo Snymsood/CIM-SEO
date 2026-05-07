@@ -260,6 +260,12 @@ def prepare_comparison(current_df, previous_df, key_column):
     merged["position_change"]    = merged["position_current"]    - merged["position_previous"]
     merged["is_new"]  = (merged["clicks_previous"] == 0) & (merged["clicks_current"] > 0)
     merged["is_lost"] = (merged["clicks_previous"] > 0) & (merged["clicks_current"] == 0)
+
+    # Round position values to 1 decimal place for clean display
+    for col in ["position_current", "position_previous", "position_change"]:
+        if col in merged.columns:
+            merged[col] = merged[col].round(1)
+
     return merged.sort_values("clicks_current", ascending=False)
 
 
@@ -308,7 +314,8 @@ def _fmt(val, decimals=0, pct=False):
             return f"{v:.2%}"
         if decimals == 0:
             return f"{v:,.0f}"
-        return f"{v:,.{decimals}f}"
+        # Cap position/decimal values at 2 decimal places max
+        return f"{v:,.{min(decimals, 2)}f}"
     except (TypeError, ValueError):
         s = str(val)
         return s[:57] + "..." if len(s) > 60 else s
@@ -320,7 +327,7 @@ def _delta_html(val, decimals=0, lower_is_better=False):
         v = float(val)
     except (TypeError, ValueError):
         return "-"
-    if math.isclose(v, 0, abs_tol=1e-5):
+    if math.isclose(v, 0, abs_tol=0.05):  # treat |Δ| < 0.05 as zero (avoids "+0" / "-0")
         return '<span class="chg neu">—</span>'
     positive_good = (v > 0 and not lower_is_better) or (v < 0 and lower_is_better)
     cls  = "pos" if positive_good else "neg"
@@ -439,7 +446,7 @@ def plot_trend_lines(trend_curr, trend_prev):
 
 
 def plot_device_split(device_df):
-    """Horizontal stacked bar — sized to fill half an A4 page."""
+    """Grouped horizontal bar — clicks and impressions side-by-side per device."""
     if device_df.empty:
         return None
 
@@ -459,30 +466,27 @@ def plot_device_split(device_df):
         "Tablet":  C_AMBER,
     }
 
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(13, 4.8))
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.8))
     fig.patch.set_facecolor("white")
 
     for ax, col, title in [(ax1, "click_pct", "Clicks by Device (%)"),
                             (ax2, "impr_pct",  "Impressions by Device (%)")]:
-        left = 0
-        for _, row in device_df.iterrows():
-            dev = row["device"]
-            val = row[col]
-            c   = colors.get(dev, C_SLATE)
-            ax.barh(0, val, left=left, color=c, height=0.6)
-            if val > 4:
-                ax.text(left + val / 2, 0, f"{dev}\n{val:.1f}%",
-                        ha="center", va="center", fontsize=10, color="white", fontweight="600")
-            left += val
-        ax.set_xlim(0, 100)
-        ax.set_yticks([])
+        device_colors = [colors.get(d, C_SLATE) for d in device_df["device"]]
+        bars = ax.barh(device_df["device"], device_df[col], color=device_colors, height=0.5, zorder=2)
+        max_v = device_df[col].max() or 1
+        for bar, row in zip(bars, device_df.itertuples()):
+            v = bar.get_width()
+            ax.text(v + max_v * 0.02, bar.get_y() + bar.get_height() / 2,
+                    f"{v:.1f}%", va="center", fontsize=9, color="#374151", fontweight="600")
+        ax.set_xlim(0, max_v * 1.25)
         ax.set_title(title, fontsize=10, fontweight="600", color="#1A1A1A", pad=8, loc="left")
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
-        ax.spines["left"].set_visible(False)
+        ax.spines["left"].set_color(C_BORDER)
         ax.spines["bottom"].set_color(C_BORDER)
         ax.tick_params(labelsize=9, colors="#64748B", length=0)
         ax.set_facecolor("#FAFAFA")
+        ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
 
     fig.tight_layout(pad=2.5)
     return _save(fig, "device_split.png")
@@ -634,6 +638,132 @@ def plot_search_appearance(appearance_df):
     return _save(fig, "search_appearance.png")
 
 
+def plot_ctr_opportunity_heatmap(query_df):
+    """
+    Heatmap: position band (rows) × CTR bucket (cols) — cell = number of queries.
+    Highlights where queries sit in high-impression / low-CTR zones.
+    """
+    df = query_df[
+        (query_df["impressions_current"] > 0) &
+        (query_df["position_current"] > 0)
+    ].copy()
+
+    if df.empty:
+        return None
+
+    # Position bands
+    def pos_band(p):
+        if p <= 3:   return "1–3"
+        if p <= 10:  return "4–10"
+        if p <= 20:  return "11–20"
+        return "21+"
+
+    # CTR buckets
+    def ctr_bucket(c):
+        if c >= 0.20:  return "≥20%"
+        if c >= 0.10:  return "10–20%"
+        if c >= 0.05:  return "5–10%"
+        if c >= 0.02:  return "2–5%"
+        return "<2%"
+
+    df["pos_band"]   = df["position_current"].apply(pos_band)
+    df["ctr_bucket"] = df["ctr_current"].apply(ctr_bucket)
+
+    pos_order = ["1–3", "4–10", "11–20", "21+"]
+    ctr_order = ["≥20%", "10–20%", "5–10%", "2–5%", "<2%"]
+
+    pivot = df.groupby(["pos_band", "ctr_bucket"]).size().unstack(fill_value=0)
+    pivot = pivot.reindex(index=pos_order, columns=ctr_order, fill_value=0)
+
+    fig, ax = plt.subplots(figsize=(13, 4.8))
+    fig.patch.set_facecolor("white")
+
+    import matplotlib.colors as mcolors
+    cmap = plt.cm.Blues
+    im = ax.imshow(pivot.values, cmap=cmap, aspect="auto", vmin=0)
+
+    ax.set_xticks(range(len(ctr_order)))
+    ax.set_xticklabels(ctr_order, fontsize=9)
+    ax.set_yticks(range(len(pos_order)))
+    ax.set_yticklabels(pos_order, fontsize=9)
+    ax.set_xlabel("CTR Bucket", fontsize=8, color="#64748B")
+    ax.set_ylabel("Position Band", fontsize=8, color="#64748B")
+
+    # Annotate cells
+    for i in range(len(pos_order)):
+        for j in range(len(ctr_order)):
+            val = pivot.values[i, j]
+            text_color = "white" if val > pivot.values.max() * 0.6 else "#374151"
+            ax.text(j, i, str(int(val)), ha="center", va="center",
+                    fontsize=11, fontweight="700", color=text_color)
+
+    # Highlight the "opportunity zone" — high position, low CTR
+    from matplotlib.patches import Rectangle
+    ax.add_patch(Rectangle((2.5, 0.5), 2, 1, fill=False,
+                            edgecolor=C_CORAL, linewidth=2.5, zorder=5))
+    ax.text(3.5, 1.0, "Opportunity\nZone", ha="center", va="center",
+            fontsize=7, color=C_CORAL, fontweight="700")
+
+    ax.set_title("CTR Opportunity Heatmap  ·  queries by position band × CTR bucket",
+                 fontsize=10, fontweight="600", color="#1A1A1A", pad=8, loc="left")
+    ax.tick_params(length=0)
+    for spine in ax.spines.values():
+        spine.set_visible(False)
+
+    cbar = fig.colorbar(im, ax=ax, pad=0.01, shrink=0.8)
+    cbar.set_label("Query Count", fontsize=8, color="#64748B")
+    cbar.ax.tick_params(labelsize=7)
+
+    fig.tight_layout(pad=2.0)
+    return _save(fig, "ctr_opportunity_heatmap.png")
+
+
+def plot_click_potential_gap(query_df):
+    """
+    Horizontal bar: page-1 queries (pos 4–10) with <5% CTR, sorted by estimated click gain.
+    Shows the highest-value title/meta optimisation opportunities.
+    """
+    df = query_df[
+        (query_df["position_current"] >= 4) &
+        (query_df["position_current"] <= 10) &
+        (query_df["ctr_current"] < 0.05) &
+        (query_df["impressions_current"] > 50)
+    ].copy()
+
+    if df.empty:
+        fig, ax = plt.subplots(figsize=(13, 4.8))
+        fig.patch.set_facecolor("white")
+        ax.text(0.5, 0.5, "No page-1 queries with CTR < 5% and > 50 impressions.\nAll page-1 queries are performing well.",
+                ha="center", va="center", fontsize=11, color="#94A3B8", transform=ax.transAxes)
+        ax.set_axis_off()
+        return _save(fig, "click_potential_gap.png")
+
+    # Estimate click gain: if CTR improved to 5%, how many extra clicks?
+    df["click_potential"] = (df["impressions_current"] * 0.05 - df["clicks_current"]).clip(lower=0).round(0).astype(int)
+    df = df.nlargest(12, "click_potential")
+    df["label"] = df["query"].astype(str).apply(lambda q: q[:40] + "…" if len(q) > 40 else q)
+    df = df.sort_values("click_potential", ascending=True)
+
+    max_v = df["click_potential"].max() or 1
+
+    fig, ax = plt.subplots(figsize=(13, 4.8))
+    fig.patch.set_facecolor("white")
+
+    bars = ax.barh(df["label"], df["click_potential"], color=C_AMBER, height=0.55, zorder=2)
+    for bar, row in zip(bars, df.itertuples()):
+        v = bar.get_width()
+        ax.text(v + max_v * 0.01, bar.get_y() + bar.get_height() / 2,
+                f"+{int(v)} clicks  (pos {row.position_current:.1f}, CTR {row.ctr_current:.1%})",
+                va="center", fontsize=8, color="#374151")
+
+    ax.set_xlim(0, max_v * 1.55)
+    ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
+    _style_ax(ax, title="Click Potential Gap  ·  page-1 queries with CTR < 5%  ·  estimated gain at 5% CTR",
+              xlabel="Estimated Additional Clicks")
+    fig.tight_layout(pad=2.0)
+    return _save(fig, "click_potential_gap.png")
+
+
 def build_all_charts(query_df, page_df, kpis, trend_curr, trend_prev, device_df, appearance_df):
     """Generate all charts and return a dict of {name: Path}."""
     top_queries   = query_df.nlargest(10, "clicks_current")
@@ -644,15 +774,17 @@ def build_all_charts(query_df, page_df, kpis, trend_curr, trend_prev, device_df,
     page_losers   = page_df.nsmallest(10, "clicks_change")
 
     return {
-        "kpi_grid":       plot_kpi_grid(kpis),
-        "trend":          plot_trend_lines(trend_curr, trend_prev),
-        "device":         plot_device_split(device_df),
-        "scatter":        plot_ctr_position_scatter(query_df),
-        "query_movers":   plot_lollipop_movers(query_gainers, query_losers, "query", "clicks_change",
-                                               "Query Winners & Losers (Click Δ)", "query_movers.png"),
-        "page_movers":    plot_lollipop_movers(page_gainers, page_losers, "page", "clicks_change",
-                                               "Page Winners & Losers (Click Δ)", "page_movers.png"),
-        "appearance":     plot_search_appearance(appearance_df),
+        "kpi_grid":              plot_kpi_grid(kpis),
+        "trend":                 plot_trend_lines(trend_curr, trend_prev),
+        "device":                plot_device_split(device_df),
+        "scatter":               plot_ctr_position_scatter(query_df),
+        "query_movers":          plot_lollipop_movers(query_gainers, query_losers, "query", "clicks_change",
+                                                      "Query Winners & Losers (Click Δ)", "query_movers.png"),
+        "page_movers":           plot_lollipop_movers(page_gainers, page_losers, "page", "clicks_change",
+                                                      "Page Winners & Losers (Click Δ)", "page_movers.png"),
+        "appearance":            plot_search_appearance(appearance_df),
+        "ctr_heatmap":           plot_ctr_opportunity_heatmap(query_df),
+        "click_potential_gap":   plot_click_potential_gap(query_df),
     }
 
 
@@ -1544,8 +1676,10 @@ tr:nth-child(even) td {{ background: transparent; }}
 <div class="section">
   <div class="section-title">Audience &amp; Visibility</div>
   <div class="report-section">
-    {_chart_row_2(chart_paths.get("device"), "Device split",
-                  chart_paths.get("appearance"), "Search appearance")}
+    <div class="col-header">Sessions by Device</div>
+    {_chart_wrap(chart_paths.get("device"), "Device split")}
+    <div class="col-header">Impressions by Search Appearance</div>
+    {_chart_wrap(chart_paths.get("appearance"), "Search appearance")}
   </div>
 </div>
 
@@ -1561,12 +1695,34 @@ tr:nth-child(even) td {{ background: transparent; }}
 
 <hr class="rule-thick">
 
+<!-- ══ CTR OPPORTUNITY HEATMAP ═══════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">CTR Opportunity Heatmap</div>
+  <div class="report-section">
+    {_chart_wrap(chart_paths.get("ctr_heatmap"), "CTR opportunity heatmap")}
+  </div>
+</div>
+
+<hr class="rule-thick">
+
+<!-- ══ CLICK POTENTIAL GAP ═══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">Click Potential Gap</div>
+  <div class="report-section">
+    {_chart_wrap(chart_paths.get("click_potential_gap"), "Click potential gap")}
+  </div>
+</div>
+
+<hr class="rule-thick">
+
 <!-- ══ MOVERS ════════════════════════════════════════════════════ -->
 <div class="section">
   <div class="section-title">Winners &amp; Losers</div>
   <div class="report-section">
-    {_chart_row_2(chart_paths.get("query_movers"), "Query winners & losers",
-                  chart_paths.get("page_movers"),  "Page winners & losers")}
+    <div class="col-header">Query Winners &amp; Losers (Click Δ)</div>
+    {_chart_wrap(chart_paths.get("query_movers"), "Query winners & losers")}
+    <div class="col-header">Page Winners &amp; Losers (Click Δ)</div>
+    {_chart_wrap(chart_paths.get("page_movers"), "Page winners & losers")}
   </div>
 </div>
 

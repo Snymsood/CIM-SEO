@@ -785,13 +785,17 @@ def generate_html_dashboard(bullets, chart_paths, data, kpis):
 )}
 
 {_section("Performance Overview",
-    _chart_row_2(chart_paths.get("kpi_overview"), "Weekly KPI overview",
-                 chart_paths.get("traffic_search"), "Traffic vs search demand")
+    '<div class="col-header">Weekly KPI Overview</div>' +
+    _img_tag(chart_paths.get("kpi_overview"), "Weekly KPI overview") +
+    '<div class="col-header">Traffic vs Search Demand</div>' +
+    _img_tag(chart_paths.get("traffic_search"), "Traffic vs search demand")
 )}
 
 {_section("Top Landing Pages & Search Queries",
-    _chart_row_2(chart_paths.get("top_pages"),   "Top landing pages by sessions",
-                 chart_paths.get("top_queries"),  "Top search queries by clicks")
+    '<div class="col-header">Top Landing Pages by Sessions</div>' +
+    _img_tag(chart_paths.get("top_pages"),   "Top landing pages by sessions") +
+    '<div class="col-header">Top Search Queries by Clicks</div>' +
+    _img_tag(chart_paths.get("top_queries"),  "Top search queries by clicks")
 )}
 
 {_section("Keyword Ranking Movement",
@@ -921,6 +925,21 @@ def main():
         post_to_monday(bullets)
     except Exception as e:
         print(f"Monday post failed: {e}")
+
+    # ── Weekly Intelligence Layer ──────────────────────────────────────────────
+    # Runs after all existing reports. Non-fatal: failure does not block outputs.
+    enable_intel = os.getenv("ENABLE_WEEKLY_INTELLIGENCE", "true").lower() == "true"
+    if enable_intel:
+        print("--- RUNNING WEEKLY SEO INTELLIGENCE LAYER ---")
+        try:
+            import weekly_seo_intelligence as _intel
+            _intel.main(dry_run=False)
+        except Exception as e:
+            print(f"Weekly intelligence layer failed (non-fatal): {e}")
+            import traceback
+            traceback.print_exc()
+    else:
+        print("--- WEEKLY INTELLIGENCE LAYER DISABLED (ENABLE_WEEKLY_INTELLIGENCE=false) ---")
 
     print("--- MASTER ORCHESTRATOR COMPLETE ---")
 

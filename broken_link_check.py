@@ -1383,10 +1383,10 @@ body {{
 <div class="section">
   <div class="section-title">Status Codes &amp; Redirect Depth</div>
   <div class="report-section">
-    {_chart_row_2(
-        chart_paths.get("status_codes"),    "HTTP status code distribution",
-        chart_paths.get("redirect_depth"),  "Redirect chain depth"
-    )}
+    <div class="col-header">HTTP Status Code Distribution</div>
+    {_chart_wrap(chart_paths.get("status_codes"), "HTTP status code distribution")}
+    <div class="col-header">Redirect Chain Depth</div>
+    {_chart_wrap(chart_paths.get("redirect_depth"), "Redirect chain depth")}
   </div>
 </div>
 

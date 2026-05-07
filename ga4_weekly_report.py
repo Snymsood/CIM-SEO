@@ -125,6 +125,215 @@ def _fetch_countries(client, start_date, end_date):
     return _response_to_df(_run_report(client, dims, mets, start_date, end_date, 15), dims, mets)
 
 
+def _load_conversion_config(path: str = "tracked_conversions.csv") -> pd.DataFrame:
+    """Load conversion event config. Returns empty DataFrame if file missing."""
+    import os
+    if not os.path.exists(path):
+        print(f"  ⚠ tracked_conversions.csv not found at {path}. Conversion tracking disabled.")
+        return pd.DataFrame()
+    try:
+        df = pd.read_csv(path)
+        df["conversion_event"] = df["conversion_event"].astype(str).str.strip().str.lower()
+        return df
+    except Exception as e:
+        print(f"  ⚠ Could not load tracked_conversions.csv: {e}")
+        return pd.DataFrame()
+
+
+def _fetch_conversions_by_event(client, start_date: str, end_date: str,
+                                 event_names: list) -> pd.DataFrame:
+    """
+    Fetch event counts for configured conversion events.
+    Uses eventName dimension + eventCount metric.
+    Returns empty DataFrame if no events configured or API fails.
+    """
+    if not event_names:
+        return pd.DataFrame()
+    dims = ["eventName"]
+    mets = ["eventCount", "sessions"]
+    try:
+        df = _response_to_df(
+            _run_report(client, dims, mets, start_date, end_date, limit=500),
+            dims, mets
+        )
+        if df.empty:
+            return df
+        df["eventName"] = df["eventName"].str.lower()
+        df["eventCount"] = pd.to_numeric(df["eventCount"], errors="coerce").fillna(0)
+        df["sessions"]   = pd.to_numeric(df["sessions"],   errors="coerce").fillna(0)
+        # Filter to configured events only
+        filtered = df[df["eventName"].isin([e.lower() for e in event_names])].copy()
+        return filtered
+    except Exception as e:
+        print(f"  ⚠ Conversion event fetch failed: {e}")
+        return pd.DataFrame()
+
+
+def _fetch_conversions_by_page(client, start_date: str, end_date: str,
+                                event_names: list) -> pd.DataFrame:
+    """
+    Fetch conversion events broken down by landing page.
+    Returns top 50 pages by conversion count.
+    """
+    if not event_names:
+        return pd.DataFrame()
+    dims = ["landingPage", "eventName"]
+    mets = ["eventCount", "sessions"]
+    try:
+        df = _response_to_df(
+            _run_report(client, dims, mets, start_date, end_date, limit=1000),
+            dims, mets
+        )
+        if df.empty:
+            return df
+        df["eventName"] = df["eventName"].str.lower()
+        df["eventCount"] = pd.to_numeric(df["eventCount"], errors="coerce").fillna(0)
+        df["sessions"]   = pd.to_numeric(df["sessions"],   errors="coerce").fillna(0)
+        filtered = df[df["eventName"].isin([e.lower() for e in event_names])].copy()
+        if filtered.empty:
+            return filtered
+        # Aggregate by page
+        page_agg = (
+            filtered.groupby("landingPage")
+            .agg(total_conversions=("eventCount", "sum"), sessions=("sessions", "max"))
+            .reset_index()
+            .sort_values("total_conversions", ascending=False)
+            .head(50)
+        )
+        return page_agg
+    except Exception as e:
+        print(f"  ⚠ Conversion by page fetch failed: {e}")
+        return pd.DataFrame()
+
+
+def _fetch_conversions_by_channel(client, start_date: str, end_date: str,
+                                   event_names: list) -> pd.DataFrame:
+    """Fetch conversion events broken down by channel group."""
+    if not event_names:
+        return pd.DataFrame()
+    dims = ["sessionDefaultChannelGroup", "eventName"]
+    mets = ["eventCount", "sessions"]
+    try:
+        df = _response_to_df(
+            _run_report(client, dims, mets, start_date, end_date, limit=200),
+            dims, mets
+        )
+        if df.empty:
+            return df
+        df["eventName"] = df["eventName"].str.lower()
+        df["eventCount"] = pd.to_numeric(df["eventCount"], errors="coerce").fillna(0)
+        df["sessions"]   = pd.to_numeric(df["sessions"],   errors="coerce").fillna(0)
+        filtered = df[df["eventName"].isin([e.lower() for e in event_names])].copy()
+        if filtered.empty:
+            return filtered
+        channel_agg = (
+            filtered.groupby("sessionDefaultChannelGroup")
+            .agg(total_conversions=("eventCount", "sum"), sessions=("sessions", "max"))
+            .reset_index()
+            .sort_values("total_conversions", ascending=False)
+        )
+        return channel_agg
+    except Exception as e:
+        print(f"  ⚠ Conversion by channel fetch failed: {e}")
+        return pd.DataFrame()
+
+
+def fetch_conversion_data(current_start: str, current_end: str,
+                          previous_start: str, previous_end: str) -> dict:
+    """
+    Fetch all conversion data for current and previous periods.
+    Returns a dict with keys: config, curr_events, prev_events, curr_pages, curr_channels.
+    All values are DataFrames; empty DataFrames on failure.
+    """
+    config_df = _load_conversion_config()
+    if config_df.empty:
+        return {
+            "config": config_df,
+            "curr_events": pd.DataFrame(),
+            "prev_events": pd.DataFrame(),
+            "curr_pages":  pd.DataFrame(),
+            "curr_channels": pd.DataFrame(),
+            "warning": "No conversion events configured in tracked_conversions.csv",
+        }
+
+    event_names = config_df["conversion_event"].tolist()
+    print(f"  Fetching conversions for {len(event_names)} configured events…", flush=True)
+
+    def _run(fn, *args):
+        c = get_ga4_client()
+        return fn(c, *args)
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    tasks = {
+        "curr_events":   (_fetch_conversions_by_event,   current_start,  current_end,  event_names),
+        "prev_events":   (_fetch_conversions_by_event,   previous_start, previous_end, event_names),
+        "curr_pages":    (_fetch_conversions_by_page,    current_start,  current_end,  event_names),
+        "curr_channels": (_fetch_conversions_by_channel, current_start,  current_end,  event_names),
+    }
+    results = {"config": config_df, "warning": None}
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        future_map = {executor.submit(_run, fn, *fn_args): key
+                      for key, (fn, *fn_args) in tasks.items()}
+        for future in as_completed(future_map):
+            key = future_map[future]
+            try:
+                results[key] = future.result()
+                count = len(results[key]) if not results[key].empty else 0
+                print(f"  ✓ conversions/{key} ({count} rows)", flush=True)
+            except Exception as e:
+                print(f"  ✗ conversions/{key}: {e}", flush=True)
+                results[key] = pd.DataFrame()
+
+    # Compute summary
+    curr_total = results["curr_events"]["eventCount"].sum() if not results["curr_events"].empty else 0
+    prev_total = results["prev_events"]["eventCount"].sum() if not results["prev_events"].empty else 0
+    results["curr_total"] = curr_total
+    results["prev_total"] = prev_total
+    return results
+
+
+def build_conversion_summary(conv_data: dict) -> pd.DataFrame:
+    """
+    Build a summary DataFrame from conversion fetch results.
+    Merges current and previous event counts with config metadata.
+    """
+    config_df   = conv_data.get("config", pd.DataFrame())
+    curr_events = conv_data.get("curr_events", pd.DataFrame())
+    prev_events = conv_data.get("prev_events", pd.DataFrame())
+
+    if config_df.empty:
+        return pd.DataFrame()
+
+    summary_rows = []
+    for _, cfg_row in config_df.iterrows():
+        event = cfg_row["conversion_event"].lower()
+        curr_count = 0.0
+        prev_count = 0.0
+        if not curr_events.empty and "eventName" in curr_events.columns:
+            match = curr_events[curr_events["eventName"] == event]
+            curr_count = float(match["eventCount"].sum()) if not match.empty else 0.0
+        if not prev_events.empty and "eventName" in prev_events.columns:
+            match = prev_events[prev_events["eventName"] == event]
+            prev_count = float(match["eventCount"].sum()) if not match.empty else 0.0
+
+        from seo_utils import safe_pct_change as _spc
+        pct_chg = _spc(curr_count, prev_count)
+        summary_rows.append({
+            "conversion_event":    event,
+            "display_name":        cfg_row.get("display_name", event),
+            "category":            cfg_row.get("category", ""),
+            "priority":            cfg_row.get("priority", "medium"),
+            "business_value_proxy":cfg_row.get("business_value_proxy", 0),
+            "current_count":       curr_count,
+            "previous_count":      prev_count,
+            "pct_change":          pct_chg,
+            "configured":          True,
+            "has_data":            curr_count > 0 or prev_count > 0,
+        })
+
+    return pd.DataFrame(summary_rows)
+
+
 def _fetch_daily_trend(client, start_date, end_date):
     dims = ["date"]
     mets = ["sessions", "activeUsers", "engagedSessions"]
@@ -235,7 +444,7 @@ def _fmt(val, decimals=0, pct=False):
             return f"{v:.2%}"
         if decimals == 0:
             return f"{v:,.0f}"
-        return f"{v:,.{decimals}f}"
+        return f"{v:,.{min(decimals, 2)}f}"
     except (TypeError, ValueError):
         s = str(val)
         return s[:57] + "..." if len(s) > 60 else s
@@ -246,7 +455,7 @@ def _delta_html(val, decimals=0, lower_is_better=False):
         v = float(val)
     except (TypeError, ValueError):
         return "-"
-    if math.isclose(v, 0, abs_tol=1e-5):
+    if math.isclose(v, 0, abs_tol=0.05):  # treat |Δ| < 0.05 as zero (avoids "+0" / "-0")
         return '<span class="chg neu">—</span>'
     positive_good = (v > 0 and not lower_is_better) or (v < 0 and lower_is_better)
     cls  = "pos" if positive_good else "neg"
@@ -493,24 +702,79 @@ def plot_page_movers(pages_df):
     return _save(fig, "ga4_page_movers.png")
 
 
+def plot_channel_quality(channels_df):
+    """
+    Scatter: sessions (x) vs engagement rate (y), bubble = active users.
+    Identifies high-volume / low-quality channels and vice versa.
+    """
+    if channels_df.empty:
+        return _placeholder("ga4_channel_quality.png")
+
+    df = channels_df.copy()
+    for col in ["sessions", "activeUsers", "engagementRate"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+
+    df = df[df["sessions"] > 0]
+    if df.empty:
+        return _placeholder("ga4_channel_quality.png")
+
+    df["engPct"] = df["engagementRate"] * 100
+    max_users = df["activeUsers"].max() or 1
+    sizes = (df["activeUsers"] / max_users * 800).clip(lower=60)
+
+    colors = [C_GREEN if e >= 60 else C_AMBER if e >= 40 else C_CORAL for e in df["engPct"]]
+
+    fig, ax = plt.subplots(figsize=(13, 4.8))
+    fig.patch.set_facecolor("white")
+
+    ax.scatter(df["sessions"], df["engPct"], s=sizes, c=colors,
+               alpha=0.75, edgecolors="white", linewidths=1.2, zorder=3)
+
+    # Quadrant lines
+    med_x = df["sessions"].median()
+    med_y = df["engPct"].median()
+    ax.axvline(med_x, color=C_BORDER, linestyle="--", linewidth=1, zorder=1)
+    ax.axhline(med_y, color=C_BORDER, linestyle="--", linewidth=1, zorder=1)
+
+    # Quadrant labels
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    ax.text(xlim[1] * 0.98, ylim[1] * 0.98, "High Volume\nHigh Quality",
+            ha="right", va="top", fontsize=7, color=C_GREEN, fontweight="700")
+    ax.text(xlim[0] + (xlim[1] - xlim[0]) * 0.02, ylim[1] * 0.98, "Low Volume\nHigh Quality",
+            ha="left", va="top", fontsize=7, color=C_TEAL, fontweight="700")
+    ax.text(xlim[1] * 0.98, ylim[0] + (ylim[1] - ylim[0]) * 0.02, "High Volume\nLow Quality",
+            ha="right", va="bottom", fontsize=7, color=C_AMBER, fontweight="700")
+
+    # Label each channel
+    for _, row in df.iterrows():
+        ax.annotate(str(row["sessionDefaultChannelGroup"])[:20],
+                    xy=(row["sessions"], row["engPct"]),
+                    xytext=(5, 4), textcoords="offset points",
+                    fontsize=7, color="#374151",
+                    bbox=dict(boxstyle="round,pad=0.2", fc="white", ec=C_BORDER, alpha=0.85))
+
+    ax.grid(linestyle="--", alpha=0.25, color=C_BORDER, zorder=1)
+    _style_ax(ax, title="Channel Quality Matrix  ·  bubble = active users  ·  colour = engagement tier",
+              xlabel="Sessions", ylabel="Engagement Rate (%)")
+    fig.tight_layout(pad=2.0)
+    return _save(fig, "ga4_channel_quality.png")
+
+
 def build_all_charts(kpis, trend_curr, trend_prev, curr_channels, prev_channels,
                      device_df, pages_comparison):
     print("  Generating charts…", flush=True)
     return {
-        "kpi_bars":    plot_kpi_bars(kpis),
-        "trend":       plot_trend(trend_curr, trend_prev),
-        "channels":    plot_channel_bars(curr_channels, prev_channels),
-        "devices":     plot_device_split(device_df),
-        "top_pages":   plot_top_pages(pages_comparison),
-        "page_movers": plot_page_movers(pages_comparison),
+        "kpi_bars":         plot_kpi_bars(kpis),
+        "trend":            plot_trend(trend_curr, trend_prev),
+        "channels":         plot_channel_bars(curr_channels, prev_channels),
+        "devices":          plot_device_split(device_df),
+        "top_pages":        plot_top_pages(pages_comparison),
+        "page_movers":      plot_page_movers(pages_comparison),
+        "channel_quality":  plot_channel_quality(curr_channels),
     }
 
-
-# ══════════════════════════════════════════════════════════════════════════════
-# AI ANALYSIS
-# ══════════════════════════════════════════════════════════════════════════════
-
-test
 
 # ══════════════════════════════════════════════════════════════════════════════
 # AI ANALYSIS
@@ -861,16 +1125,27 @@ body {{ font-family: 'Source Serif 4', Georgia, serif; font-size: 14px; color: #
 <div class="section">
   <div class="section-title">Channel &amp; Device Mix</div>
   <div class="report-section">
-    {_chart_row_2(chart_paths.get("channels"), "Channel performance",
-                  chart_paths.get("devices"),  "Device split")}
+    <div class="col-header">Sessions by Channel</div>
+    {_chart_wrap(chart_paths.get("channels"), "Channel performance")}
+    <div class="col-header">Sessions by Device</div>
+    {_chart_wrap(chart_paths.get("devices"), "Device split")}
+  </div>
+</div>
+<hr class="rule-thick">
+<div class="section">
+  <div class="section-title">Channel Quality Matrix</div>
+  <div class="report-section">
+    {_chart_wrap(chart_paths.get("channel_quality"), "Channel quality matrix")}
   </div>
 </div>
 <hr class="rule-thick">
 <div class="section">
   <div class="section-title">Landing Page Performance</div>
   <div class="report-section">
-    {_chart_row_2(chart_paths.get("top_pages"),   "Top landing pages",
-                  chart_paths.get("page_movers"), "Page movers")}
+    <div class="col-header">Top Landing Pages by Sessions</div>
+    {_chart_wrap(chart_paths.get("top_pages"), "Top landing pages")}
+    <div class="col-header">Session Winners &amp; Losers (WoW)</div>
+    {_chart_wrap(chart_paths.get("page_movers"), "Page movers")}
   </div>
 </div>
 <hr class="rule-thick">
@@ -990,6 +1265,36 @@ def main():
     summary_df    = prepare_summary_comparison(curr_summary, prev_summary)
     pages_df      = prepare_pages_comparison(curr_pages, prev_pages)
     kpis          = calculate_kpis(curr_summary, prev_summary)
+
+    # Conversion data
+    print("Fetching conversion data...")
+    conv_data = fetch_conversion_data(
+        current_start.isoformat(), current_end.isoformat(),
+        previous_start.isoformat(), previous_end.isoformat()
+    )
+    conv_summary_df = build_conversion_summary(conv_data)
+    conv_pages_df   = conv_data.get("curr_pages",    pd.DataFrame())
+    conv_channels_df= conv_data.get("curr_channels", pd.DataFrame())
+
+    # Save conversion CSVs
+    conv_summary_df.to_csv("ga4_conversion_summary.csv", index=False)
+    conv_pages_df.to_csv("ga4_conversion_pages.csv", index=False)
+    conv_channels_df.to_csv("ga4_conversion_channels.csv", index=False)
+    if not conv_data.get("curr_events", pd.DataFrame()).empty:
+        conv_data["curr_events"].to_csv("ga4_conversions_current.csv", index=False)
+    if not conv_data.get("prev_events", pd.DataFrame()).empty:
+        conv_data["prev_events"].to_csv("ga4_conversions_previous.csv", index=False)
+
+    # Append conversion summary to Google Sheets
+    if not conv_summary_df.empty:
+        append_to_sheet(conv_summary_df, "GA4_Conversions")
+
+    if conv_data.get("warning"):
+        print(f"  ⚠ Conversion warning: {conv_data['warning']}", flush=True)
+    else:
+        curr_total = conv_data.get("curr_total", 0)
+        prev_total = conv_data.get("prev_total", 0)
+        print(f"  Conversions: {curr_total:,.0f} (curr) vs {prev_total:,.0f} (prev)", flush=True)
 
     # Save CSVs
     summary_df.to_csv("ga4_summary_comparison.csv", index=False)

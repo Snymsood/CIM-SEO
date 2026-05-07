@@ -340,12 +340,22 @@ def mm_chart_wrap(path, alt="chart"):
 
 
 def mm_chart_row_2(path_a, alt_a, path_b, alt_b):
+    """Render two charts stacked full-width (previously side-by-side — changed to full-width per design standards)."""
     import html as _html
-    a = f'<div><img src="{_html.escape(str(path_a))}" alt="{_html.escape(alt_a)}" style="width:100%;display:block;border:2px solid #000;"></div>' if path_a else "<div></div>"
-    b = f'<div><img src="{_html.escape(str(path_b))}" alt="{_html.escape(alt_b)}" style="width:100%;display:block;border:2px solid #000;"></div>' if path_b else "<div></div>"
-    if not path_a and not path_b:
-        return ""
-    return f'<div class="chart-row-2">{a}{b}</div>'
+    parts = []
+    if path_a:
+        parts.append(
+            f'<div style="width:100%;margin-bottom:24px;">'
+            f'<img src="{_html.escape(str(path_a))}" alt="{_html.escape(alt_a)}" '
+            f'style="width:100%;display:block;border:2px solid #000;"></div>'
+        )
+    if path_b:
+        parts.append(
+            f'<div style="width:100%;margin-bottom:24px;">'
+            f'<img src="{_html.escape(str(path_b))}" alt="{_html.escape(alt_b)}" '
+            f'style="width:100%;display:block;border:2px solid #000;"></div>'
+        )
+    return "".join(parts)
 
 
 def mm_exec_bullets(bullets):

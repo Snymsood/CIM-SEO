@@ -1,0 +1,12 @@
+metric,category,pct_threshold,absolute_threshold,direction,severity_high,severity_medium,notes
+clicks,organic_visibility,0.25,50,drop,0.40,0.25,GSC organic clicks WoW drop
+impressions,organic_visibility,0.30,200,drop,0.50,0.30,GSC impressions WoW drop
+ctr,organic_visibility,0.20,0.005,drop,0.35,0.20,CTR absolute drop (e.g. 0.005 = 0.5pp)
+avg_position,organic_visibility,0.0,2.0,worsen,0.0,2.0,Position worsens by N positions (absolute)
+sessions,traffic,0.20,100,drop,0.35,0.20,GA4 sessions WoW drop
+conversions,business,0.20,5,drop,0.35,0.20,Conversion count WoW drop
+conversion_rate,business,0.15,0.005,drop,0.25,0.15,Conversion rate absolute drop
+mobile_score,technical,0.0,10,drop,0.0,10,PageSpeed mobile score drop (absolute points)
+cwv_pass_rate,technical,0.15,0.1,drop,0.25,0.15,CWV pass rate drop
+broken_links,technical,0.0,10,spike,0.0,10,Broken link count increase (absolute)
+keyword_visibility,keyword,0.20,3,drop,0.35,0.20,Tracked keywords with visibility WoW drop

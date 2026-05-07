@@ -155,6 +155,10 @@ def prepare_comparison(current_df, previous_df):
     merged["ctr_change"] = merged["ctr_current"] - merged["ctr_previous"]
     merged["position_change"] = merged["position_current"] - merged["position_previous"]
 
+    # Round position values to 1 decimal place for clean display
+    for col in ["position_current", "position_previous", "position_change"]:
+        merged[col] = merged[col].round(1)
+
     merged["position_improved"] = (
         (merged["position_previous"] > 0) &
         (merged["position_current"] > 0) &
@@ -185,20 +189,35 @@ def prepare_comparison(current_df, previous_df):
 
 def _fmt(val, decimals=0, pct=False):
     """Format a value for table display."""
-    return format_num(val, decimals, as_percent=pct)
+    try:
+        v = float(val)
+        import math
+        if math.isnan(v):
+            return "-"
+        if pct:
+            return f"{v:.2%}"
+        if decimals == 0:
+            return f"{v:,.0f}"
+        return f"{v:,.{min(decimals, 2)}f}"
+    except (TypeError, ValueError):
+        s = str(val)
+        return s[:57] + "..." if len(s) > 60 else s
 
 
 def _delta_html(val, decimals=0, lower_is_better=False):
     """Return a colored delta span for HTML tables."""
-    delta_str = format_delta(val, decimals)
-    if delta_str == "-":
+    import math
+    try:
+        v = float(val)
+    except (TypeError, ValueError):
+        return "-"
+    if math.isclose(v, 0, abs_tol=0.05):  # treat |Δ| < 0.05 as zero (avoids "+0" / "-0")
         return '<span class="chg neu">—</span>'
-    
-    is_positive = delta_str.startswith("+")
+    is_positive = v > 0
     is_good = (is_positive and not lower_is_better) or (not is_positive and lower_is_better)
-    
     css_class = "pos" if is_good else "neg"
-    return f'<span class="chg {css_class}">{html.escape(delta_str)}</span>'
+    sign = "+" if v > 0 else ""
+    return f'<span class="chg {css_class}">{sign}{v:.{decimals}f}</span>'
 
 
 def position_band_html(pos):
@@ -1270,8 +1289,10 @@ body {{
 <div class="section">
   <div class="section-title">Winners &amp; Losers</div>
   <div class="report-section">
-    {_chart_row_2(charts.get("traffic_changes"), "Traffic winners & losers",
-                  charts.get("position_changes"), "Position movement")}
+    <div class="col-header">Traffic Winners &amp; Losers</div>
+    {_chart_wrap(charts.get("traffic_changes"), "Traffic winners & losers")}
+    <div class="col-header">Position Movement</div>
+    {_chart_wrap(charts.get("position_changes"), "Position movement")}
   </div>
 </div>
 

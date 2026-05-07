@@ -1128,7 +1128,8 @@ def write_html_summary(comparison_df, exec_bullets, chart_paths, current_start, 
         return mm_chart_wrap(path, alt) if path else ""
 
     def _row2(key_a, alt_a, key_b, alt_b):
-        return mm_chart_row_2(chart_paths.get(key_a), alt_a, chart_paths.get(key_b), alt_b)
+        """Render two charts stacked full-width (no side-by-side columns)."""
+        return _img(key_a, alt_a) + _img(key_b, alt_b)
 
     kpi_grid = mm_kpi_grid(
         mm_kpi_card("Visible Keywords",     visible_now,    visible_prev),
