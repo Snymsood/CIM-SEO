@@ -26,9 +26,83 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
+          playwright install chromium
 
       - name: Write service account key
         run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
+
+      - name: Download latest master orchestrator artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: master-orchestrator-artifacts
+          path: .
+        continue-on-error: true
+
+      - name: Run site speed monitoring (if no snapshot available)
+        env:
+          PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_ITEM_ID: ${{ secrets.MONDAY_ITEM_ID }}
+        run: |
+          if [ ! -f site_speed_latest_snapshot.csv ]; then
+            echo "No snapshot found — running site_speed_monitoring.py"
+            python -u site_speed_monitoring.py
+          else
+            echo "Snapshot found — skipping site_speed_monitoring.py"
+          fi
+
+      - name: Run broken link check (if no results available)
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_ITEM_ID: ${{ secrets.MONDAY_BROKEN_LINK_ITEM_ID }}
+        run: |
+          if [ ! -f broken_link_results.csv ]; then
+            echo "No broken link results found — running broken_link_check.py"
+            python -u broken_link_check.py
+          else
+            echo "Broken link results found — skipping broken_link_check.py"
+          fi
+
+      - name: Run internal linking audit (if no results available)
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_ITEM_ID: ${{ secrets.MONDAY_INTERNAL_LINK_ITEM_ID }}
+        run: |
+          if [ ! -f internal_linking_page_summary.csv ]; then
+            echo "No internal linking data found — running internal_linking_audit.py"
+            python -u internal_linking_audit.py
+          else
+            echo "Internal linking data found — skipping internal_linking_audit.py"
+          fi
+
+      - name: Run content audit (if no results available)
+        env:
+          GSC_PROPERTY: "https://www.cim.org/"
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_ITEM_ID: ${{ secrets.MONDAY_CONTENT_AUDIT_ITEM_ID }}
+        run: |
+          if [ ! -f content_audit_candidates.csv ]; then
+            echo "No content audit data found — running content_audit_schedule_report.py"
+            python -u content_audit_schedule_report.py
+          else
+            echo "Content audit data found — skipping content_audit_schedule_report.py"
+          fi
+
+      - name: Run content category performance (if no results available)
+        env:
+          GSC_PROPERTY: "https://www.cim.org/"
+          GA4_PROPERTY_ID: "341629008"
+        run: |
+          if [ ! -f content_category_performance.csv ]; then
+            echo "No content category data found — running content_category_performance.py"
+            python -u content_category_performance.py
+          else
+            echo "Content category data found — skipping content_category_performance.py"
+          fi
 
       - name: Run Monthly Master Report
         env:

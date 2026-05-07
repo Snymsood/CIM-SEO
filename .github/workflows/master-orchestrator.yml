@@ -47,6 +47,12 @@ jobs:
           MONDAY_GSC_ITEM_ID: ${{ secrets.MONDAY_ITEM_ID }}
           MONDAY_AI_SNIPPET_ITEM_ID: ${{ secrets.MONDAY_AI_SNIPPET_ITEM_ID }}
           MONDAY_MASTER_ITEM_ID: ${{ secrets.MONDAY_MASTER_ITEM_ID }}
+          MONDAY_GSC_KEYWORD_ITEM_ID: ${{ secrets.MONDAY_GSC_KEYWORD_ITEM_ID }}
+          MONDAY_GSC_LANDING_ITEM_ID: ${{ secrets.MONDAY_GSC_LANDING_ITEM_ID }}
+          MONDAY_BROKEN_LINK_ITEM_ID: ${{ secrets.MONDAY_BROKEN_LINK_ITEM_ID }}
+          MONDAY_INTERNAL_LINK_ITEM_ID: ${{ secrets.MONDAY_INTERNAL_LINK_ITEM_ID }}
+          MONDAY_CONTENT_AUDIT_ITEM_ID: ${{ secrets.MONDAY_CONTENT_AUDIT_ITEM_ID }}
+          MONDAY_INTELLIGENCE_ITEM_ID: ${{ secrets.MONDAY_INTELLIGENCE_ITEM_ID }}
         run: python -u master_orchestrator.py
 
       - name: Upload Master Artifacts
