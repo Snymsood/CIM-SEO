@@ -8,6 +8,7 @@ import requests
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 
 from openai import OpenAI
 from datetime import date

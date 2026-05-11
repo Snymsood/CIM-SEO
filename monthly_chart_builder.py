@@ -798,7 +798,7 @@ def chart_technical_issues(pagespeed_data):
         "Poor INP": (mobile["inp_field_category"] == "SLOW").sum(),
         "Poor CLS": (mobile["cls_field_category"] == "SLOW").sum(),
         "Low Performance Score": (mobile["performance_score"] < 50).sum(),
-        "Failed CWV": (~mobile["cwv_pass"]).sum() if "cwv_pass" in mobile.columns else 0,
+        "Failed CWV": (~mobile["cwv_pass"].astype(bool)).sum() if "cwv_pass" in mobile.columns else 0,
     }
     
     # Filter to non-zero issues
