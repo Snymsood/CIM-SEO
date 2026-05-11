@@ -13,7 +13,7 @@ import pandas as pd
 import json
 from html_report_utils import (
     mm_html_shell, mm_section, mm_kpi_card, mm_kpi_grid,
-    mm_apex_chart, mm_report_section, mm_col_header
+    mm_apex_chart, mm_report_section, mm_col_header, mm_exec_bullets
 )
 
 from google_sheets_db import append_to_sheet
