@@ -450,51 +450,6 @@ def _fmt(val, decimals=0, pct=False):
         return s[:57] + "..." if len(s) > 60 else s
 
 
-d# (Plotting functions removed - using ApexCharts)
-", alpha=0.3, color=C_BORDER)
-    ax.set_title("7-Day Daily Trend — Sessions & Engaged Sessions", fontsize=10,
-                 fontweight="600", color="#1A1A1A", pad=8, loc="left")
-    lines1, labels1 = ax.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax.legend(lines1 + lines2, labels1 + labels2, fontsize=7.5, frameon=False,
-              loc="upper right", ncol=3)
-    fig.tight_layout(pad=1.5)
-    return _save(fig, "ga4_trend.png")
-
-
-def plot_channel_bars(curr_df, prev_df):
-    """Grouped bar: sessions by channel, current vs previous."""
-    if curr_df.empty:
-        return _placeholder("ga4_channels.png")
-    for df in [curr_df, prev_df]:
-        df["sessions"] = pd.to_numeric(df["sessions"], errors="coerce").fillna(0)
-    merged = pd.merge(
-        curr_df[["sessionDefaultChannelGroup", "sessions"]].rename(columns={"sessions": "curr"}),
-        prev_df[["sessionDefaultChannelGroup", "sessions"]].rename(columns={"sessions": "prev"}),
-        on="sessionDefaultChannelGroup", how="outer"
-    ).fillna(0).sort_values("curr", ascending=False).head(8)
-    labels = [short_url(str(c), 20) for c in merged["sessionDefaultChannelGroup"]]
-    x = np.arange(len(labels))
-    width = 0.38
-    fig, ax = plt.subplots(figsize=(13, 4.8))
-    fig.patch.set_facecolor("white")
-    bars_p = ax.bar(x - width / 2, merged["prev"], width=width, color=C_SLATE, label="Previous", zorder=2)
-    bars_c = ax.bar(x + width / 2, merged["curr"], width=width, color=C_NAVY, label="Current", zorder=2)
-    max_v = max(merged["curr"].max(), merged["prev"].max(), 1)
-    for bar, v in zip(list(bars_p) + list(bars_c), list(merged["prev"]) + list(merged["curr"])):
-        if v > 0:
-            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() * 1.03,
-                    f"{int(v):,}", ha="center", va="bottom", fontsize=8, color="#374151", fontweight="600")
-    ax.set_xticks(x)
-    ax.set_xticklabels(labels, fontsize=8, rotation=15, ha="right")
-    ax.legend(frameon=False, fontsize=8)
-    ax.grid(axis="y", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
-    ax.set_ylim(0, max_v * 1.25)
-    _style_ax(ax, title="Sessions by Channel — Current vs Previous Week")
-    fig.tight_layout(pad=2.0)
-    return _save(fig, "ga4_channels.png")
-
-
 def build_all_charts(*args, **kwargs):
     """Legacy helper (now using direct data injection into HTML)."""
     return {}
