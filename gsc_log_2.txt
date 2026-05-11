@@ -1,0 +1,44 @@
+gsc-report	Run GSC report	﻿2026-05-11T21:58:57.8064237Z ##[group]Run python gsc_weekly_report.py
+gsc-report	Run GSC report	2026-05-11T21:58:57.8064651Z [36;1mpython gsc_weekly_report.py[0m
+gsc-report	Run GSC report	2026-05-11T21:58:57.8085720Z shell: /usr/bin/bash -e ***0***
+gsc-report	Run GSC report	2026-05-11T21:58:57.8086052Z env:
+gsc-report	Run GSC report	2026-05-11T21:58:57.8086388Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Run GSC report	2026-05-11T21:58:57.8086903Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+gsc-report	Run GSC report	2026-05-11T21:58:57.8087399Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Run GSC report	2026-05-11T21:58:57.8087874Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Run GSC report	2026-05-11T21:58:57.8088653Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Run GSC report	2026-05-11T21:58:57.8089128Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+gsc-report	Run GSC report	2026-05-11T21:58:57.8089576Z   GSC_PROPERTY: https://www.cim.org/
+gsc-report	Run GSC report	2026-05-11T21:58:57.8090071Z   GROQ_API_KEY: ***
+gsc-report	Run GSC report	2026-05-11T21:58:57.8091570Z   MONDAY_API_TOKEN: ***
+gsc-report	Run GSC report	2026-05-11T21:58:57.8091886Z   MONDAY_ITEM_ID: ***
+gsc-report	Run GSC report	2026-05-11T21:58:57.8092268Z   GOOGLE_SHEET_ID: ***
+gsc-report	Run GSC report	2026-05-11T21:58:57.8092571Z ##[endgroup]
+gsc-report	Run GSC report	2026-05-11T21:59:06.2038841Z Traceback (most recent call last):
+gsc-report	Run GSC report	2026-05-11T21:59:06.2040028Z GSC Weekly Report — starting
+gsc-report	Run GSC report	2026-05-11T21:59:06.2040984Z Current:  2026-05-04 → 2026-05-10
+gsc-report	Run GSC report	2026-05-11T21:59:06.2041864Z Previous: 2026-04-27 → 2026-05-03
+gsc-report	Run GSC report	2026-05-11T21:59:06.2042692Z Fetching GSC data (parallel)…
+gsc-report	Run GSC report	2026-05-11T21:59:06.2043504Z   ✓ device_current
+gsc-report	Run GSC report	2026-05-11T21:59:06.2044025Z   ✓ trend_previous
+gsc-report	Run GSC report	2026-05-11T21:59:06.2044512Z   ✓ trend_current
+gsc-report	Run GSC report	2026-05-11T21:59:06.2045188Z   ✓ appearance
+gsc-report	Run GSC report	2026-05-11T21:59:06.2045734Z   ✓ previous_page
+gsc-report	Run GSC report	2026-05-11T21:59:06.2046125Z   ✓ previous_query
+gsc-report	Run GSC report	2026-05-11T21:59:06.2046516Z   ✓ current_page
+gsc-report	Run GSC report	2026-05-11T21:59:06.2047120Z   ✓ current_query
+gsc-report	Run GSC report	2026-05-11T21:59:06.2047743Z Successfully appended 5656 rows to 'GSC_Query_Comparison' tab.
+gsc-report	Run GSC report	2026-05-11T21:59:06.2048934Z Successfully appended 1870 rows to 'GSC_Page_Comparison' tab.
+gsc-report	Run GSC report	2026-05-11T21:59:06.2049801Z Successfully appended 3 rows to 'GSC_Device_Split' tab.
+gsc-report	Run GSC report	2026-05-11T21:59:06.2050835Z Generating charts…
+gsc-report	Run GSC report	2026-05-11T21:59:06.2051498Z Building executive summary…
+gsc-report	Run GSC report	2026-05-11T21:59:06.2052171Z Saved weekly_summary.md
+gsc-report	Run GSC report	2026-05-11T21:59:06.2057919Z   File "/home/runner/work/CIM-SEO/CIM-SEO/gsc_weekly_report.py", line 1163, in <module>
+gsc-report	Run GSC report	2026-05-11T21:59:06.2058796Z     main()
+gsc-report	Run GSC report	2026-05-11T21:59:06.2059266Z   File "/home/runner/work/CIM-SEO/CIM-SEO/gsc_weekly_report.py", line 1147, in main
+gsc-report	Run GSC report	2026-05-11T21:59:06.2059833Z     write_html_summary(query_df, page_df, exec_bullets, kpis,
+gsc-report	Run GSC report	2026-05-11T21:59:06.2060729Z   File "/home/runner/work/CIM-SEO/CIM-SEO/gsc_weekly_report.py", line 926, in write_html_summary
+gsc-report	Run GSC report	2026-05-11T21:59:06.2061323Z     mm_report_section(mm_exec_bullets(exec_bullets))
+gsc-report	Run GSC report	2026-05-11T21:59:06.2061701Z                       ^^^^^^^^^^^^^^^
+gsc-report	Run GSC report	2026-05-11T21:59:06.2062151Z NameError: name 'mm_exec_bullets' is not defined. Did you mean: 'exec_bullets'?
+gsc-report	Run GSC report	2026-05-11T21:59:06.4021621Z ##[error]Process completed with exit code 1.

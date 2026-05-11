@@ -942,10 +942,10 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
         mm_section("Deep Performance Tables",
             mm_report_section(
                 mm_col_header("Top 50 Queries by Clicks") +
-                _build_top_table(query_df, "query", is_page=False, n=50) +
+                build_top_table(query_df, "query", is_page=False, n=50) +
                 "<br><br>" +
                 mm_col_header("Top 50 Landing Pages by Clicks") +
-                _build_top_table(page_df, "page", is_page=True, n=50)
+                build_top_table(page_df, "page", is_page=True, n=50)
             )
         )
     )

@@ -1,0 +1,44 @@
+gsc-report	Run GSC report	﻿2026-05-11T22:09:36.6899147Z ##[group]Run python gsc_weekly_report.py
+gsc-report	Run GSC report	2026-05-11T22:09:36.6899544Z [36;1mpython gsc_weekly_report.py[0m
+gsc-report	Run GSC report	2026-05-11T22:09:36.6921403Z shell: /usr/bin/bash -e ***0***
+gsc-report	Run GSC report	2026-05-11T22:09:36.6921740Z env:
+gsc-report	Run GSC report	2026-05-11T22:09:36.6922083Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Run GSC report	2026-05-11T22:09:36.6922594Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+gsc-report	Run GSC report	2026-05-11T22:09:36.6923091Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Run GSC report	2026-05-11T22:09:36.6923558Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Run GSC report	2026-05-11T22:09:36.6924001Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Run GSC report	2026-05-11T22:09:36.6924434Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+gsc-report	Run GSC report	2026-05-11T22:09:36.6924855Z   GSC_PROPERTY: https://www.cim.org/
+gsc-report	Run GSC report	2026-05-11T22:09:36.6925355Z   GROQ_API_KEY: ***
+gsc-report	Run GSC report	2026-05-11T22:09:36.6926824Z   MONDAY_API_TOKEN: ***
+gsc-report	Run GSC report	2026-05-11T22:09:36.6927144Z   MONDAY_ITEM_ID: ***
+gsc-report	Run GSC report	2026-05-11T22:09:36.6927525Z   GOOGLE_SHEET_ID: ***
+gsc-report	Run GSC report	2026-05-11T22:09:36.6927849Z ##[endgroup]
+gsc-report	Run GSC report	2026-05-11T22:09:47.0578262Z Traceback (most recent call last):
+gsc-report	Run GSC report	2026-05-11T22:09:47.0579218Z GSC Weekly Report — starting
+gsc-report	Run GSC report	2026-05-11T22:09:47.0589911Z   File "/home/runner/work/CIM-SEO/CIM-SEO/gsc_weekly_report.py", line 1163, in <module>
+gsc-report	Run GSC report	2026-05-11T22:09:47.0590737Z     main()
+gsc-report	Run GSC report	2026-05-11T22:09:47.0591617Z   File "/home/runner/work/CIM-SEO/CIM-SEO/gsc_weekly_report.py", line 1147, in main
+gsc-report	Run GSC report	2026-05-11T22:09:47.0592226Z Current:  2026-05-04 → 2026-05-10
+gsc-report	Run GSC report	2026-05-11T22:09:47.0592615Z Previous: 2026-04-27 → 2026-05-03
+gsc-report	Run GSC report	2026-05-11T22:09:47.0592961Z Fetching GSC data (parallel)…
+gsc-report	Run GSC report	2026-05-11T22:09:47.0593298Z   ✓ trend_current
+gsc-report	Run GSC report	2026-05-11T22:09:47.0593589Z   ✓ trend_previous
+gsc-report	Run GSC report	2026-05-11T22:09:47.0593877Z   ✓ previous_query
+gsc-report	Run GSC report	2026-05-11T22:09:47.0594156Z   ✓ appearance
+gsc-report	Run GSC report	2026-05-11T22:09:47.0594425Z   ✓ device_current
+gsc-report	Run GSC report	2026-05-11T22:09:47.0594696Z   ✓ previous_page
+gsc-report	Run GSC report	2026-05-11T22:09:47.0594970Z   ✓ current_query
+gsc-report	Run GSC report	2026-05-11T22:09:47.0595239Z   ✓ current_page
+gsc-report	Run GSC report	2026-05-11T22:09:47.0595594Z Successfully appended 5656 rows to 'GSC_Query_Comparison' tab.
+gsc-report	Run GSC report	2026-05-11T22:09:47.0596136Z Successfully appended 1870 rows to 'GSC_Page_Comparison' tab.
+gsc-report	Run GSC report	2026-05-11T22:09:47.0596596Z Successfully appended 3 rows to 'GSC_Device_Split' tab.
+gsc-report	Run GSC report	2026-05-11T22:09:47.0597186Z Generating charts…
+gsc-report	Run GSC report	2026-05-11T22:09:47.0597500Z Building executive summary…
+gsc-report	Run GSC report	2026-05-11T22:09:47.0597805Z Saved weekly_summary.md
+gsc-report	Run GSC report	2026-05-11T22:09:47.0598183Z     write_html_summary(query_df, page_df, exec_bullets, kpis,
+gsc-report	Run GSC report	2026-05-11T22:09:47.0599126Z   File "/home/runner/work/CIM-SEO/CIM-SEO/gsc_weekly_report.py", line 945, in write_html_summary
+gsc-report	Run GSC report	2026-05-11T22:09:47.0599718Z     _build_top_table(query_df, "query", is_page=False, n=50) +
+gsc-report	Run GSC report	2026-05-11T22:09:47.0600091Z     ^^^^^^^^^^^^^^^^
+gsc-report	Run GSC report	2026-05-11T22:09:47.0600510Z NameError: name '_build_top_table' is not defined. Did you mean: 'build_top_table'?
+gsc-report	Run GSC report	2026-05-11T22:09:47.2944216Z ##[error]Process completed with exit code 1.

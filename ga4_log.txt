@@ -1,0 +1,58 @@
+ga4-weekly-report	Run GA4 weekly report	﻿2026-05-11T21:55:57.3545040Z ##[group]Run python -u ga4_weekly_report.py
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:57.3545473Z [36;1mpython -u ga4_weekly_report.py[0m
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:57.3566248Z shell: /usr/bin/bash -e ***0***
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:57.3566556Z env:
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:57.3566882Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:57.3567381Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:57.3567863Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:57.3568326Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:57.3568773Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:57.3569211Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:57.3569593Z   GA4_PROPERTY_ID: 341629008
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:57.3570021Z   GROQ_API_KEY: ***
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:57.3571519Z   MONDAY_API_TOKEN: ***
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:57.3571797Z   MONDAY_ITEM_ID: 11818936551
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:57.3572179Z   GOOGLE_SHEET_ID: ***
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:57.3572467Z ##[endgroup]
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:59.2586336Z GA4 Weekly Report — starting
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:59.2587297Z Current:  2026-05-04 -> 2026-05-10
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:59.2587874Z Previous: 2026-04-27 -> 2026-05-03
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:59.2588302Z Fetching GA4 data (parallel)...
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:59.9431941Z   ✓ prev_summary
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:59.9726538Z   ✓ prev_channels
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:55:59.9727169Z   ✓ curr_channels
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:00.0161464Z   ✓ prev_pages
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:00.0699294Z   ✓ curr_countries
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:00.0871513Z   ✓ curr_summary
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:00.0919959Z   ✓ curr_devices
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:00.1653235Z   ✓ curr_pages
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:00.2121746Z   ✓ curr_trend
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:00.3018191Z   ✓ prev_trend
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:00.3087453Z Fetching conversion data...
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:00.3103140Z   Fetching conversions for 8 configured events…
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:00.7056847Z   ✓ conversions/prev_events (1 rows)
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:00.7800204Z   ✓ conversions/curr_events (1 rows)
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:00.8169528Z   ✓ conversions/curr_channels (4 rows)
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:00.8801683Z   ✓ conversions/curr_pages (15 rows)
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:02.8278706Z Successfully appended 8 rows to 'GA4_Conversions' tab.
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:02.8293409Z   Conversions: 474 (curr) vs 519 (prev)
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:03.7581021Z Successfully appended 7 rows to 'GA4_Summary' tab.
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:04.6708811Z Successfully appended 32 rows to 'GA4_Top_Pages' tab.
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:05.4732981Z Successfully appended 8 rows to 'GA4_Top_Channels' tab.
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:06.2569338Z Successfully appended 3 rows to 'GA4_Device_Split' tab.
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:07.2360103Z Successfully appended 50 rows to 'GA4_Country_Split' tab.
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:07.2381523Z Generating charts...
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:07.2382021Z Building executive summary...
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:08.3488325Z Traceback (most recent call last):
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:08.3497323Z   File "/home/runner/work/CIM-SEO/CIM-SEO/ga4_weekly_report.py", line 1001, in <module>
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:08.3498212Z     main()
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:08.3498986Z   File "/home/runner/work/CIM-SEO/CIM-SEO/ga4_weekly_report.py", line 986, in main
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:08.3500047Z     write_html_summary(kpis, exec_bullets, chart_paths, pages_df, curr_channels,
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:08.3501205Z   File "/home/runner/work/CIM-SEO/CIM-SEO/ga4_weekly_report.py", line 792, in write_html_summary
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:08.3502132Z     pages_tbl    = build_pages_table(pages_df)
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:08.3502701Z                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:08.3503267Z   File "/home/runner/work/CIM-SEO/CIM-SEO/ga4_weekly_report.py", line 589, in build_pages_table
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:08.3503845Z     sess_bar = _bar_cell(float(sess), float(max_s), C_NAVY)
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:08.3504213Z                ^^^^^^^^^
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:08.3504946Z NameError: name '_bar_cell' is not defined
+ga4-weekly-report	Run GA4 weekly report	2026-05-11T21:56:08.5528230Z ##[error]Process completed with exit code 1.

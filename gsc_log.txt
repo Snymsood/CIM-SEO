@@ -1,0 +1,440 @@
+gsc-report	Set up job	﻿2026-05-11T21:52:28.2890283Z Current runner version: '2.334.0'
+gsc-report	Set up job	2026-05-11T21:52:28.2915782Z ##[group]Runner Image Provisioner
+gsc-report	Set up job	2026-05-11T21:52:28.2917317Z Hosted Compute Agent
+gsc-report	Set up job	2026-05-11T21:52:28.2918088Z Version: 20260213.493
+gsc-report	Set up job	2026-05-11T21:52:28.2919049Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+gsc-report	Set up job	2026-05-11T21:52:28.2920000Z Build Date: 2026-02-13T00:28:41Z
+gsc-report	Set up job	2026-05-11T21:52:28.2920978Z Worker ID: ***eabaf2ce-f9a3-4318-b469-b4e831d8d8a3***
+gsc-report	Set up job	2026-05-11T21:52:28.2922030Z Azure Region: westus3
+gsc-report	Set up job	2026-05-11T21:52:28.2922786Z ##[endgroup]
+gsc-report	Set up job	2026-05-11T21:52:28.2924538Z ##[group]Operating System
+gsc-report	Set up job	2026-05-11T21:52:28.2925868Z Ubuntu
+gsc-report	Set up job	2026-05-11T21:52:28.2926777Z 24.04.4
+gsc-report	Set up job	2026-05-11T21:52:28.2927456Z LTS
+gsc-report	Set up job	2026-05-11T21:52:28.2928175Z ##[endgroup]
+gsc-report	Set up job	2026-05-11T21:52:28.2928904Z ##[group]Runner Image
+gsc-report	Set up job	2026-05-11T21:52:28.2929788Z Image: ubuntu-24.04
+gsc-report	Set up job	2026-05-11T21:52:28.2930514Z Version: 20260413.86.1
+gsc-report	Set up job	2026-05-11T21:52:28.2931891Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260413.86/images/ubuntu/Ubuntu2404-Readme.md
+gsc-report	Set up job	2026-05-11T21:52:28.2933867Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260413.86
+gsc-report	Set up job	2026-05-11T21:52:28.2935036Z ##[endgroup]
+gsc-report	Set up job	2026-05-11T21:52:28.2936833Z ##[group]GITHUB_TOKEN Permissions
+gsc-report	Set up job	2026-05-11T21:52:28.2939220Z Contents: read
+gsc-report	Set up job	2026-05-11T21:52:28.2939972Z Metadata: read
+gsc-report	Set up job	2026-05-11T21:52:28.2940770Z Packages: read
+gsc-report	Set up job	2026-05-11T21:52:28.2941479Z ##[endgroup]
+gsc-report	Set up job	2026-05-11T21:52:28.2943849Z Secret source: Actions
+gsc-report	Set up job	2026-05-11T21:52:28.2944879Z Prepare workflow directory
+gsc-report	Set up job	2026-05-11T21:52:28.3336139Z Prepare all required actions
+gsc-report	Set up job	2026-05-11T21:52:28.3373336Z Getting action download info
+gsc-report	Set up job	2026-05-11T21:52:28.7650281Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+gsc-report	Set up job	2026-05-11T21:52:28.8962750Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+gsc-report	Set up job	2026-05-11T21:52:28.9726692Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+gsc-report	Set up job	2026-05-11T21:52:29.1842241Z Complete job name: gsc-report
+gsc-report	Checkout repo	﻿2026-05-11T21:52:29.2583926Z ##[group]Run actions/checkout@v4
+gsc-report	Checkout repo	2026-05-11T21:52:29.2584996Z with:
+gsc-report	Checkout repo	2026-05-11T21:52:29.2585843Z   repository: Snymsood/CIM-SEO
+gsc-report	Checkout repo	2026-05-11T21:52:29.2586632Z   token: ***
+gsc-report	Checkout repo	2026-05-11T21:52:29.2587182Z   ssh-strict: true
+gsc-report	Checkout repo	2026-05-11T21:52:29.2587737Z   ssh-user: git
+gsc-report	Checkout repo	2026-05-11T21:52:29.2588296Z   persist-credentials: true
+gsc-report	Checkout repo	2026-05-11T21:52:29.2588903Z   clean: true
+gsc-report	Checkout repo	2026-05-11T21:52:29.2589470Z   sparse-checkout-cone-mode: true
+gsc-report	Checkout repo	2026-05-11T21:52:29.2590111Z   fetch-depth: 1
+gsc-report	Checkout repo	2026-05-11T21:52:29.2590660Z   fetch-tags: false
+gsc-report	Checkout repo	2026-05-11T21:52:29.2591231Z   show-progress: true
+gsc-report	Checkout repo	2026-05-11T21:52:29.2591801Z   lfs: false
+gsc-report	Checkout repo	2026-05-11T21:52:29.2592342Z   submodules: false
+gsc-report	Checkout repo	2026-05-11T21:52:29.2592908Z   set-safe-directory: true
+gsc-report	Checkout repo	2026-05-11T21:52:29.2593780Z ##[endgroup]
+gsc-report	Checkout repo	2026-05-11T21:52:29.3747737Z Syncing repository: Snymsood/CIM-SEO
+gsc-report	Checkout repo	2026-05-11T21:52:29.3749784Z ##[group]Getting Git version info
+gsc-report	Checkout repo	2026-05-11T21:52:29.3750703Z Working directory is '/home/runner/work/CIM-SEO/CIM-SEO'
+gsc-report	Checkout repo	2026-05-11T21:52:29.3751964Z [command]/usr/bin/git version
+gsc-report	Checkout repo	2026-05-11T21:52:29.3797062Z git version 2.53.0
+gsc-report	Checkout repo	2026-05-11T21:52:29.3828577Z ##[endgroup]
+gsc-report	Checkout repo	2026-05-11T21:52:29.3843421Z Temporarily overriding HOME='/home/runner/work/_temp/bf85dafd-1f6d-43bf-a63c-58d727f2f47e' before making global git config changes
+gsc-report	Checkout repo	2026-05-11T21:52:29.3845035Z Adding repository directory to the temporary git global config as a safe directory
+gsc-report	Checkout repo	2026-05-11T21:52:29.3855893Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/CIM-SEO/CIM-SEO
+gsc-report	Checkout repo	2026-05-11T21:52:29.3887613Z Deleting the contents of '/home/runner/work/CIM-SEO/CIM-SEO'
+gsc-report	Checkout repo	2026-05-11T21:52:29.3890960Z ##[group]Initializing the repository
+gsc-report	Checkout repo	2026-05-11T21:52:29.3894791Z [command]/usr/bin/git init /home/runner/work/CIM-SEO/CIM-SEO
+gsc-report	Checkout repo	2026-05-11T21:52:29.3975710Z hint: Using 'master' as the name for the initial branch. This default branch name
+gsc-report	Checkout repo	2026-05-11T21:52:29.3977933Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+gsc-report	Checkout repo	2026-05-11T21:52:29.3980402Z hint: to use in all of your new repositories, which will suppress this warning,
+gsc-report	Checkout repo	2026-05-11T21:52:29.3982104Z hint: call:
+gsc-report	Checkout repo	2026-05-11T21:52:29.3983155Z hint:
+gsc-report	Checkout repo	2026-05-11T21:52:29.3984332Z hint: 	git config --global init.defaultBranch <name>
+gsc-report	Checkout repo	2026-05-11T21:52:29.3985985Z hint:
+gsc-report	Checkout repo	2026-05-11T21:52:29.3987294Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+gsc-report	Checkout repo	2026-05-11T21:52:29.3989331Z hint: 'development'. The just-created branch can be renamed via this command:
+gsc-report	Checkout repo	2026-05-11T21:52:29.3991029Z hint:
+gsc-report	Checkout repo	2026-05-11T21:52:29.3992218Z hint: 	git branch -m <name>
+gsc-report	Checkout repo	2026-05-11T21:52:29.3993275Z hint:
+gsc-report	Checkout repo	2026-05-11T21:52:29.3994589Z hint: Disable this message with "git config set advice.defaultBranchName false"
+gsc-report	Checkout repo	2026-05-11T21:52:29.3996780Z Initialized empty Git repository in /home/runner/work/CIM-SEO/CIM-SEO/.git/
+gsc-report	Checkout repo	2026-05-11T21:52:29.3998773Z [command]/usr/bin/git remote add origin https://github.com/Snymsood/CIM-SEO
+gsc-report	Checkout repo	2026-05-11T21:52:29.4022137Z ##[endgroup]
+gsc-report	Checkout repo	2026-05-11T21:52:29.4024378Z ##[group]Disabling automatic garbage collection
+gsc-report	Checkout repo	2026-05-11T21:52:29.4026685Z [command]/usr/bin/git config --local gc.auto 0
+gsc-report	Checkout repo	2026-05-11T21:52:29.4109700Z ##[endgroup]
+gsc-report	Checkout repo	2026-05-11T21:52:29.4111541Z ##[group]Setting up auth
+gsc-report	Checkout repo	2026-05-11T21:52:29.4113172Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+gsc-report	Checkout repo	2026-05-11T21:52:29.4116862Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+gsc-report	Checkout repo	2026-05-11T21:52:29.4376741Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+gsc-report	Checkout repo	2026-05-11T21:52:29.4404145Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+gsc-report	Checkout repo	2026-05-11T21:52:29.4616341Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+gsc-report	Checkout repo	2026-05-11T21:52:29.4644362Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+gsc-report	Checkout repo	2026-05-11T21:52:29.4872494Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+gsc-report	Checkout repo	2026-05-11T21:52:29.4905078Z ##[endgroup]
+gsc-report	Checkout repo	2026-05-11T21:52:29.4907153Z ##[group]Fetching the repository
+gsc-report	Checkout repo	2026-05-11T21:52:29.4915389Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +842adeac4275f83a2a3a15faa51af995a236da90:refs/remotes/origin/main
+gsc-report	Checkout repo	2026-05-11T21:52:30.2996344Z From https://github.com/Snymsood/CIM-SEO
+gsc-report	Checkout repo	2026-05-11T21:52:30.3007084Z  * [new ref]         842adeac4275f83a2a3a15faa51af995a236da90 -> origin/main
+gsc-report	Checkout repo	2026-05-11T21:52:30.3028172Z ##[endgroup]
+gsc-report	Checkout repo	2026-05-11T21:52:30.3030335Z ##[group]Determining the checkout info
+gsc-report	Checkout repo	2026-05-11T21:52:30.3032557Z ##[endgroup]
+gsc-report	Checkout repo	2026-05-11T21:52:30.3036261Z [command]/usr/bin/git sparse-checkout disable
+gsc-report	Checkout repo	2026-05-11T21:52:30.3075038Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+gsc-report	Checkout repo	2026-05-11T21:52:30.3103383Z ##[group]Checking out the ref
+gsc-report	Checkout repo	2026-05-11T21:52:30.3105613Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+gsc-report	Checkout repo	2026-05-11T21:52:30.3228793Z Switched to a new branch 'main'
+gsc-report	Checkout repo	2026-05-11T21:52:30.3231821Z branch 'main' set up to track 'origin/main'.
+gsc-report	Checkout repo	2026-05-11T21:52:30.3240034Z ##[endgroup]
+gsc-report	Checkout repo	2026-05-11T21:52:30.3270907Z [command]/usr/bin/git log -1 --format=%H
+gsc-report	Checkout repo	2026-05-11T21:52:30.3292467Z 842adeac4275f83a2a3a15faa51af995a236da90
+gsc-report	Set up Python	﻿2026-05-11T21:52:30.3630447Z ##[group]Run actions/setup-python@v5
+gsc-report	Set up Python	2026-05-11T21:52:30.3631884Z with:
+gsc-report	Set up Python	2026-05-11T21:52:30.3632904Z   python-version: 3.11
+gsc-report	Set up Python	2026-05-11T21:52:30.3634090Z   check-latest: false
+gsc-report	Set up Python	2026-05-11T21:52:30.3635702Z   token: ***
+gsc-report	Set up Python	2026-05-11T21:52:30.3636800Z   update-environment: true
+gsc-report	Set up Python	2026-05-11T21:52:30.3638061Z   allow-prereleases: false
+gsc-report	Set up Python	2026-05-11T21:52:30.3639301Z   freethreaded: false
+gsc-report	Set up Python	2026-05-11T21:52:30.3640641Z ##[endgroup]
+gsc-report	Set up Python	2026-05-11T21:52:30.5357801Z ##[group]Installed versions
+gsc-report	Set up Python	2026-05-11T21:52:30.5465838Z Successfully set up CPython (3.11.15)
+gsc-report	Set up Python	2026-05-11T21:52:30.5469108Z ##[endgroup]
+gsc-report	Install dependencies	﻿2026-05-11T21:52:30.5624584Z ##[group]Run pip install -r requirements.txt
+gsc-report	Install dependencies	2026-05-11T21:52:30.5626755Z [36;1mpip install -r requirements.txt[0m
+gsc-report	Install dependencies	2026-05-11T21:52:30.5729217Z shell: /usr/bin/bash -e ***0***
+gsc-report	Install dependencies	2026-05-11T21:52:30.5730640Z env:
+gsc-report	Install dependencies	2026-05-11T21:52:30.5732054Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Install dependencies	2026-05-11T21:52:30.5734268Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+gsc-report	Install dependencies	2026-05-11T21:52:30.5736708Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Install dependencies	2026-05-11T21:52:30.5738719Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Install dependencies	2026-05-11T21:52:30.5740758Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Install dependencies	2026-05-11T21:52:30.5742787Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+gsc-report	Install dependencies	2026-05-11T21:52:30.5744544Z ##[endgroup]
+gsc-report	Install dependencies	2026-05-11T21:52:32.5831224Z Collecting google-api-python-client>=2.100.0 (from -r requirements.txt (line 2))
+gsc-report	Install dependencies	2026-05-11T21:52:32.6565584Z   Downloading google_api_python_client-2.196.0-py3-none-any.whl.metadata (7.0 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:32.7029336Z Collecting google-auth>=2.23.0 (from -r requirements.txt (line 3))
+gsc-report	Install dependencies	2026-05-11T21:52:32.7133339Z   Downloading google_auth-2.52.0-py3-none-any.whl.metadata (5.5 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:32.7349565Z Collecting google-auth-httplib2>=0.2.0 (from -r requirements.txt (line 4))
+gsc-report	Install dependencies	2026-05-11T21:52:32.7449468Z   Downloading google_auth_httplib2-0.4.0-py3-none-any.whl.metadata (3.0 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:32.7687592Z Collecting google-analytics-data>=0.17.0 (from -r requirements.txt (line 5))
+gsc-report	Install dependencies	2026-05-11T21:52:32.7820516Z   Downloading google_analytics_data-0.22.0-py3-none-any.whl.metadata (9.9 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:32.9074628Z Collecting pandas>=2.0.0 (from -r requirements.txt (line 8))
+gsc-report	Install dependencies	2026-05-11T21:52:32.9181890Z   Downloading pandas-3.0.3-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (79 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:33.1389613Z Collecting numpy>=1.24.0 (from -r requirements.txt (line 9))
+gsc-report	Install dependencies	2026-05-11T21:52:33.1492146Z   Downloading numpy-2.4.4-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:33.1678606Z Collecting python-dateutil>=2.8.0 (from -r requirements.txt (line 10))
+gsc-report	Install dependencies	2026-05-11T21:52:33.1778339Z   Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:33.2355130Z Collecting openai>=1.0.0 (from -r requirements.txt (line 13))
+gsc-report	Install dependencies	2026-05-11T21:52:33.2454974Z   Downloading openai-2.36.0-py3-none-any.whl.metadata (31 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:33.2748315Z Collecting requests>=2.31.0 (from -r requirements.txt (line 16))
+gsc-report	Install dependencies	2026-05-11T21:52:33.2849837Z   Downloading requests-2.34.0-py3-none-any.whl.metadata (4.8 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:33.3063271Z Collecting beautifulsoup4>=4.12.0 (from -r requirements.txt (line 17))
+gsc-report	Install dependencies	2026-05-11T21:52:33.3163411Z   Downloading beautifulsoup4-4.14.3-py3-none-any.whl.metadata (3.8 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:33.3751565Z Collecting playwright>=1.40.0 (from -r requirements.txt (line 18))
+gsc-report	Install dependencies	2026-05-11T21:52:33.3854084Z   Downloading playwright-1.59.0-py3-none-manylinux1_x86_64.whl.metadata (3.5 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:33.8632158Z Collecting aiohttp>=3.9.0 (from -r requirements.txt (line 19))
+gsc-report	Install dependencies	2026-05-11T21:52:33.8738370Z   Downloading aiohttp-3.13.5-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (8.1 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:34.0581102Z Collecting lxml>=4.9.0 (from -r requirements.txt (line 20))
+gsc-report	Install dependencies	2026-05-11T21:52:34.0686609Z   Downloading lxml-6.1.0-cp311-cp311-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl.metadata (4.0 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:34.1934378Z Collecting matplotlib>=3.7.0 (from -r requirements.txt (line 27))
+gsc-report	Install dependencies	2026-05-11T21:52:34.2041488Z   Downloading matplotlib-3.10.9-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (52 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:34.2701679Z Collecting seaborn>=0.12.0 (from -r requirements.txt (line 28))
+gsc-report	Install dependencies	2026-05-11T21:52:34.2803199Z   Downloading seaborn-0.13.2-py3-none-any.whl.metadata (5.4 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:34.2986718Z Collecting tabulate>=0.9.0 (from -r requirements.txt (line 31))
+gsc-report	Install dependencies	2026-05-11T21:52:34.3086572Z   Downloading tabulate-0.10.0-py3-none-any.whl.metadata (40 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:34.3371357Z Collecting gspread>=5.11.0 (from -r requirements.txt (line 34))
+gsc-report	Install dependencies	2026-05-11T21:52:34.3471779Z   Downloading gspread-6.2.1-py3-none-any.whl.metadata (11 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:34.3652532Z Collecting asyncio>=3.4.3 (from -r requirements.txt (line 37))
+gsc-report	Install dependencies	2026-05-11T21:52:34.3761294Z   Downloading asyncio-4.0.0-py3-none-any.whl.metadata (994 bytes)
+gsc-report	Install dependencies	2026-05-11T21:52:34.4013313Z Collecting httplib2<1.0.0,>=0.19.0 (from google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+gsc-report	Install dependencies	2026-05-11T21:52:34.4120201Z   Downloading httplib2-0.31.2-py3-none-any.whl.metadata (2.2 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:34.4619503Z Collecting google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5 (from google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+gsc-report	Install dependencies	2026-05-11T21:52:34.4721086Z   Downloading google_api_core-2.30.3-py3-none-any.whl.metadata (3.1 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:34.4900500Z Collecting uritemplate<5,>=3.0.1 (from google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+gsc-report	Install dependencies	2026-05-11T21:52:34.5000969Z   Downloading uritemplate-4.2.0-py3-none-any.whl.metadata (2.6 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:34.5237731Z Collecting pyasn1-modules>=0.2.1 (from google-auth>=2.23.0->-r requirements.txt (line 3))
+gsc-report	Install dependencies	2026-05-11T21:52:34.5337181Z   Downloading pyasn1_modules-0.4.2-py3-none-any.whl.metadata (3.5 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:34.7046415Z Collecting cryptography>=38.0.3 (from google-auth>=2.23.0->-r requirements.txt (line 3))
+gsc-report	Install dependencies	2026-05-11T21:52:34.7150644Z   Downloading cryptography-48.0.0-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (4.3 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:34.7387471Z Collecting googleapis-common-protos<2.0.0,>=1.63.2 (from google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+gsc-report	Install dependencies	2026-05-11T21:52:34.7494854Z   Downloading googleapis_common_protos-1.75.0-py3-none-any.whl.metadata (8.6 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:34.8882350Z Collecting protobuf<8.0.0,>=4.25.8 (from google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+gsc-report	Install dependencies	2026-05-11T21:52:34.8989144Z   Downloading protobuf-7.34.1-cp310-abi3-manylinux2014_x86_64.whl.metadata (595 bytes)
+gsc-report	Install dependencies	2026-05-11T21:52:34.9203990Z Collecting proto-plus<2.0.0,>=1.22.3 (from google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+gsc-report	Install dependencies	2026-05-11T21:52:34.9305677Z   Downloading proto_plus-1.28.0-py3-none-any.whl.metadata (2.2 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:35.0810736Z Collecting charset_normalizer<4,>=2 (from requests>=2.31.0->-r requirements.txt (line 16))
+gsc-report	Install dependencies	2026-05-11T21:52:35.0923545Z   Downloading charset_normalizer-3.4.7-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (40 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:35.1142387Z Collecting idna<4,>=2.5 (from requests>=2.31.0->-r requirements.txt (line 16))
+gsc-report	Install dependencies	2026-05-11T21:52:35.1244292Z   Downloading idna-3.14-py3-none-any.whl.metadata (8.0 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:35.1516036Z Collecting urllib3<3,>=1.26 (from requests>=2.31.0->-r requirements.txt (line 16))
+gsc-report	Install dependencies	2026-05-11T21:52:35.1616112Z   Downloading urllib3-2.7.0-py3-none-any.whl.metadata (6.9 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:35.1841290Z Collecting certifi>=2023.5.7 (from requests>=2.31.0->-r requirements.txt (line 16))
+gsc-report	Install dependencies	2026-05-11T21:52:35.1940419Z   Downloading certifi-2026.4.22-py3-none-any.whl.metadata (2.5 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:35.2228499Z Collecting pyparsing<4,>=3.1 (from httplib2<1.0.0,>=0.19.0->google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+gsc-report	Install dependencies	2026-05-11T21:52:35.2327206Z   Downloading pyparsing-3.3.2-py3-none-any.whl.metadata (5.8 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:35.7537724Z Collecting grpcio<2.0.0,>=1.33.2 (from google-analytics-data>=0.17.0->-r requirements.txt (line 5))
+gsc-report	Install dependencies	2026-05-11T21:52:35.7640844Z   Downloading grpcio-1.80.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.8 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:35.8052921Z Collecting grpcio-status<2.0.0,>=1.33.2 (from google-api-core[grpc]<3.0.0,>=2.11.0->google-analytics-data>=0.17.0->-r requirements.txt (line 5))
+gsc-report	Install dependencies	2026-05-11T21:52:35.8152118Z   Downloading grpcio_status-1.80.0-py3-none-any.whl.metadata (1.3 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:35.8419805Z Collecting typing-extensions~=4.12 (from grpcio<2.0.0,>=1.33.2->google-analytics-data>=0.17.0->-r requirements.txt (line 5))
+gsc-report	Install dependencies	2026-05-11T21:52:35.8521863Z   Downloading typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:35.8607556Z Collecting protobuf<8.0.0,>=4.25.8 (from google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+gsc-report	Install dependencies	2026-05-11T21:52:35.8716817Z   Downloading protobuf-6.33.6-cp39-abi3-manylinux2014_x86_64.whl.metadata (593 bytes)
+gsc-report	Install dependencies	2026-05-11T21:52:35.8996843Z Collecting six>=1.5 (from python-dateutil>=2.8.0->-r requirements.txt (line 10))
+gsc-report	Install dependencies	2026-05-11T21:52:35.9095797Z   Downloading six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:35.9320843Z Collecting anyio<5,>=3.5.0 (from openai>=1.0.0->-r requirements.txt (line 13))
+gsc-report	Install dependencies	2026-05-11T21:52:35.9421056Z   Downloading anyio-4.13.0-py3-none-any.whl.metadata (4.5 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:35.9595028Z Collecting distro<2,>=1.7.0 (from openai>=1.0.0->-r requirements.txt (line 13))
+gsc-report	Install dependencies	2026-05-11T21:52:35.9695911Z   Downloading distro-1.9.0-py3-none-any.whl.metadata (6.8 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:35.9916147Z Collecting httpx<1,>=0.23.0 (from openai>=1.0.0->-r requirements.txt (line 13))
+gsc-report	Install dependencies	2026-05-11T21:52:36.0018503Z   Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:36.0788499Z Collecting jiter<1,>=0.10.0 (from openai>=1.0.0->-r requirements.txt (line 13))
+gsc-report	Install dependencies	2026-05-11T21:52:36.0891593Z   Downloading jiter-0.14.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.2 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:36.1980618Z Collecting pydantic<3,>=1.9.0 (from openai>=1.0.0->-r requirements.txt (line 13))
+gsc-report	Install dependencies	2026-05-11T21:52:36.2083903Z   Downloading pydantic-2.13.4-py3-none-any.whl.metadata (109 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:36.2357357Z Collecting sniffio (from openai>=1.0.0->-r requirements.txt (line 13))
+gsc-report	Install dependencies	2026-05-11T21:52:36.2455367Z   Downloading sniffio-1.3.1-py3-none-any.whl.metadata (3.9 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:36.2799576Z Collecting tqdm>4 (from openai>=1.0.0->-r requirements.txt (line 13))
+gsc-report	Install dependencies	2026-05-11T21:52:36.2901204Z   Downloading tqdm-4.67.3-py3-none-any.whl.metadata (57 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:36.3263544Z Collecting httpcore==1.* (from httpx<1,>=0.23.0->openai>=1.0.0->-r requirements.txt (line 13))
+gsc-report	Install dependencies	2026-05-11T21:52:36.3363804Z   Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:36.3576108Z Collecting h11>=0.16 (from httpcore==1.*->httpx<1,>=0.23.0->openai>=1.0.0->-r requirements.txt (line 13))
+gsc-report	Install dependencies	2026-05-11T21:52:36.3677422Z   Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:36.3862085Z Collecting annotated-types>=0.6.0 (from pydantic<3,>=1.9.0->openai>=1.0.0->-r requirements.txt (line 13))
+gsc-report	Install dependencies	2026-05-11T21:52:36.3964708Z   Downloading annotated_types-0.7.0-py3-none-any.whl.metadata (15 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:37.0809170Z Collecting pydantic-core==2.46.4 (from pydantic<3,>=1.9.0->openai>=1.0.0->-r requirements.txt (line 13))
+gsc-report	Install dependencies	2026-05-11T21:52:37.0912500Z   Downloading pydantic_core-2.46.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:37.1087831Z Collecting typing-inspection>=0.4.2 (from pydantic<3,>=1.9.0->openai>=1.0.0->-r requirements.txt (line 13))
+gsc-report	Install dependencies	2026-05-11T21:52:37.1188384Z   Downloading typing_inspection-0.4.2-py3-none-any.whl.metadata (2.6 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:37.1411657Z Collecting soupsieve>=1.6.1 (from beautifulsoup4>=4.12.0->-r requirements.txt (line 17))
+gsc-report	Install dependencies	2026-05-11T21:52:37.1512173Z   Downloading soupsieve-2.8.3-py3-none-any.whl.metadata (4.6 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:37.1721476Z Collecting pyee<14,>=13 (from playwright>=1.40.0->-r requirements.txt (line 18))
+gsc-report	Install dependencies	2026-05-11T21:52:37.1824509Z   Downloading pyee-13.0.1-py3-none-any.whl.metadata (3.0 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:37.3046404Z Collecting greenlet<4.0.0,>=3.1.1 (from playwright>=1.40.0->-r requirements.txt (line 18))
+gsc-report	Install dependencies	2026-05-11T21:52:37.3151302Z   Downloading greenlet-3.5.0-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (3.7 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:37.3371555Z Collecting aiohappyeyeballs>=2.5.0 (from aiohttp>=3.9.0->-r requirements.txt (line 19))
+gsc-report	Install dependencies	2026-05-11T21:52:37.3472629Z   Downloading aiohappyeyeballs-2.6.1-py3-none-any.whl.metadata (5.9 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:37.3644824Z Collecting aiosignal>=1.4.0 (from aiohttp>=3.9.0->-r requirements.txt (line 19))
+gsc-report	Install dependencies	2026-05-11T21:52:37.3755245Z   Downloading aiosignal-1.4.0-py3-none-any.whl.metadata (3.7 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:37.3954329Z Collecting attrs>=17.3.0 (from aiohttp>=3.9.0->-r requirements.txt (line 19))
+gsc-report	Install dependencies	2026-05-11T21:52:37.4053679Z   Downloading attrs-26.1.0-py3-none-any.whl.metadata (8.8 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:37.4707601Z Collecting frozenlist>=1.1.1 (from aiohttp>=3.9.0->-r requirements.txt (line 19))
+gsc-report	Install dependencies	2026-05-11T21:52:37.4810707Z   Downloading frozenlist-1.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (20 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:37.7933112Z Collecting multidict<7.0,>=4.5 (from aiohttp>=3.9.0->-r requirements.txt (line 19))
+gsc-report	Install dependencies	2026-05-11T21:52:37.8038104Z   Downloading multidict-6.7.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (5.3 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:37.8619789Z Collecting propcache>=0.2.0 (from aiohttp>=3.9.0->-r requirements.txt (line 19))
+gsc-report	Install dependencies	2026-05-11T21:52:37.8721608Z   Downloading propcache-0.5.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (16 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:38.0957111Z Collecting yarl<2.0,>=1.17.0 (from aiohttp>=3.9.0->-r requirements.txt (line 19))
+gsc-report	Install dependencies	2026-05-11T21:52:38.1063089Z   Downloading yarl-1.23.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (79 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:38.1836382Z Collecting contourpy>=1.0.1 (from matplotlib>=3.7.0->-r requirements.txt (line 27))
+gsc-report	Install dependencies	2026-05-11T21:52:38.1938867Z   Downloading contourpy-1.3.3-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (5.5 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:38.2119352Z Collecting cycler>=0.10 (from matplotlib>=3.7.0->-r requirements.txt (line 27))
+gsc-report	Install dependencies	2026-05-11T21:52:38.2222708Z   Downloading cycler-0.12.1-py3-none-any.whl.metadata (3.8 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:38.3592091Z Collecting fonttools>=4.22.0 (from matplotlib>=3.7.0->-r requirements.txt (line 27))
+gsc-report	Install dependencies	2026-05-11T21:52:38.3694988Z   Downloading fonttools-4.62.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (117 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:38.4422576Z Collecting kiwisolver>=1.3.1 (from matplotlib>=3.7.0->-r requirements.txt (line 27))
+gsc-report	Install dependencies	2026-05-11T21:52:38.4529225Z   Downloading kiwisolver-1.5.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (5.1 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:38.4772601Z Collecting packaging>=20.0 (from matplotlib>=3.7.0->-r requirements.txt (line 27))
+gsc-report	Install dependencies	2026-05-11T21:52:38.4871715Z   Downloading packaging-26.2-py3-none-any.whl.metadata (3.5 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:38.7778590Z Collecting pillow>=8 (from matplotlib>=3.7.0->-r requirements.txt (line 27))
+gsc-report	Install dependencies	2026-05-11T21:52:38.7882245Z   Downloading pillow-12.2.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (8.8 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:38.8262511Z Collecting google-auth-oauthlib>=0.4.1 (from gspread>=5.11.0->-r requirements.txt (line 34))
+gsc-report	Install dependencies	2026-05-11T21:52:38.8360548Z   Downloading google_auth_oauthlib-1.4.0-py3-none-any.whl.metadata (2.6 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:38.9449298Z Collecting cffi>=2.0.0 (from cryptography>=38.0.3->google-auth>=2.23.0->-r requirements.txt (line 3))
+gsc-report	Install dependencies	2026-05-11T21:52:38.9551271Z   Downloading cffi-2.0.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.6 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:38.9755662Z Collecting pycparser (from cffi>=2.0.0->cryptography>=38.0.3->google-auth>=2.23.0->-r requirements.txt (line 3))
+gsc-report	Install dependencies	2026-05-11T21:52:38.9854973Z   Downloading pycparser-3.0-py3-none-any.whl.metadata (8.2 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.0115943Z Collecting requests-oauthlib>=0.7.0 (from google-auth-oauthlib>=0.4.1->gspread>=5.11.0->-r requirements.txt (line 34))
+gsc-report	Install dependencies	2026-05-11T21:52:39.0216175Z   Downloading requests_oauthlib-2.0.0-py2.py3-none-any.whl.metadata (11 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.0506774Z Collecting pyasn1<0.7.0,>=0.6.1 (from pyasn1-modules>=0.2.1->google-auth>=2.23.0->-r requirements.txt (line 3))
+gsc-report	Install dependencies	2026-05-11T21:52:39.0607390Z   Downloading pyasn1-0.6.3-py3-none-any.whl.metadata (8.4 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.0800937Z Collecting oauthlib>=3.0.0 (from requests-oauthlib>=0.7.0->google-auth-oauthlib>=0.4.1->gspread>=5.11.0->-r requirements.txt (line 34))
+gsc-report	Install dependencies	2026-05-11T21:52:39.0900736Z   Downloading oauthlib-3.3.1-py3-none-any.whl.metadata (7.9 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.1126225Z Downloading google_api_python_client-2.196.0-py3-none-any.whl (15.2 MB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.2160354Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 15.2/15.2 MB 161.3 MB/s  0:00:00
+gsc-report	Install dependencies	2026-05-11T21:52:39.2262029Z Downloading google_auth-2.52.0-py3-none-any.whl (245 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.2391163Z Downloading google_auth_httplib2-0.4.0-py3-none-any.whl (9.5 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.2510656Z Downloading google_api_core-2.30.3-py3-none-any.whl (173 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.2636162Z Downloading requests-2.34.0-py3-none-any.whl (73 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.2756508Z Downloading charset_normalizer-3.4.7-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (214 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.2881959Z Downloading googleapis_common_protos-1.75.0-py3-none-any.whl (300 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.3007143Z Downloading httplib2-0.31.2-py3-none-any.whl (91 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.3129004Z Downloading idna-3.14-py3-none-any.whl (72 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.3251594Z Downloading proto_plus-1.28.0-py3-none-any.whl (50 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.3372969Z Downloading pyparsing-3.3.2-py3-none-any.whl (122 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.3496527Z Downloading uritemplate-4.2.0-py3-none-any.whl (11 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.3615406Z Downloading urllib3-2.7.0-py3-none-any.whl (131 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.3742507Z Downloading google_analytics_data-0.22.0-py3-none-any.whl (199 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.3866125Z Downloading grpcio-1.80.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (6.8 MB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.4331013Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.8/6.8 MB 149.8 MB/s  0:00:00
+gsc-report	Install dependencies	2026-05-11T21:52:39.4431065Z Downloading grpcio_status-1.80.0-py3-none-any.whl (14 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.4552389Z Downloading protobuf-6.33.6-cp39-abi3-manylinux2014_x86_64.whl (323 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.4708367Z Downloading typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.4831315Z Downloading pandas-3.0.3-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (11.3 MB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.5207428Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.3/11.3 MB 323.2 MB/s  0:00:00
+gsc-report	Install dependencies	2026-05-11T21:52:39.5312886Z Downloading numpy-2.4.4-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.9 MB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.5881170Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.9/16.9 MB 308.5 MB/s  0:00:00
+gsc-report	Install dependencies	2026-05-11T21:52:39.5982106Z Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.6107399Z Downloading openai-2.36.0-py3-none-any.whl (1.3 MB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.6173511Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 231.5 MB/s  0:00:00
+gsc-report	Install dependencies	2026-05-11T21:52:39.6275653Z Downloading anyio-4.13.0-py3-none-any.whl (114 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.6404859Z Downloading distro-1.9.0-py3-none-any.whl (20 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.6526957Z Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.6650762Z Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.6777686Z Downloading jiter-0.14.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (358 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.6907046Z Downloading pydantic-2.13.4-py3-none-any.whl (472 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.7041010Z Downloading pydantic_core-2.46.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.7124397Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 291.3 MB/s  0:00:00
+gsc-report	Install dependencies	2026-05-11T21:52:39.7226711Z Downloading beautifulsoup4-4.14.3-py3-none-any.whl (107 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.7349052Z Downloading playwright-1.59.0-py3-none-manylinux1_x86_64.whl (47.2 MB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.8776590Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 47.2/47.2 MB 335.3 MB/s  0:00:00
+gsc-report	Install dependencies	2026-05-11T21:52:39.9087839Z Downloading greenlet-3.5.0-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (615 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.9182002Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 615.2/615.2 kB 79.3 MB/s  0:00:00
+gsc-report	Install dependencies	2026-05-11T21:52:39.9286707Z Downloading pyee-13.0.1-py3-none-any.whl (15 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.9433007Z Downloading aiohttp-3.13.5-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (1.8 MB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.9546257Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 159.0 MB/s  0:00:00
+gsc-report	Install dependencies	2026-05-11T21:52:39.9659662Z Downloading multidict-6.7.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (246 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.9791887Z Downloading yarl-1.23.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (102 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:39.9917719Z Downloading lxml-6.1.0-cp311-cp311-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl (5.2 MB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.0160281Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.2/5.2 MB 245.2 MB/s  0:00:00
+gsc-report	Install dependencies	2026-05-11T21:52:40.0271093Z Downloading matplotlib-3.10.9-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (8.8 MB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.0850188Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.8/8.8 MB 153.0 MB/s  0:00:00
+gsc-report	Install dependencies	2026-05-11T21:52:40.1004465Z Downloading seaborn-0.13.2-py3-none-any.whl (294 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.1157169Z Downloading tabulate-0.10.0-py3-none-any.whl (39 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.1283644Z Downloading gspread-6.2.1-py3-none-any.whl (59 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.1425318Z Downloading asyncio-4.0.0-py3-none-any.whl (5.6 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.1547931Z Downloading aiohappyeyeballs-2.6.1-py3-none-any.whl (15 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.1669279Z Downloading aiosignal-1.4.0-py3-none-any.whl (7.5 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.1952005Z Downloading annotated_types-0.7.0-py3-none-any.whl (13 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.2078358Z Downloading attrs-26.1.0-py3-none-any.whl (67 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.2199809Z Downloading certifi-2026.4.22-py3-none-any.whl (135 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.2340686Z Downloading contourpy-1.3.3-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (355 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.2499722Z Downloading cryptography-48.0.0-cp311-abi3-manylinux_2_34_x86_64.whl (4.7 MB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.2666407Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.7/4.7 MB 311.4 MB/s  0:00:00
+gsc-report	Install dependencies	2026-05-11T21:52:40.2777295Z Downloading cffi-2.0.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (215 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.2901994Z Downloading cycler-0.12.1-py3-none-any.whl (8.3 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.3024195Z Downloading fonttools-4.62.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (5.1 MB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.3255408Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.1/5.1 MB 249.7 MB/s  0:00:00
+gsc-report	Install dependencies	2026-05-11T21:52:40.3360209Z Downloading frozenlist-1.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (231 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.3486007Z Downloading google_auth_oauthlib-1.4.0-py3-none-any.whl (19 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.3605665Z Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.3725561Z Downloading kiwisolver-1.5.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (1.4 MB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.3843595Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 135.1 MB/s  0:00:00
+gsc-report	Install dependencies	2026-05-11T21:52:40.3955271Z Downloading packaging-26.2-py3-none-any.whl (100 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.4080898Z Downloading pillow-12.2.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (7.1 MB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.4451107Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 7.1/7.1 MB 195.3 MB/s  0:00:00
+gsc-report	Install dependencies	2026-05-11T21:52:40.4551986Z Downloading propcache-0.5.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (58 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.4674928Z Downloading pyasn1_modules-0.4.2-py3-none-any.whl (181 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.4828400Z Downloading pyasn1-0.6.3-py3-none-any.whl (83 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.4955170Z Downloading requests_oauthlib-2.0.0-py2.py3-none-any.whl (24 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.5074316Z Downloading oauthlib-3.3.1-py3-none-any.whl (160 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.5198439Z Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.5317069Z Downloading soupsieve-2.8.3-py3-none-any.whl (37 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.5438282Z Downloading tqdm-4.67.3-py3-none-any.whl (78 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.5561641Z Downloading typing_inspection-0.4.2-py3-none-any.whl (14 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.5682075Z Downloading pycparser-3.0-py3-none-any.whl (48 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.5803201Z Downloading sniffio-1.3.1-py3-none-any.whl (10 kB)
+gsc-report	Install dependencies	2026-05-11T21:52:40.9018550Z Installing collected packages: urllib3, uritemplate, typing-extensions, tqdm, tabulate, soupsieve, sniffio, six, pyparsing, pycparser, pyasn1, protobuf, propcache, pillow, packaging, oauthlib, numpy, multidict, lxml, kiwisolver, jiter, idna, h11, greenlet, frozenlist, fonttools, distro, cycler, charset_normalizer, certifi, attrs, asyncio, annotated-types, aiohappyeyeballs, yarl, typing-inspection, requests, python-dateutil, pyee, pydantic-core, pyasn1-modules, proto-plus, httplib2, httpcore, grpcio, googleapis-common-protos, contourpy, cffi, beautifulsoup4, anyio, aiosignal, requests-oauthlib, pydantic, playwright, pandas, matplotlib, httpx, grpcio-status, cryptography, aiohttp, seaborn, openai, google-auth, google-auth-oauthlib, google-auth-httplib2, google-api-core, gspread, google-api-python-client, google-analytics-data
+gsc-report	Install dependencies	2026-05-11T21:52:53.6831031Z 
+gsc-report	Install dependencies	2026-05-11T21:52:53.6863621Z Successfully installed aiohappyeyeballs-2.6.1 aiohttp-3.13.5 aiosignal-1.4.0 annotated-types-0.7.0 anyio-4.13.0 asyncio-4.0.0 attrs-26.1.0 beautifulsoup4-4.14.3 certifi-2026.4.22 cffi-2.0.0 charset_normalizer-3.4.7 contourpy-1.3.3 cryptography-48.0.0 cycler-0.12.1 distro-1.9.0 fonttools-4.62.1 frozenlist-1.8.0 google-analytics-data-0.22.0 google-api-core-2.30.3 google-api-python-client-2.196.0 google-auth-2.52.0 google-auth-httplib2-0.4.0 google-auth-oauthlib-1.4.0 googleapis-common-protos-1.75.0 greenlet-3.5.0 grpcio-1.80.0 grpcio-status-1.80.0 gspread-6.2.1 h11-0.16.0 httpcore-1.0.9 httplib2-0.31.2 httpx-0.28.1 idna-3.14 jiter-0.14.0 kiwisolver-1.5.0 lxml-6.1.0 matplotlib-3.10.9 multidict-6.7.1 numpy-2.4.4 oauthlib-3.3.1 openai-2.36.0 packaging-26.2 pandas-3.0.3 pillow-12.2.0 playwright-1.59.0 propcache-0.5.2 proto-plus-1.28.0 protobuf-6.33.6 pyasn1-0.6.3 pyasn1-modules-0.4.2 pycparser-3.0 pydantic-2.13.4 pydantic-core-2.46.4 pyee-13.0.1 pyparsing-3.3.2 python-dateutil-2.9.0.post0 requests-2.34.0 requests-oauthlib-2.0.0 seaborn-0.13.2 six-1.17.0 sniffio-1.3.1 soupsieve-2.8.3 tabulate-0.10.0 tqdm-4.67.3 typing-extensions-4.15.0 typing-inspection-0.4.2 uritemplate-4.2.0 urllib3-2.7.0 yarl-1.23.0
+gsc-report	Install dependencies	2026-05-11T21:52:53.7951932Z 
+gsc-report	Install dependencies	2026-05-11T21:52:53.7952445Z [notice] A new release of pip is available: 26.0.1 -> 26.1.1
+gsc-report	Install dependencies	2026-05-11T21:52:53.7953173Z [notice] To update, run: pip install --upgrade pip
+gsc-report	Write service account key	﻿2026-05-11T21:52:54.6879223Z ##[group]Run echo '***
+gsc-report	Write service account key	2026-05-11T21:52:54.6879615Z [36;1mecho '***[0m
+gsc-report	Write service account key	2026-05-11T21:52:54.6879917Z [36;1m  ***[0m
+gsc-report	Write service account key	2026-05-11T21:52:54.6880242Z [36;1m  ***[0m
+gsc-report	Write service account key	2026-05-11T21:52:54.6880620Z [36;1m  ***[0m
+gsc-report	Write service account key	2026-05-11T21:52:54.6888005Z [36;1m  ***[0m
+gsc-report	Write service account key	2026-05-11T21:52:54.6888439Z [36;1m  ***[0m
+gsc-report	Write service account key	2026-05-11T21:52:54.6888716Z [36;1m  ***[0m
+gsc-report	Write service account key	2026-05-11T21:52:54.6889088Z [36;1m  ***[0m
+gsc-report	Write service account key	2026-05-11T21:52:54.6889423Z [36;1m  ***[0m
+gsc-report	Write service account key	2026-05-11T21:52:54.6889829Z [36;1m  ***[0m
+gsc-report	Write service account key	2026-05-11T21:52:54.6890451Z [36;1m  ***[0m
+gsc-report	Write service account key	2026-05-11T21:52:54.6890757Z [36;1m  ***[0m
+gsc-report	Write service account key	2026-05-11T21:52:54.6891017Z [36;1m***' > gsc-key.json[0m
+gsc-report	Write service account key	2026-05-11T21:52:54.6914008Z shell: /usr/bin/bash -e ***0***
+gsc-report	Write service account key	2026-05-11T21:52:54.6914338Z env:
+gsc-report	Write service account key	2026-05-11T21:52:54.6914673Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Write service account key	2026-05-11T21:52:54.6915470Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+gsc-report	Write service account key	2026-05-11T21:52:54.6915997Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Write service account key	2026-05-11T21:52:54.6916487Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Write service account key	2026-05-11T21:52:54.6916950Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Write service account key	2026-05-11T21:52:54.6917421Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+gsc-report	Write service account key	2026-05-11T21:52:54.6917821Z ##[endgroup]
+gsc-report	Run GSC report	﻿2026-05-11T21:52:54.6999238Z ##[group]Run python gsc_weekly_report.py
+gsc-report	Run GSC report	2026-05-11T21:52:54.6999644Z [36;1mpython gsc_weekly_report.py[0m
+gsc-report	Run GSC report	2026-05-11T21:52:54.7020568Z shell: /usr/bin/bash -e ***0***
+gsc-report	Run GSC report	2026-05-11T21:52:54.7020897Z env:
+gsc-report	Run GSC report	2026-05-11T21:52:54.7021223Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Run GSC report	2026-05-11T21:52:54.7021729Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+gsc-report	Run GSC report	2026-05-11T21:52:54.7022221Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Run GSC report	2026-05-11T21:52:54.7022689Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Run GSC report	2026-05-11T21:52:54.7023141Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+gsc-report	Run GSC report	2026-05-11T21:52:54.7023586Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+gsc-report	Run GSC report	2026-05-11T21:52:54.7024011Z   GSC_PROPERTY: https://www.cim.org/
+gsc-report	Run GSC report	2026-05-11T21:52:54.7024511Z   GROQ_API_KEY: ***
+gsc-report	Run GSC report	2026-05-11T21:52:54.7026232Z   MONDAY_API_TOKEN: ***
+gsc-report	Run GSC report	2026-05-11T21:52:54.7026545Z   MONDAY_ITEM_ID: ***
+gsc-report	Run GSC report	2026-05-11T21:52:54.7026914Z   GOOGLE_SHEET_ID: ***
+gsc-report	Run GSC report	2026-05-11T21:52:54.7027205Z ##[endgroup]
+gsc-report	Run GSC report	2026-05-11T21:53:01.9778856Z Traceback (most recent call last):
+gsc-report	Run GSC report	2026-05-11T21:53:01.9787482Z   File "/home/runner/work/CIM-SEO/CIM-SEO/gsc_weekly_report.py", line 1334, in <module>
+gsc-report	Run GSC report	2026-05-11T21:53:01.9788497Z GSC Weekly Report — starting
+gsc-report	Run GSC report	2026-05-11T21:53:01.9788958Z     main()
+gsc-report	Run GSC report	2026-05-11T21:53:01.9789463Z   File "/home/runner/work/CIM-SEO/CIM-SEO/gsc_weekly_report.py", line 1303, in main
+gsc-report	Run GSC report	2026-05-11T21:53:01.9790069Z     chart_paths = build_all_charts(query_df, page_df, kpis,
+gsc-report	Run GSC report	2026-05-11T21:53:01.9790541Z                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+gsc-report	Run GSC report	2026-05-11T21:53:01.9791147Z   File "/home/runner/work/CIM-SEO/CIM-SEO/gsc_weekly_report.py", line 486, in build_all_charts
+gsc-report	Run GSC report	2026-05-11T21:53:01.9791754Z     "kpi_grid":              plot_kpi_grid(kpis),
+gsc-report	Run GSC report	2026-05-11T21:53:01.9792154Z                              ^^^^^^^^^^^^^
+gsc-report	Run GSC report	2026-05-11T21:53:01.9792635Z NameError: name 'plot_kpi_grid' is not defined. Did you mean: 'mm_kpi_grid'?
+gsc-report	Run GSC report	2026-05-11T21:53:01.9793194Z Current:  2026-05-04 → 2026-05-10
+gsc-report	Run GSC report	2026-05-11T21:53:01.9793583Z Previous: 2026-04-27 → 2026-05-03
+gsc-report	Run GSC report	2026-05-11T21:53:01.9793950Z Fetching GSC data (parallel)…
+gsc-report	Run GSC report	2026-05-11T21:53:01.9794308Z   ✓ trend_current
+gsc-report	Run GSC report	2026-05-11T21:53:01.9794622Z   ✓ device_current
+gsc-report	Run GSC report	2026-05-11T21:53:01.9794935Z   ✓ previous_page
+gsc-report	Run GSC report	2026-05-11T21:53:01.9795443Z   ✓ current_query
+gsc-report	Run GSC report	2026-05-11T21:53:01.9795735Z   ✓ trend_previous
+gsc-report	Run GSC report	2026-05-11T21:53:01.9796030Z   ✓ appearance
+gsc-report	Run GSC report	2026-05-11T21:53:01.9796313Z   ✓ previous_query
+gsc-report	Run GSC report	2026-05-11T21:53:01.9796854Z   ✓ current_page
+gsc-report	Run GSC report	2026-05-11T21:53:01.9797229Z Successfully appended 5656 rows to 'GSC_Query_Comparison' tab.
+gsc-report	Run GSC report	2026-05-11T21:53:01.9797745Z Successfully appended 1870 rows to 'GSC_Page_Comparison' tab.
+gsc-report	Run GSC report	2026-05-11T21:53:01.9798219Z Successfully appended 3 rows to 'GSC_Device_Split' tab.
+gsc-report	Run GSC report	2026-05-11T21:53:01.9798777Z Generating charts…
+gsc-report	Run GSC report	2026-05-11T21:53:02.1108323Z ##[error]Process completed with exit code 1.
+gsc-report	Post Checkout repo	﻿2026-05-11T21:53:02.1233083Z Post job cleanup.
+gsc-report	Post Checkout repo	2026-05-11T21:53:02.2187228Z [command]/usr/bin/git version
+gsc-report	Post Checkout repo	2026-05-11T21:53:02.2222227Z git version 2.53.0
+gsc-report	Post Checkout repo	2026-05-11T21:53:02.2266448Z Temporarily overriding HOME='/home/runner/work/_temp/0c000ece-9be5-4d28-afbd-6802f3438df2' before making global git config changes
+gsc-report	Post Checkout repo	2026-05-11T21:53:02.2268031Z Adding repository directory to the temporary git global config as a safe directory
+gsc-report	Post Checkout repo	2026-05-11T21:53:02.2273098Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/CIM-SEO/CIM-SEO
+gsc-report	Post Checkout repo	2026-05-11T21:53:02.2309668Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+gsc-report	Post Checkout repo	2026-05-11T21:53:02.2342569Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+gsc-report	Post Checkout repo	2026-05-11T21:53:02.2564291Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+gsc-report	Post Checkout repo	2026-05-11T21:53:02.2584638Z http.https://github.com/.extraheader
+gsc-report	Post Checkout repo	2026-05-11T21:53:02.2597549Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+gsc-report	Post Checkout repo	2026-05-11T21:53:02.2625762Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+gsc-report	Post Checkout repo	2026-05-11T21:53:02.2847266Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+gsc-report	Post Checkout repo	2026-05-11T21:53:02.2880662Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+gsc-report	Complete job	﻿2026-05-11T21:53:02.3238761Z Cleaning up orphan processes
+gsc-report	Complete job	2026-05-11T21:53:02.3547784Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4, actions/setup-python@v5. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026. Node.js 20 will be removed from the runner on September 16th, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

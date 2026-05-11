@@ -1,0 +1,538 @@
+master-orchestrator	Set up job	﻿2026-05-11T21:50:17.3713974Z Current runner version: '2.334.0'
+master-orchestrator	Set up job	2026-05-11T21:50:17.3753075Z ##[group]Runner Image Provisioner
+master-orchestrator	Set up job	2026-05-11T21:50:17.3754773Z Hosted Compute Agent
+master-orchestrator	Set up job	2026-05-11T21:50:17.3756162Z Version: 20260213.493
+master-orchestrator	Set up job	2026-05-11T21:50:17.3757496Z Commit: 5c115507f6dd24b8de37d8bbe0bb4509d0cc0fa3
+master-orchestrator	Set up job	2026-05-11T21:50:17.3759102Z Build Date: 2026-02-13T00:28:41Z
+master-orchestrator	Set up job	2026-05-11T21:50:17.3760828Z Worker ID: ***09b2494e-3330-4092-b3dc-ab4ea68e9681***
+master-orchestrator	Set up job	2026-05-11T21:50:17.3762588Z Azure Region: eastus2
+master-orchestrator	Set up job	2026-05-11T21:50:17.3763915Z ##[endgroup]
+master-orchestrator	Set up job	2026-05-11T21:50:17.3766564Z ##[group]Operating System
+master-orchestrator	Set up job	2026-05-11T21:50:17.3768080Z Ubuntu
+master-orchestrator	Set up job	2026-05-11T21:50:17.3769250Z 24.04.4
+master-orchestrator	Set up job	2026-05-11T21:50:17.3770736Z LTS
+master-orchestrator	Set up job	2026-05-11T21:50:17.3771824Z ##[endgroup]
+master-orchestrator	Set up job	2026-05-11T21:50:17.3773221Z ##[group]Runner Image
+master-orchestrator	Set up job	2026-05-11T21:50:17.3774510Z Image: ubuntu-24.04
+master-orchestrator	Set up job	2026-05-11T21:50:17.3775758Z Version: 20260413.86.1
+master-orchestrator	Set up job	2026-05-11T21:50:17.3777935Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260413.86/images/ubuntu/Ubuntu2404-Readme.md
+master-orchestrator	Set up job	2026-05-11T21:50:17.3781521Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260413.86
+master-orchestrator	Set up job	2026-05-11T21:50:17.3783514Z ##[endgroup]
+master-orchestrator	Set up job	2026-05-11T21:50:17.3786126Z ##[group]GITHUB_TOKEN Permissions
+master-orchestrator	Set up job	2026-05-11T21:50:17.3789417Z Contents: read
+master-orchestrator	Set up job	2026-05-11T21:50:17.3791014Z Metadata: read
+master-orchestrator	Set up job	2026-05-11T21:50:17.3792246Z Pages: write
+master-orchestrator	Set up job	2026-05-11T21:50:17.3793475Z ##[endgroup]
+master-orchestrator	Set up job	2026-05-11T21:50:17.3796825Z Secret source: Actions
+master-orchestrator	Set up job	2026-05-11T21:50:17.3798642Z Prepare workflow directory
+master-orchestrator	Set up job	2026-05-11T21:50:17.4284486Z Prepare all required actions
+master-orchestrator	Set up job	2026-05-11T21:50:17.4339681Z Getting action download info
+master-orchestrator	Set up job	2026-05-11T21:50:17.8079916Z Download action repository 'actions/checkout@v4' (SHA:34e114876b0b11c390a56381ad16ebd13914f8d5)
+master-orchestrator	Set up job	2026-05-11T21:50:17.9896301Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+master-orchestrator	Set up job	2026-05-11T21:50:18.1423334Z Download action repository 'actions/download-artifact@v4' (SHA:d3f86a106a0bac45b974a628896c90dbdf5c8093)
+master-orchestrator	Set up job	2026-05-11T21:50:18.3533932Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+master-orchestrator	Set up job	2026-05-11T21:50:18.5237357Z Download action repository 'actions/configure-pages@v4' (SHA:1f0c5cde4bc74cd7e1254d0cb4de8d49e9068c7d)
+master-orchestrator	Set up job	2026-05-11T21:50:18.6853526Z Download action repository 'actions/upload-pages-artifact@v3' (SHA:56afc609e74202658d3ffba0e8f6dda462b719fa)
+master-orchestrator	Set up job	2026-05-11T21:50:18.8970558Z Getting action download info
+master-orchestrator	Set up job	2026-05-11T21:50:19.0451126Z Complete job name: master-orchestrator
+master-orchestrator	Checkout repo	﻿2026-05-11T21:50:19.1285846Z ##[group]Run actions/checkout@v4
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.1287727Z with:
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.1288363Z   repository: Snymsood/CIM-SEO
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.1289274Z   token: ***
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.1289850Z   ssh-strict: true
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.1290584Z   ssh-user: git
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.1291172Z   persist-credentials: true
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.1291824Z   clean: true
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.1292410Z   sparse-checkout-cone-mode: true
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.1293087Z   fetch-depth: 1
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.1293684Z   fetch-tags: false
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.1294266Z   show-progress: true
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.1294859Z   lfs: false
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.1295411Z   submodules: false
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.1296010Z   set-safe-directory: true
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.1297079Z ##[endgroup]
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2470310Z Syncing repository: Snymsood/CIM-SEO
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2473540Z ##[group]Getting Git version info
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2474987Z Working directory is '/home/runner/work/CIM-SEO/CIM-SEO'
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2477011Z [command]/usr/bin/git version
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2491865Z git version 2.53.0
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2518809Z ##[endgroup]
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2534075Z Temporarily overriding HOME='/home/runner/work/_temp/e5b77985-51b8-4ab9-b83a-3d347d61ce0c' before making global git config changes
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2536656Z Adding repository directory to the temporary git global config as a safe directory
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2549035Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/CIM-SEO/CIM-SEO
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2585564Z Deleting the contents of '/home/runner/work/CIM-SEO/CIM-SEO'
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2589904Z ##[group]Initializing the repository
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2595000Z [command]/usr/bin/git init /home/runner/work/CIM-SEO/CIM-SEO
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2674697Z hint: Using 'master' as the name for the initial branch. This default branch name
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2676640Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2678387Z hint: to use in all of your new repositories, which will suppress this warning,
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2679862Z hint: call:
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2680978Z hint:
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2682335Z hint: 	git config --global init.defaultBranch <name>
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2683577Z hint:
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2684715Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2686434Z hint: 'development'. The just-created branch can be renamed via this command:
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2687885Z hint:
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2688856Z hint: 	git branch -m <name>
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2689863Z hint:
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2691340Z hint: Disable this message with "git config set advice.defaultBranchName false"
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2693095Z Initialized empty Git repository in /home/runner/work/CIM-SEO/CIM-SEO/.git/
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2696296Z [command]/usr/bin/git remote add origin https://github.com/Snymsood/CIM-SEO
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2723508Z ##[endgroup]
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2725066Z ##[group]Disabling automatic garbage collection
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2728188Z [command]/usr/bin/git config --local gc.auto 0
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2758962Z ##[endgroup]
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2760711Z ##[group]Setting up auth
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2766854Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.2799903Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.3089733Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.3121434Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.3368488Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.3409527Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.3658482Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.3699379Z ##[endgroup]
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.3707641Z ##[group]Fetching the repository
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.3710531Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +d0444c554ca0700d512979f77f0ca8ef33fd8596:refs/remotes/origin/main
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.7054050Z From https://github.com/Snymsood/CIM-SEO
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.7056392Z  * [new ref]         d0444c554ca0700d512979f77f0ca8ef33fd8596 -> origin/main
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.7087284Z ##[endgroup]
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.7088860Z ##[group]Determining the checkout info
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.7090879Z ##[endgroup]
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.7095428Z [command]/usr/bin/git sparse-checkout disable
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.7431120Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.7466882Z ##[group]Checking out the ref
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.7469469Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.7911224Z Switched to a new branch 'main'
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.7912920Z branch 'main' set up to track 'origin/main'.
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.7921478Z ##[endgroup]
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.7966940Z [command]/usr/bin/git log -1 --format=%H
+master-orchestrator	Checkout repo	2026-05-11T21:50:19.7993991Z d0444c554ca0700d512979f77f0ca8ef33fd8596
+master-orchestrator	Set up Python	﻿2026-05-11T21:50:19.8358600Z ##[group]Run actions/setup-python@v5
+master-orchestrator	Set up Python	2026-05-11T21:50:19.8360448Z with:
+master-orchestrator	Set up Python	2026-05-11T21:50:19.8361613Z   python-version: 3.11
+master-orchestrator	Set up Python	2026-05-11T21:50:19.8362946Z   check-latest: false
+master-orchestrator	Set up Python	2026-05-11T21:50:19.8364543Z   token: ***
+master-orchestrator	Set up Python	2026-05-11T21:50:19.8365764Z   update-environment: true
+master-orchestrator	Set up Python	2026-05-11T21:50:19.8367184Z   allow-prereleases: false
+master-orchestrator	Set up Python	2026-05-11T21:50:19.8368582Z   freethreaded: false
+master-orchestrator	Set up Python	2026-05-11T21:50:19.8369857Z ##[endgroup]
+master-orchestrator	Set up Python	2026-05-11T21:50:20.0098550Z ##[group]Installed versions
+master-orchestrator	Set up Python	2026-05-11T21:50:20.0526404Z Successfully set up CPython (3.11.15)
+master-orchestrator	Set up Python	2026-05-11T21:50:20.0529792Z ##[endgroup]
+master-orchestrator	Install dependencies	﻿2026-05-11T21:50:20.0692078Z ##[group]Run pip install -r requirements.txt
+master-orchestrator	Install dependencies	2026-05-11T21:50:20.0693821Z [36;1mpip install -r requirements.txt[0m
+master-orchestrator	Install dependencies	2026-05-11T21:50:20.0695347Z [36;1mplaywright install chromium[0m
+master-orchestrator	Install dependencies	2026-05-11T21:50:20.0804994Z shell: /usr/bin/bash -e ***0***
+master-orchestrator	Install dependencies	2026-05-11T21:50:20.0806361Z env:
+master-orchestrator	Install dependencies	2026-05-11T21:50:20.0807708Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Install dependencies	2026-05-11T21:50:20.0809812Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+master-orchestrator	Install dependencies	2026-05-11T21:50:20.0812082Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Install dependencies	2026-05-11T21:50:20.0813966Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Install dependencies	2026-05-11T21:50:20.0815875Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Install dependencies	2026-05-11T21:50:20.0817784Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+master-orchestrator	Install dependencies	2026-05-11T21:50:20.0819439Z ##[endgroup]
+master-orchestrator	Install dependencies	2026-05-11T21:50:22.8076121Z Collecting google-api-python-client>=2.100.0 (from -r requirements.txt (line 2))
+master-orchestrator	Install dependencies	2026-05-11T21:50:22.8729988Z   Downloading google_api_python_client-2.196.0-py3-none-any.whl.metadata (7.0 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:22.9181974Z Collecting google-auth>=2.23.0 (from -r requirements.txt (line 3))
+master-orchestrator	Install dependencies	2026-05-11T21:50:22.9259165Z   Downloading google_auth-2.52.0-py3-none-any.whl.metadata (5.5 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:22.9433083Z Collecting google-auth-httplib2>=0.2.0 (from -r requirements.txt (line 4))
+master-orchestrator	Install dependencies	2026-05-11T21:50:22.9522886Z   Downloading google_auth_httplib2-0.4.0-py3-none-any.whl.metadata (3.0 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:22.9719453Z Collecting google-analytics-data>=0.17.0 (from -r requirements.txt (line 5))
+master-orchestrator	Install dependencies	2026-05-11T21:50:22.9841879Z   Downloading google_analytics_data-0.22.0-py3-none-any.whl.metadata (9.9 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:23.0994475Z Collecting pandas>=2.0.0 (from -r requirements.txt (line 8))
+master-orchestrator	Install dependencies	2026-05-11T21:50:23.1072364Z   Downloading pandas-3.0.3-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (79 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:23.3154523Z Collecting numpy>=1.24.0 (from -r requirements.txt (line 9))
+master-orchestrator	Install dependencies	2026-05-11T21:50:23.3237296Z   Downloading numpy-2.4.4-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (6.6 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:23.3393807Z Collecting python-dateutil>=2.8.0 (from -r requirements.txt (line 10))
+master-orchestrator	Install dependencies	2026-05-11T21:50:23.3485492Z   Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl.metadata (8.4 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:23.4044488Z Collecting openai>=1.0.0 (from -r requirements.txt (line 13))
+master-orchestrator	Install dependencies	2026-05-11T21:50:23.4137771Z   Downloading openai-2.36.0-py3-none-any.whl.metadata (31 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:23.4408048Z Collecting requests>=2.31.0 (from -r requirements.txt (line 16))
+master-orchestrator	Install dependencies	2026-05-11T21:50:23.4495742Z   Downloading requests-2.34.0-py3-none-any.whl.metadata (4.8 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:23.4860726Z Collecting beautifulsoup4>=4.12.0 (from -r requirements.txt (line 17))
+master-orchestrator	Install dependencies	2026-05-11T21:50:23.4954668Z   Downloading beautifulsoup4-4.14.3-py3-none-any.whl.metadata (3.8 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:23.5558909Z Collecting playwright>=1.40.0 (from -r requirements.txt (line 18))
+master-orchestrator	Install dependencies	2026-05-11T21:50:23.5638453Z   Downloading playwright-1.59.0-py3-none-manylinux1_x86_64.whl.metadata (3.5 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.0385172Z Collecting aiohttp>=3.9.0 (from -r requirements.txt (line 19))
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.0464798Z   Downloading aiohttp-3.13.5-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (8.1 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.2219899Z Collecting lxml>=4.9.0 (from -r requirements.txt (line 20))
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.2297369Z   Downloading lxml-6.1.0-cp311-cp311-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl.metadata (4.0 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.3430700Z Collecting matplotlib>=3.7.0 (from -r requirements.txt (line 27))
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.3510331Z   Downloading matplotlib-3.10.9-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (52 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.4347071Z Collecting seaborn>=0.12.0 (from -r requirements.txt (line 28))
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.4428647Z   Downloading seaborn-0.13.2-py3-none-any.whl.metadata (5.4 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.4596059Z Collecting tabulate>=0.9.0 (from -r requirements.txt (line 31))
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.4671908Z   Downloading tabulate-0.10.0-py3-none-any.whl.metadata (40 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.4909564Z Collecting gspread>=5.11.0 (from -r requirements.txt (line 34))
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.4984804Z   Downloading gspread-6.2.1-py3-none-any.whl.metadata (11 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.5129570Z Collecting asyncio>=3.4.3 (from -r requirements.txt (line 37))
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.5232390Z   Downloading asyncio-4.0.0-py3-none-any.whl.metadata (994 bytes)
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.5422379Z Collecting httplib2<1.0.0,>=0.19.0 (from google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.5533339Z   Downloading httplib2-0.31.2-py3-none-any.whl.metadata (2.2 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.5940606Z Collecting google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5 (from google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.6015030Z   Downloading google_api_core-2.30.3-py3-none-any.whl.metadata (3.1 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.6169875Z Collecting uritemplate<5,>=3.0.1 (from google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.6243309Z   Downloading uritemplate-4.2.0-py3-none-any.whl.metadata (2.6 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.6451092Z Collecting pyasn1-modules>=0.2.1 (from google-auth>=2.23.0->-r requirements.txt (line 3))
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.6523390Z   Downloading pyasn1_modules-0.4.2-py3-none-any.whl.metadata (3.5 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.8098129Z Collecting cryptography>=38.0.3 (from google-auth>=2.23.0->-r requirements.txt (line 3))
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.8175529Z   Downloading cryptography-48.0.0-cp311-abi3-manylinux_2_34_x86_64.whl.metadata (4.3 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.8380404Z Collecting googleapis-common-protos<2.0.0,>=1.63.2 (from google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.8460917Z   Downloading googleapis_common_protos-1.75.0-py3-none-any.whl.metadata (8.6 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.9716228Z Collecting protobuf<8.0.0,>=4.25.8 (from google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.9793315Z   Downloading protobuf-7.34.1-cp310-abi3-manylinux2014_x86_64.whl.metadata (595 bytes)
+master-orchestrator	Install dependencies	2026-05-11T21:50:24.9976100Z Collecting proto-plus<2.0.0,>=1.22.3 (from google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.0051897Z   Downloading proto_plus-1.28.0-py3-none-any.whl.metadata (2.2 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.1635467Z Collecting charset_normalizer<4,>=2 (from requests>=2.31.0->-r requirements.txt (line 16))
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.1714721Z   Downloading charset_normalizer-3.4.7-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (40 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.1921062Z Collecting idna<4,>=2.5 (from requests>=2.31.0->-r requirements.txt (line 16))
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.1997534Z   Downloading idna-3.14-py3-none-any.whl.metadata (8.0 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.2232476Z Collecting urllib3<3,>=1.26 (from requests>=2.31.0->-r requirements.txt (line 16))
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.2311880Z   Downloading urllib3-2.7.0-py3-none-any.whl.metadata (6.9 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.2510679Z Collecting certifi>=2023.5.7 (from requests>=2.31.0->-r requirements.txt (line 16))
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.2585391Z   Downloading certifi-2026.4.22-py3-none-any.whl.metadata (2.5 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.2841973Z Collecting pyparsing<4,>=3.1 (from httplib2<1.0.0,>=0.19.0->google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.2954798Z   Downloading pyparsing-3.3.2-py3-none-any.whl.metadata (5.8 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.7874986Z Collecting grpcio<2.0.0,>=1.33.2 (from google-analytics-data>=0.17.0->-r requirements.txt (line 5))
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.7951414Z   Downloading grpcio-1.80.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (3.8 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.8318626Z Collecting grpcio-status<2.0.0,>=1.33.2 (from google-api-core[grpc]<3.0.0,>=2.11.0->google-analytics-data>=0.17.0->-r requirements.txt (line 5))
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.8397626Z   Downloading grpcio_status-1.80.0-py3-none-any.whl.metadata (1.3 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.8668026Z Collecting typing-extensions~=4.12 (from grpcio<2.0.0,>=1.33.2->google-analytics-data>=0.17.0->-r requirements.txt (line 5))
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.8744692Z   Downloading typing_extensions-4.15.0-py3-none-any.whl.metadata (3.3 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.8815280Z Collecting protobuf<8.0.0,>=4.25.8 (from google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0,>=1.31.5->google-api-python-client>=2.100.0->-r requirements.txt (line 2))
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.8897715Z   Downloading protobuf-6.33.6-cp39-abi3-manylinux2014_x86_64.whl.metadata (593 bytes)
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.9142672Z Collecting six>=1.5 (from python-dateutil>=2.8.0->-r requirements.txt (line 10))
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.9216068Z   Downloading six-1.17.0-py2.py3-none-any.whl.metadata (1.7 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.9414640Z Collecting anyio<5,>=3.5.0 (from openai>=1.0.0->-r requirements.txt (line 13))
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.9489961Z   Downloading anyio-4.13.0-py3-none-any.whl.metadata (4.5 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.9635684Z Collecting distro<2,>=1.7.0 (from openai>=1.0.0->-r requirements.txt (line 13))
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.9707374Z   Downloading distro-1.9.0-py3-none-any.whl.metadata (6.8 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.9899856Z Collecting httpx<1,>=0.23.0 (from openai>=1.0.0->-r requirements.txt (line 13))
+master-orchestrator	Install dependencies	2026-05-11T21:50:25.9975515Z   Downloading httpx-0.28.1-py3-none-any.whl.metadata (7.1 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.0655972Z Collecting jiter<1,>=0.10.0 (from openai>=1.0.0->-r requirements.txt (line 13))
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.0733907Z   Downloading jiter-0.14.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (5.2 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.1675919Z Collecting pydantic<3,>=1.9.0 (from openai>=1.0.0->-r requirements.txt (line 13))
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.1754541Z   Downloading pydantic-2.13.4-py3-none-any.whl.metadata (109 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.1994277Z Collecting sniffio (from openai>=1.0.0->-r requirements.txt (line 13))
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.2077551Z   Downloading sniffio-1.3.1-py3-none-any.whl.metadata (3.9 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.2382768Z Collecting tqdm>4 (from openai>=1.0.0->-r requirements.txt (line 13))
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.2459146Z   Downloading tqdm-4.67.3-py3-none-any.whl.metadata (57 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.2773071Z Collecting httpcore==1.* (from httpx<1,>=0.23.0->openai>=1.0.0->-r requirements.txt (line 13))
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.2849627Z   Downloading httpcore-1.0.9-py3-none-any.whl.metadata (21 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.3021435Z Collecting h11>=0.16 (from httpcore==1.*->httpx<1,>=0.23.0->openai>=1.0.0->-r requirements.txt (line 13))
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.3097237Z   Downloading h11-0.16.0-py3-none-any.whl.metadata (8.3 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.3257864Z Collecting annotated-types>=0.6.0 (from pydantic<3,>=1.9.0->openai>=1.0.0->-r requirements.txt (line 13))
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.3334687Z   Downloading annotated_types-0.7.0-py3-none-any.whl.metadata (15 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.9867698Z Collecting pydantic-core==2.46.4 (from pydantic<3,>=1.9.0->openai>=1.0.0->-r requirements.txt (line 13))
+master-orchestrator	Install dependencies	2026-05-11T21:50:26.9948061Z   Downloading pydantic_core-2.46.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (6.6 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.0098363Z Collecting typing-inspection>=0.4.2 (from pydantic<3,>=1.9.0->openai>=1.0.0->-r requirements.txt (line 13))
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.0177769Z   Downloading typing_inspection-0.4.2-py3-none-any.whl.metadata (2.6 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.0386099Z Collecting soupsieve>=1.6.1 (from beautifulsoup4>=4.12.0->-r requirements.txt (line 17))
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.0460555Z   Downloading soupsieve-2.8.3-py3-none-any.whl.metadata (4.6 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.0644195Z Collecting pyee<14,>=13 (from playwright>=1.40.0->-r requirements.txt (line 18))
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.0717452Z   Downloading pyee-13.0.1-py3-none-any.whl.metadata (3.0 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.1818224Z Collecting greenlet<4.0.0,>=3.1.1 (from playwright>=1.40.0->-r requirements.txt (line 18))
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.1896415Z   Downloading greenlet-3.5.0-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl.metadata (3.7 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.2087460Z Collecting aiohappyeyeballs>=2.5.0 (from aiohttp>=3.9.0->-r requirements.txt (line 19))
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.2175173Z   Downloading aiohappyeyeballs-2.6.1-py3-none-any.whl.metadata (5.9 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.2322754Z Collecting aiosignal>=1.4.0 (from aiohttp>=3.9.0->-r requirements.txt (line 19))
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.2397742Z   Downloading aiosignal-1.4.0-py3-none-any.whl.metadata (3.7 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.2594157Z Collecting attrs>=17.3.0 (from aiohttp>=3.9.0->-r requirements.txt (line 19))
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.2669431Z   Downloading attrs-26.1.0-py3-none-any.whl.metadata (8.8 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.3259491Z Collecting frozenlist>=1.1.1 (from aiohttp>=3.9.0->-r requirements.txt (line 19))
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.3342240Z   Downloading frozenlist-1.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl.metadata (20 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.6581532Z Collecting multidict<7.0,>=4.5 (from aiohttp>=3.9.0->-r requirements.txt (line 19))
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.6666262Z   Downloading multidict-6.7.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (5.3 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.7212374Z Collecting propcache>=0.2.0 (from aiohttp>=3.9.0->-r requirements.txt (line 19))
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.7293550Z   Downloading propcache-0.5.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (16 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.9322785Z Collecting yarl<2.0,>=1.17.0 (from aiohttp>=3.9.0->-r requirements.txt (line 19))
+master-orchestrator	Install dependencies	2026-05-11T21:50:27.9399175Z   Downloading yarl-1.23.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl.metadata (79 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.0120877Z Collecting contourpy>=1.0.1 (from matplotlib>=3.7.0->-r requirements.txt (line 27))
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.0202025Z   Downloading contourpy-1.3.3-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (5.5 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.0354140Z Collecting cycler>=0.10 (from matplotlib>=3.7.0->-r requirements.txt (line 27))
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.0435356Z   Downloading cycler-0.12.1-py3-none-any.whl.metadata (3.8 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.1674284Z Collecting fonttools>=4.22.0 (from matplotlib>=3.7.0->-r requirements.txt (line 27))
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.1752364Z   Downloading fonttools-4.62.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (117 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.2456459Z Collecting kiwisolver>=1.3.1 (from matplotlib>=3.7.0->-r requirements.txt (line 27))
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.2534076Z   Downloading kiwisolver-1.5.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (5.1 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.2751967Z Collecting packaging>=20.0 (from matplotlib>=3.7.0->-r requirements.txt (line 27))
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.2828370Z   Downloading packaging-26.2-py3-none-any.whl.metadata (3.5 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.5886134Z Collecting pillow>=8 (from matplotlib>=3.7.0->-r requirements.txt (line 27))
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.5964876Z   Downloading pillow-12.2.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl.metadata (8.8 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.6303372Z Collecting google-auth-oauthlib>=0.4.1 (from gspread>=5.11.0->-r requirements.txt (line 34))
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.6377627Z   Downloading google_auth_oauthlib-1.4.0-py3-none-any.whl.metadata (2.6 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.7324716Z Collecting cffi>=2.0.0 (from cryptography>=38.0.3->google-auth>=2.23.0->-r requirements.txt (line 3))
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.7410767Z   Downloading cffi-2.0.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl.metadata (2.6 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.7568635Z Collecting pycparser (from cffi>=2.0.0->cryptography>=38.0.3->google-auth>=2.23.0->-r requirements.txt (line 3))
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.7644995Z   Downloading pycparser-3.0-py3-none-any.whl.metadata (8.2 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.7883089Z Collecting requests-oauthlib>=0.7.0 (from google-auth-oauthlib>=0.4.1->gspread>=5.11.0->-r requirements.txt (line 34))
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.7987236Z   Downloading requests_oauthlib-2.0.0-py2.py3-none-any.whl.metadata (11 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.8248497Z Collecting pyasn1<0.7.0,>=0.6.1 (from pyasn1-modules>=0.2.1->google-auth>=2.23.0->-r requirements.txt (line 3))
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.8341716Z   Downloading pyasn1-0.6.3-py3-none-any.whl.metadata (8.4 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.8516794Z Collecting oauthlib>=3.0.0 (from requests-oauthlib>=0.7.0->google-auth-oauthlib>=0.4.1->gspread>=5.11.0->-r requirements.txt (line 34))
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.8594023Z   Downloading oauthlib-3.3.1-py3-none-any.whl.metadata (7.9 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:28.8790983Z Downloading google_api_python_client-2.196.0-py3-none-any.whl (15.2 MB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.1575084Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 15.2/15.2 MB 57.0 MB/s  0:00:00
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.1689203Z Downloading google_auth-2.52.0-py3-none-any.whl (245 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.1792848Z Downloading google_auth_httplib2-0.4.0-py3-none-any.whl (9.5 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.1891496Z Downloading google_api_core-2.30.3-py3-none-any.whl (173 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.2003496Z Downloading requests-2.34.0-py3-none-any.whl (73 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.2110470Z Downloading charset_normalizer-3.4.7-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (214 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.2215406Z Downloading googleapis_common_protos-1.75.0-py3-none-any.whl (300 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.2319979Z Downloading httplib2-0.31.2-py3-none-any.whl (91 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.2426587Z Downloading idna-3.14-py3-none-any.whl (72 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.2520302Z Downloading proto_plus-1.28.0-py3-none-any.whl (50 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.2627492Z Downloading pyparsing-3.3.2-py3-none-any.whl (122 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.2737197Z Downloading uritemplate-4.2.0-py3-none-any.whl (11 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.2831130Z Downloading urllib3-2.7.0-py3-none-any.whl (131 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.2930609Z Downloading google_analytics_data-0.22.0-py3-none-any.whl (199 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.3094350Z Downloading grpcio-1.80.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (6.8 MB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.3581457Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.8/6.8 MB 144.3 MB/s  0:00:00
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.3664671Z Downloading grpcio_status-1.80.0-py3-none-any.whl (14 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.3762857Z Downloading protobuf-6.33.6-cp39-abi3-manylinux2014_x86_64.whl (323 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.3870937Z Downloading typing_extensions-4.15.0-py3-none-any.whl (44 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.3971185Z Downloading pandas-3.0.3-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (11.3 MB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.4584053Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 11.3/11.3 MB 193.5 MB/s  0:00:00
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.4662639Z Downloading numpy-2.4.4-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.9 MB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.5303298Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 16.9/16.9 MB 270.7 MB/s  0:00:00
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.5383078Z Downloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.5488175Z Downloading openai-2.36.0-py3-none-any.whl (1.3 MB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.5555867Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.3/1.3 MB 231.4 MB/s  0:00:00
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.5630811Z Downloading anyio-4.13.0-py3-none-any.whl (114 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.5727682Z Downloading distro-1.9.0-py3-none-any.whl (20 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.5838278Z Downloading httpx-0.28.1-py3-none-any.whl (73 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.5936307Z Downloading httpcore-1.0.9-py3-none-any.whl (78 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.6052188Z Downloading jiter-0.14.0-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (358 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.6220828Z Downloading pydantic-2.13.4-py3-none-any.whl (472 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.6345893Z Downloading pydantic_core-2.46.4-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (2.1 MB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.6431605Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.1/2.1 MB 297.8 MB/s  0:00:00
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.6515211Z Downloading beautifulsoup4-4.14.3-py3-none-any.whl (107 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:29.6631043Z Downloading playwright-1.59.0-py3-none-manylinux1_x86_64.whl (47.2 MB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.0181209Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 47.2/47.2 MB 135.3 MB/s  0:00:00
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.0265178Z Downloading greenlet-3.5.0-cp311-cp311-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (615 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.0314132Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 615.2/615.2 kB 126.2 MB/s  0:00:00
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.0389927Z Downloading pyee-13.0.1-py3-none-any.whl (15 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.0504234Z Downloading aiohttp-3.13.5-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (1.8 MB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.0613145Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.8/1.8 MB 171.1 MB/s  0:00:00
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.0689372Z Downloading multidict-6.7.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (246 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.0799629Z Downloading yarl-1.23.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (102 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.0901912Z Downloading lxml-6.1.0-cp311-cp311-manylinux_2_26_x86_64.manylinux_2_28_x86_64.whl (5.2 MB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.1087223Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.2/5.2 MB 304.2 MB/s  0:00:00
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.1167009Z Downloading matplotlib-3.10.9-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (8.8 MB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.1455024Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 8.8/8.8 MB 321.5 MB/s  0:00:00
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.1530405Z Downloading seaborn-0.13.2-py3-none-any.whl (294 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.1637584Z Downloading tabulate-0.10.0-py3-none-any.whl (39 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.1731266Z Downloading gspread-6.2.1-py3-none-any.whl (59 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.1830330Z Downloading asyncio-4.0.0-py3-none-any.whl (5.6 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.1923684Z Downloading aiohappyeyeballs-2.6.1-py3-none-any.whl (15 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.2020779Z Downloading aiosignal-1.4.0-py3-none-any.whl (7.5 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.2124897Z Downloading annotated_types-0.7.0-py3-none-any.whl (13 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.2217881Z Downloading attrs-26.1.0-py3-none-any.whl (67 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.2326989Z Downloading certifi-2026.4.22-py3-none-any.whl (135 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.2432940Z Downloading contourpy-1.3.3-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (355 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.2538301Z Downloading cryptography-48.0.0-cp311-abi3-manylinux_2_34_x86_64.whl (4.7 MB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.2724162Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 4.7/4.7 MB 281.5 MB/s  0:00:00
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.2816316Z Downloading cffi-2.0.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (215 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.2926855Z Downloading cycler-0.12.1-py3-none-any.whl (8.3 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.3033470Z Downloading fonttools-4.62.1-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (5.1 MB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.3481275Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.1/5.1 MB 113.7 MB/s  0:00:00
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.3566826Z Downloading frozenlist-1.8.0-cp311-cp311-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (231 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.3667702Z Downloading google_auth_oauthlib-1.4.0-py3-none-any.whl (19 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.3768385Z Downloading h11-0.16.0-py3-none-any.whl (37 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.3869282Z Downloading kiwisolver-1.5.0-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl (1.4 MB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.3945984Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 1.4/1.4 MB 236.8 MB/s  0:00:00
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.4023746Z Downloading packaging-26.2-py3-none-any.whl (100 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.4130570Z Downloading pillow-12.2.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (7.1 MB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.4402621Z    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 7.1/7.1 MB 281.6 MB/s  0:00:00
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.4490468Z Downloading propcache-0.5.2-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (58 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.4588676Z Downloading pyasn1_modules-0.4.2-py3-none-any.whl (181 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.4685622Z Downloading pyasn1-0.6.3-py3-none-any.whl (83 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.4780954Z Downloading requests_oauthlib-2.0.0-py2.py3-none-any.whl (24 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.4877152Z Downloading oauthlib-3.3.1-py3-none-any.whl (160 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.4975903Z Downloading six-1.17.0-py2.py3-none-any.whl (11 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.5077316Z Downloading soupsieve-2.8.3-py3-none-any.whl (37 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.5168708Z Downloading tqdm-4.67.3-py3-none-any.whl (78 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.5261099Z Downloading typing_inspection-0.4.2-py3-none-any.whl (14 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.5365672Z Downloading pycparser-3.0-py3-none-any.whl (48 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.5466417Z Downloading sniffio-1.3.1-py3-none-any.whl (10 kB)
+master-orchestrator	Install dependencies	2026-05-11T21:50:30.8782230Z Installing collected packages: urllib3, uritemplate, typing-extensions, tqdm, tabulate, soupsieve, sniffio, six, pyparsing, pycparser, pyasn1, protobuf, propcache, pillow, packaging, oauthlib, numpy, multidict, lxml, kiwisolver, jiter, idna, h11, greenlet, frozenlist, fonttools, distro, cycler, charset_normalizer, certifi, attrs, asyncio, annotated-types, aiohappyeyeballs, yarl, typing-inspection, requests, python-dateutil, pyee, pydantic-core, pyasn1-modules, proto-plus, httplib2, httpcore, grpcio, googleapis-common-protos, contourpy, cffi, beautifulsoup4, anyio, aiosignal, requests-oauthlib, pydantic, playwright, pandas, matplotlib, httpx, grpcio-status, cryptography, aiohttp, seaborn, openai, google-auth, google-auth-oauthlib, google-auth-httplib2, google-api-core, gspread, google-api-python-client, google-analytics-data
+master-orchestrator	Install dependencies	2026-05-11T21:50:44.5711431Z 
+master-orchestrator	Install dependencies	2026-05-11T21:50:44.5745816Z Successfully installed aiohappyeyeballs-2.6.1 aiohttp-3.13.5 aiosignal-1.4.0 annotated-types-0.7.0 anyio-4.13.0 asyncio-4.0.0 attrs-26.1.0 beautifulsoup4-4.14.3 certifi-2026.4.22 cffi-2.0.0 charset_normalizer-3.4.7 contourpy-1.3.3 cryptography-48.0.0 cycler-0.12.1 distro-1.9.0 fonttools-4.62.1 frozenlist-1.8.0 google-analytics-data-0.22.0 google-api-core-2.30.3 google-api-python-client-2.196.0 google-auth-2.52.0 google-auth-httplib2-0.4.0 google-auth-oauthlib-1.4.0 googleapis-common-protos-1.75.0 greenlet-3.5.0 grpcio-1.80.0 grpcio-status-1.80.0 gspread-6.2.1 h11-0.16.0 httpcore-1.0.9 httplib2-0.31.2 httpx-0.28.1 idna-3.14 jiter-0.14.0 kiwisolver-1.5.0 lxml-6.1.0 matplotlib-3.10.9 multidict-6.7.1 numpy-2.4.4 oauthlib-3.3.1 openai-2.36.0 packaging-26.2 pandas-3.0.3 pillow-12.2.0 playwright-1.59.0 propcache-0.5.2 proto-plus-1.28.0 protobuf-6.33.6 pyasn1-0.6.3 pyasn1-modules-0.4.2 pycparser-3.0 pydantic-2.13.4 pydantic-core-2.46.4 pyee-13.0.1 pyparsing-3.3.2 python-dateutil-2.9.0.post0 requests-2.34.0 requests-oauthlib-2.0.0 seaborn-0.13.2 six-1.17.0 sniffio-1.3.1 soupsieve-2.8.3 tabulate-0.10.0 tqdm-4.67.3 typing-extensions-4.15.0 typing-inspection-0.4.2 uritemplate-4.2.0 urllib3-2.7.0 yarl-1.23.0
+master-orchestrator	Install dependencies	2026-05-11T21:50:44.6735895Z 
+master-orchestrator	Install dependencies	2026-05-11T21:50:44.6736979Z [notice] A new release of pip is available: 26.0.1 -> 26.1.1
+master-orchestrator	Install dependencies	2026-05-11T21:50:44.6737742Z [notice] To update, run: pip install --upgrade pip
+master-orchestrator	Install dependencies	2026-05-11T21:50:46.2981167Z Downloading Chrome for Testing 147.0.7727.15 (playwright chromium v1217) from https://cdn.playwright.dev/builds/cft/147.0.7727.15/linux64/chrome-linux64.zip
+master-orchestrator	Install dependencies	2026-05-11T21:50:47.1803513Z |                                                                                |   0% of 170.4 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:47.4832477Z |■■■■■■■■                                                                        |  10% of 170.4 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:47.7190266Z |■■■■■■■■■■■■■■■■                                                                |  20% of 170.4 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:47.8184954Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 170.4 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:47.8831005Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 170.4 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:47.9489833Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 170.4 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:48.0148783Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 170.4 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:48.0759607Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 170.4 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:48.1310992Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 170.4 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:48.1899505Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 170.4 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:48.2409785Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 170.4 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:50.7226357Z Chrome for Testing 147.0.7727.15 (playwright chromium v1217) downloaded to /home/runner/.cache/ms-playwright/chromium-1217
+master-orchestrator	Install dependencies	2026-05-11T21:50:50.7233706Z Downloading FFmpeg (playwright ffmpeg v1011) from https://cdn.playwright.dev/dbazure/download/playwright/builds/ffmpeg/1011/ffmpeg-linux.zip
+master-orchestrator	Install dependencies	2026-05-11T21:50:51.5187294Z |                                                                                |   0% of 2.3 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:51.5328086Z |■■■■■■■■                                                                        |  10% of 2.3 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:51.5405217Z |■■■■■■■■■■■■■■■■                                                                |  20% of 2.3 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:51.5454368Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 2.3 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:51.5504424Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 2.3 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:51.5538044Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 2.3 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:51.5562480Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 2.3 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:51.5581080Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 2.3 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:51.5613820Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 2.3 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:51.5639489Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 2.3 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:51.5645762Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 2.3 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:51.6203974Z FFmpeg (playwright ffmpeg v1011) downloaded to /home/runner/.cache/ms-playwright/ffmpeg-1011
+master-orchestrator	Install dependencies	2026-05-11T21:50:51.6207064Z Downloading Chrome Headless Shell 147.0.7727.15 (playwright chromium-headless-shell v1217) from https://cdn.playwright.dev/builds/cft/147.0.7727.15/linux64/chrome-headless-shell-linux64.zip
+master-orchestrator	Install dependencies	2026-05-11T21:50:52.4039329Z |                                                                                |   0% of 112 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:52.5137274Z |■■■■■■■■                                                                        |  10% of 112 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:52.5640514Z |■■■■■■■■■■■■■■■■                                                                |  20% of 112 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:52.6196611Z |■■■■■■■■■■■■■■■■■■■■■■■■                                                        |  30% of 112 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:52.6672506Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                                |  40% of 112 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:52.7085596Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                        |  50% of 112 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:52.7658199Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                                |  60% of 112 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:52.8064132Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                        |  70% of 112 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:52.8427795Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■                |  80% of 112 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:52.8996405Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■        |  90% of 112 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:52.9638843Z |■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■| 100% of 112 MiB
+master-orchestrator	Install dependencies	2026-05-11T21:50:54.7984927Z Chrome Headless Shell 147.0.7727.15 (playwright chromium-headless-shell v1217) downloaded to /home/runner/.cache/ms-playwright/chromium_headless_shell-1217
+master-orchestrator	Download previous site speed history	﻿2026-05-11T21:50:54.8250763Z ##[group]Run actions/download-artifact@v4
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:54.8251201Z with:
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:54.8251499Z   name: site-speed-monitoring
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:54.8252137Z   path: .
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:54.8252424Z   merge-multiple: false
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:54.8252752Z   repository: Snymsood/CIM-SEO
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:54.8253086Z   run-id: 25699389304
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:54.8253380Z env:
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:54.8253729Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:54.8254255Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:54.8254772Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:54.8255233Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:54.8255694Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:54.8256156Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:54.8256576Z ##[endgroup]
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:55.0284151Z Downloading single artifact
+master-orchestrator	Download previous site speed history	2026-05-11T21:50:55.1254458Z ##[error]Unable to download artifact(s): Artifact not found for name: site-speed-monitoring
+master-orchestrator	Download previous site speed history	        Please ensure that your artifact is not expired and the artifact was uploaded using a compatible version of toolkit/upload-artifact.
+master-orchestrator	Download previous site speed history	        For more information, visit the GitHub Artifacts FAQ: https://github.com/actions/toolkit/blob/main/packages/artifact/docs/faq.md
+master-orchestrator	Write service account key	﻿2026-05-11T21:50:55.1364982Z ##[group]Run echo '***
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1365392Z [36;1mecho '***[0m
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1365729Z [36;1m  ***[0m
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1366090Z [36;1m  ***[0m
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1366509Z [36;1m  ***[0m
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1373821Z [36;1m  ***[0m
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1374298Z [36;1m  ***[0m
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1374625Z [36;1m  ***[0m
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1375023Z [36;1m  ***[0m
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1375380Z [36;1m  ***[0m
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1375808Z [36;1m  ***[0m
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1376438Z [36;1m  ***[0m
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1376753Z [36;1m  ***[0m
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1377047Z [36;1m***' > gsc-key.json[0m
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1401797Z shell: /usr/bin/bash -e ***0***
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1402189Z env:
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1402569Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1403117Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1403645Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1404158Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1404625Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1405113Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+master-orchestrator	Write service account key	2026-05-11T21:50:55.1405528Z ##[endgroup]
+master-orchestrator	Run Master Orchestrator	﻿2026-05-11T21:50:55.1491643Z ##[group]Run python -u master_orchestrator.py
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1492104Z [36;1mpython -u master_orchestrator.py[0m
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1514537Z shell: /usr/bin/bash -e ***0***
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1514897Z env:
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1515268Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1515808Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib/pkgconfig
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1516351Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1516830Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1517304Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.15/x64
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1517768Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.15/x64/lib
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1518282Z   PAGESPEED_API_KEY: ***
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1518737Z   GROQ_API_KEY: ***
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1520506Z   MONDAY_API_TOKEN: ***
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1520930Z   GOOGLE_SHEET_ID: ***
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1521283Z   MONDAY_GSC_ITEM_ID: ***
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1521653Z   MONDAY_AI_SNIPPET_ITEM_ID: ***
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1522005Z   MONDAY_MASTER_ITEM_ID: ***
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1522332Z   MONDAY_GSC_KEYWORD_ITEM_ID: 
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1522654Z   MONDAY_GSC_LANDING_ITEM_ID: 
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1522962Z   MONDAY_BROKEN_LINK_ITEM_ID: 
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1523282Z   MONDAY_INTERNAL_LINK_ITEM_ID: 
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1523814Z   MONDAY_CONTENT_AUDIT_ITEM_ID: 
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1524142Z   MONDAY_INTELLIGENCE_ITEM_ID: 
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:55.1524460Z ##[endgroup]
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.6762751Z --- STARTING MASTER ORCHESTRATOR ---
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.6764826Z --- Starting API-based pipelines (concurrent) ---
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.6765667Z Starting ga4_weekly_report.py...
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.6776294Z Starting gsc_weekly_report.py...
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.6790920Z Starting gsc_keyword_ranking_report.py...
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.6841271Z Starting gsc_landing_pages_report.py...
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.6881060Z Starting site_speed_monitoring.py...
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.6941107Z Starting ai_snippet_verification.py...
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7001383Z [ga4_weekly_report.py] File "/home/runner/work/CIM-SEO/CIM-SEO/ga4_weekly_report.py", line 454
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7021252Z [ga4_weekly_report.py] ", alpha=0.3, color=C_BORDER)
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7050801Z Traceback (most recent call last):
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7051403Z [ga4_weekly_report.py] ^
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7081376Z [ga4_weekly_report.py] SyntaxError: unterminated string literal (detected at line 454)
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7099446Z   File "/home/runner/work/CIM-SEO/CIM-SEO/master_orchestrator.py", line 864, in <module>
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7100666Z Finished ga4_weekly_report.py with code 1
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7101498Z     main()
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7131039Z   File "/home/runner/work/CIM-SEO/CIM-SEO/master_orchestrator.py", line 824, in main
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7160850Z     asyncio.run(run_all_scripts())
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7162037Z   File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/asyncio/runners.py", line 190, in run
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7341730Z     Loop <_UnixSelectorEventLoop running=False closed=True debug=False> that handles pid 2449 is closed
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7350739Z return runner.run(main)
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7370793Z            ^^^^^^^^^^^^^^^^
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7401382Z   File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/asyncio/runners.py", line 118, in run
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7430865Z     return self._loop.run_until_complete(task)
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7450688Z            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7461435Z   File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/asyncio/base_events.py", line 654, in run_until_complete
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7491003Z     return future.result()
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7520789Z            ^^^^^^^^^^^^^^^
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7541172Z   File "/home/runner/work/CIM-SEO/CIM-SEO/master_orchestrator.py", line 99, in run_all_scripts
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7550804Z     await asyncio.gather(
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7581382Z   File "/home/runner/work/CIM-SEO/CIM-SEO/master_orchestrator.py", line 65, in run_script
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7611335Z     raise RuntimeError(f"***script_name*** failed with exit code ***process.returncode***")
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.7612544Z RuntimeError: ga4_weekly_report.py failed with exit code 1
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.8652504Z Exception ignored in: <function BaseSubprocessTransport.__del__ at 0x7f784ca8c540>
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.8689847Z Traceback (most recent call last):
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.8696027Z   File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/asyncio/base_subprocess.py", line 126, in __del__
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.8703014Z     self.close()
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.8704183Z   File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/asyncio/base_subprocess.py", line 104, in close
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.8705605Z     proto.pipe.close()
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.8706692Z   File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/asyncio/unix_events.py", line 566, in close
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.8858410Z     self._close(None)
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.8859824Z   File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/asyncio/unix_events.py", line 590, in _close
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.8861345Z     self._loop.call_soon(self._call_connection_lost, exc)
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.8862601Z   File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/asyncio/base_events.py", line 762, in call_soon
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.8863733Z     self._check_closed()
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.8865195Z   File "/opt/hostedtoolcache/Python/3.11.15/x64/lib/python3.11/asyncio/base_events.py", line 520, in _check_closed
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.8889038Z ##[error]    raise RuntimeError('Event loop is closed')
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:56.8893178Z RuntimeError: Event loop is closed
+master-orchestrator	Run Master Orchestrator	2026-05-11T21:50:57.1123941Z ##[error]Process completed with exit code 1.
+master-orchestrator	Post Checkout repo	﻿2026-05-11T21:50:57.1325273Z Post job cleanup.
+master-orchestrator	Post Checkout repo	2026-05-11T21:50:57.3201056Z [command]/usr/bin/git version
+master-orchestrator	Post Checkout repo	2026-05-11T21:50:57.3381357Z git version 2.53.0
+master-orchestrator	Post Checkout repo	2026-05-11T21:50:57.3551537Z Temporarily overriding HOME='/home/runner/work/_temp/e74bf362-80f3-472f-af81-2ceca4c94fb6' before making global git config changes
+master-orchestrator	Post Checkout repo	2026-05-11T21:50:57.3601161Z Adding repository directory to the temporary git global config as a safe directory
+master-orchestrator	Post Checkout repo	2026-05-11T21:50:57.3631804Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/CIM-SEO/CIM-SEO
+master-orchestrator	Post Checkout repo	2026-05-11T21:50:57.3691037Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+master-orchestrator	Post Checkout repo	2026-05-11T21:50:57.3833758Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+master-orchestrator	Post Checkout repo	2026-05-11T21:50:57.4581079Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+master-orchestrator	Post Checkout repo	2026-05-11T21:50:57.4640978Z http.https://github.com/.extraheader
+master-orchestrator	Post Checkout repo	2026-05-11T21:50:57.4691308Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+master-orchestrator	Post Checkout repo	2026-05-11T21:50:57.4841947Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+master-orchestrator	Post Checkout repo	2026-05-11T21:50:57.5631277Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+master-orchestrator	Post Checkout repo	2026-05-11T21:50:57.5741233Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+master-orchestrator	Complete job	﻿2026-05-11T21:50:57.6832057Z Cleaning up orphan processes
+master-orchestrator	Complete job	2026-05-11T21:50:57.8390575Z Terminate orphan process: pid (2451) (python)
+master-orchestrator	Complete job	2026-05-11T21:50:57.8729591Z Terminate orphan process: pid (2453) (python)
+master-orchestrator	Complete job	2026-05-11T21:50:57.9003010Z Terminate orphan process: pid (2458) (python)
+master-orchestrator	Complete job	2026-05-11T21:50:57.9266568Z Terminate orphan process: pid (2463) (python)
+master-orchestrator	Complete job	2026-05-11T21:50:57.9502813Z Terminate orphan process: pid (2512) (MainThread)
+master-orchestrator	Complete job	2026-05-11T21:50:57.9515496Z ##[warning]Node.js 20 actions are deprecated. The following actions are running on Node.js 20 and may not work as expected: actions/checkout@v4, actions/download-artifact@v4, actions/setup-python@v5. Actions will be forced to run with Node.js 24 by default starting June 2nd, 2026. Node.js 20 will be removed from the runner on September 16th, 2026. Please check if updated versions of these actions are available that support Node.js 24. To opt into Node.js 24 now, set the FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true environment variable on the runner or in your workflow file. Once Node.js 24 becomes the default, you can temporarily opt out by setting ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
