@@ -1134,53 +1134,6 @@ def write_html_summary(query_df, page_df, exec_bullets, kpis,
     print("Saved weekly_summary.html with ApexCharts")
 
 
-
-
-/* ── Header ── */
-.site-header {{
-    background: #000;
-    color: #fff;
-    padding: 40px 48px;
-    margin: 0 -40px 0;
-    position: relative;
-    overflow: hidden;
-}}
-.site-header::before {{
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: repeating-linear-gradient(
-        90deg,
-        transparent,
-        transparent 1px,
-        #fff 1px,
-        #fff 2px
-    );
-    background-size: 4px 100%;
-    opacity: 0.03;
-    pointer-events: none;
-}}
-.site-header__eyebrow {{
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.2em;
-    color: #999;
-    margin-bottom: 12px;
-}}
-.site-header__title {{
-    font-family: 'Playfair Display', Georgia, serif;
-    font-size: clamp(32px, 5vw, 64px);
-    font-weight: 900;
-    line-height: 1;
-    letter-spacing: -0.02em;
-    color: #fff;
-    margin-bottom: 16px;
-}}
-
-
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # MARKDOWN SUMMARY
 # ══════════════════════════════════════════════════════════════════════════════
