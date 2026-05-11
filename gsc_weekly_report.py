@@ -473,6 +473,19 @@ def build_unified_executive_bullets(kpis, query_df, page_df,
 # HTML TABLE BUILDERS  (inline bar + badge variants)
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _delta_html(val, decimals=0, lower_is_better=False):
+    """Return a coloured delta span (monochrome border style)."""
+    try:
+        v = float(val)
+    except (TypeError, ValueError):
+        return "-"
+    if math.isclose(v, 0, abs_tol=1e-5):
+        return '<span class="chg neu">—</span>'
+    positive_good = (v > 0 and not lower_is_better) or (v < 0 and lower_is_better)
+    cls  = "pos" if positive_good else "neg"
+    sign = "+" if v > 0 else ""
+    return f'<span class="chg {cls}">{sign}{v:.{decimals}f}</span>'
+
 def _bar_cell(value, max_value, color=C_NAVY):
     """Return a table cell containing an inline proportional bar."""
     if max_value <= 0:
