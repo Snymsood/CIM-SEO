@@ -571,6 +571,19 @@ def build_unified_bullets(kpis, pages_df, channels_df, current_start, current_en
 # HTML TABLE BUILDERS
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _bar_cell(value, max_value, color=C_NAVY):
+    """Return a table cell containing an inline proportional bar."""
+    if max_value <= 0:
+        return f"<td>{_fmt(value)}</td>"
+    pct = min(value / max_value * 100, 100)
+    return (
+        f'<td><div style="display:flex;align-items:center;gap:6px;">'
+        f'<div style="width:{pct:.1f}%;max-width:80px;height:8px;'
+        f'background:{color};border-radius:3px;flex-shrink:0;"></div>'
+        f'<span style="font-size:9px;color:#374151;">{_fmt(value)}</span>'
+        f"</div></td>"
+    )
+
 def build_pages_table(pages_df, n=50):
     if pages_df.empty:
         return "<p style=\"font-family:'JetBrains Mono',monospace;font-size:10px;color:#94A3B8;\">No data.</p>"
