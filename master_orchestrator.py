@@ -1,8 +1,13 @@
 import asyncio
 import os
 import html as _html
+import math
+import numpy as np
 import pandas as pd
 import requests
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 from openai import OpenAI
 from datetime import date
