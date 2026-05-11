@@ -240,6 +240,13 @@ footer .datestamp { font-family: 'JetBrains Mono', monospace; font-size: 9px; co
     .chart-row-2 { grid-template-columns: 1fr; }
     .nl-grid { grid-template-columns: 1fr; }
 }
+/* ApexCharts Global Overrides */
+.apexcharts-canvas { font-family: 'JetBrains Mono', monospace !important; }
+.apexcharts-tooltip { background: #fff !important; border: 2px solid #000 !important; border-radius: 0 !important; box-shadow: none !important; }
+.apexcharts-tooltip-title { font-family: 'Playfair Display', serif !important; font-weight: 900 !important; background: #000 !important; color: #fff !important; border-bottom: none !important; }
+.apexcharts-legend-text { font-family: 'JetBrains Mono', monospace !important; font-size: 10px !important; color: #000 !important; }
+.apexcharts-menu { border: 2px solid #000 !important; border-radius: 0 !important; }
+.apexcharts-menu-item:hover { background: #f5f5f5 !important; }
 """
 
 
@@ -249,6 +256,7 @@ FONT_LINK = (
     '<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700'
     '&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,400'
     '&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">'
+    '<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>'
 )
 
 
@@ -337,6 +345,36 @@ def mm_chart_wrap(path, alt="chart"):
         return ""
     import html as _html
     return f'<div class="chart-wrap"><img src="{_html.escape(str(path))}" alt="{_html.escape(alt)}"></div>'
+
+
+def mm_apex_chart(chart_id, options_dict):
+    """
+    Generate an interactive ApexChart.
+    chart_id: unique ID for the container
+    options_dict: Python dictionary that will be converted to JS options.
+    """
+    import json
+    options_json = json.dumps(options_dict)
+    return f"""
+    <div id="{chart_id}" style="width: 100%; min-height: 350px; margin-bottom: 24px; border: 2px solid #000; padding: 20px; background: #fff;"></div>
+    <script>
+      (function() {{
+        var options = {options_json};
+        // Apply global brand defaults if not specified
+        if (!options.chart) options.chart = {{}};
+        options.chart.toolbar = options.chart.toolbar || {{ show: false }};
+        options.chart.fontFamily = "'JetBrains Mono', monospace";
+        
+        options.colors = options.colors || ["#212878", "#2A9D8F", "#E76F51", "#6C757D", "#D97706"];
+        
+        if (!options.stroke) options.stroke = {{ width: 2, curve: 'smooth' }};
+        if (!options.grid) options.grid = {{ borderColor: '#E5E5E5', strokeDashArray: 4 }};
+        
+        var chart = new ApexCharts(document.querySelector("#{chart_id}"), options);
+        chart.render();
+      }})();
+    </script>
+    """
 
 
 def mm_chart_row_2(path_a, alt_a, path_b, alt_b):

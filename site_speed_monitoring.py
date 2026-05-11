@@ -1116,6 +1116,7 @@ def write_html_summary(comparison_df, opp_df):
         mm_section(
             "Core Web Vitals — Field Status",
             mm_report_section(
+                '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#64748B;margin-bottom:16px;">\u24d8 <b>How to read:</b> Distribution of Real User Metrics (CrUX). "Fast" (Teal) is the goal. "Slow" (Coral) indicates users are experiencing significant lag.</p>' +
                 _img(chart_paths["cwv_status"], "CWV field metric distribution")
             ),
         ) +
@@ -1124,6 +1125,7 @@ def write_html_summary(comparison_df, opp_df):
         mm_section(
             "Mobile vs Desktop Snapshot",
             mm_report_section(
+                '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#64748B;margin-bottom:16px;">\u24d8 <b>How to read:</b> Compares mobile (Navy) vs desktop (Teal). Mobile scores are usually lower due to hardware constraints and slower networks.</p>' +
                 _img(chart_paths["overview"], "Mobile vs desktop overview")
             ),
         ) +
@@ -1148,6 +1150,7 @@ def write_html_summary(comparison_df, opp_df):
         mm_section(
             "Time to First Byte (TTFB)",
             mm_report_section(
+                '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#64748B;margin-bottom:16px;">\u24d8 <b>How to read:</b> Server response time. Below 600ms is good. Higher values (Amber/Red) suggest server-side bottlenecks or database lag.</p>' +
                 _img(chart_paths["ttfb"], "TTFB by page")
             ),
         ) +
@@ -1192,6 +1195,7 @@ def write_html_summary(comparison_df, opp_df):
             mm_section(
                 "Optimization Opportunities",
                 mm_report_section(
+                    '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#64748B;margin-bottom:16px;">\u24d8 <b>How to read:</b> Estimated time savings from technical fixes. Longest bars (e.g., Unused JS/CSS) should be prioritised for development.</p>' +
                     _img(chart_paths["opportunities"], "Top optimization opportunities") +
                     "<br>" +
                     _build_opportunities_table(opp_df)

@@ -2,8 +2,8 @@ name: Site Speed Monitoring
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "45 13 * * 1"
+#  schedule:
+#    - cron: "45 13 * * 1"
 
 jobs:
   site-speed-monitoring:

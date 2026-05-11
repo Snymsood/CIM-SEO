@@ -2,17 +2,17 @@ import asyncio
 import os
 import html as _html
 import pandas as pd
-import numpy as np
 import requests
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
+
 from openai import OpenAI
 from datetime import date
 from pathlib import Path
 from seo_utils import short_url
 from pdf_report_formatter import format_num, format_delta, format_pct_change
+from html_report_utils import (
+    mm_html_shell, mm_kpi_card, mm_kpi_grid, mm_section, mm_report_section,
+    mm_col_header, mm_apex_chart, mm_exec_bullets
+)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # CONSTANTS
@@ -139,9 +139,9 @@ def _load(filename):
 def load_all_data():
     """Load every downstream CSV produced by the sub-scripts."""
     ga4_summary  = _load("ga4_summary_comparison.csv")
-    ga4_pages    = _load("ga4_top_landing_pages.csv").head(10)
+    ga4_pages    = _load("ga4_top_landing_pages.csv").head(50)
     gsc_comp     = _load("weekly_comparison.csv")
-    gsc_queries  = _load("top_queries.csv").head(10)
+    gsc_queries  = _load("top_queries.csv").head(50)
     speed        = _load("site_speed_comparison.csv")
     content_cat  = _load("content_category_performance.csv")
     kw_comp      = _load("tracked_keywords_comparison.csv")
@@ -623,119 +623,22 @@ def _build_html_table(df, cols, headers):
 # HTML DASHBOARD BUILDER
 # ══════════════════════════════════════════════════════════════════════════════
 
-FONT_LINK = (
-    '<link rel="preconnect" href="https://fonts.googleapis.com">'
-    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
-    '<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400'
-    '&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,400'
-    '&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">'
-)
-
-
-def _kpi_card(label, curr, prev, lower_better=False, is_pct=False, decimals=0):
-    """Render one inverted KPI card matching the MM design system."""
-    curr_f = float(curr) if curr else 0
-    prev_f = float(prev) if prev else 0
-    curr_str = f"{curr_f:.{decimals}%}" if is_pct else f"{curr_f:,.{decimals}f}"
-    prev_str = f"{prev_f:.{decimals}%}" if is_pct else f"{prev_f:,.{decimals}f}"
-    delta_str = format_pct_change(curr_f, prev_f)
-    if delta_str == "-":
-        delta_html = '<span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#525252;">—</span>'
-    else:
-        is_pos = delta_str.startswith("+")
-        good   = (is_pos and not lower_better) or (not is_pos and lower_better)
-        bg, fg = ("#000", "#fff") if good else ("#fff", "#000")
-        delta_html = (
-            f'<span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;font-weight:700;'
-            f'padding:2px 8px;background:{bg};color:{fg};border:1px solid #000;">{_html.escape(delta_str)}</span>'
-        )
-    return f"""
-<div style="background:#000;color:#fff;padding:24px 20px;position:relative;overflow:hidden;border-right:2px solid #fff;">
-  <div style="font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.15em;color:#999;margin-bottom:12px;">{_html.escape(label)}</div>
-  <div style="font-family:'Playfair Display',Georgia,serif;font-size:36px;font-weight:700;color:#fff;line-height:1;margin-bottom:10px;">{_html.escape(curr_str)}</div>
-  <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#999;margin-bottom:8px;">prev {_html.escape(prev_str)}</div>
-  {delta_html}
-</div>"""
-
-
-def _img_tag(path, alt="chart"):
-    """Return an img tag for a chart path, or empty string if path is falsy."""
-    if not path:
-        return ""
-    return (
-        f'<div style="width:100%;margin-bottom:24px;">'
-        f'<img src="{_html.escape(str(path))}" alt="{_html.escape(alt)}" '
-        f'style="width:100%;display:block;border:2px solid #000;">'
-        f'</div>'
-    )
-
-
-def _chart_row_2(path_a, alt_a, path_b, alt_b):
-    """Two charts side by side."""
-    a = (f'<div style="width:calc(50% - 10px);display:inline-block;vertical-align:top;">'
-         f'<img src="{_html.escape(str(path_a))}" alt="{_html.escape(alt_a)}" style="width:100%;display:block;border:2px solid #000;"></div>') if path_a else ""
-    b = (f'<div style="width:calc(50% - 10px);display:inline-block;vertical-align:top;margin-left:20px;">'
-         f'<img src="{_html.escape(str(path_b))}" alt="{_html.escape(alt_b)}" style="width:100%;display:block;border:2px solid #000;"></div>') if path_b else ""
-    if not a and not b:
-        return ""
-    return f'<div style="margin-bottom:24px;">{a}{b}</div>'
-
-
-def _section(title, content):
-    """Wrap content in a titled section with thick rule."""
-    return f"""
-<div style="padding:40px 0;">
-  <div style="font-family:'Playfair Display',Georgia,serif;font-size:11px;font-weight:700;
-              text-transform:uppercase;letter-spacing:0.15em;color:#000;margin-bottom:24px;
-              display:flex;align-items:center;gap:16px;">
-    <span style="display:inline-block;width:8px;height:8px;background:#000;flex-shrink:0;"></span>
-    {_html.escape(title)}
-  </div>
-  <div style="background:#fff;border:2px solid #000;padding:28px 32px;">
-    {content}
-  </div>
-</div>
-<hr style="border:none;border-top:4px solid #000;margin:0;">"""
-
-
-def _exec_bullets(bullets):
-    items = "".join(
-        f'<li style="font-family:\'Source Serif 4\',Georgia,serif;font-size:14px;color:#000;'
-        f'line-height:1.7;padding:10px 0 10px 20px;border-bottom:1px solid #E5E5E5;'
-        f'position:relative;list-style:none;">'
-        f'<span style="position:absolute;left:0;color:#525252;font-family:\'JetBrains Mono\',monospace;">—</span>'
-        f'{_html.escape(b)}</li>'
-        for b in bullets
-    )
-    return f'<ul style="margin:0;padding:0;">{items}</ul>'
-
-
-def _panel_label(text):
-    return (
-        f'<div style="font-family:\'JetBrains Mono\',monospace;font-size:10px;text-transform:uppercase;'
-        f'letter-spacing:0.15em;color:#525252;margin-bottom:16px;display:flex;align-items:center;gap:12px;">'
-        f'{_html.escape(text)}'
-        f'<span style="flex:1;height:1px;background:#E5E5E5;display:inline-block;"></span></div>'
-    )
 
 
 def generate_html_dashboard(bullets, chart_paths, data, kpis):
     """Build the full index.html dashboard in the MM design system."""
     today = date.today().strftime("%B %d, %Y")
 
-    # ── KPI grid (8 cards) ────────────────────────────────────────────────────
+    # ── KPI grid (6 cards) ────────────────────────────────────────────────────
     kpi_cards = (
-        _kpi_card("Weekly Sessions",    kpis["sessions"]["curr"],    kpis["sessions"]["prev"]) +
-        _kpi_card("Active Users",       kpis["users"]["curr"],       kpis["users"]["prev"]) +
-        _kpi_card("GSC Clicks",         kpis["clicks"]["curr"],      kpis["clicks"]["prev"]) +
-        _kpi_card("GSC Impressions",    kpis["impressions"]["curr"], kpis["impressions"]["prev"]) +
-        _kpi_card("Avg Position",       kpis["avg_position"]["curr"],kpis["avg_position"]["prev"], lower_better=True, decimals=1) +
-        _kpi_card("Mobile Speed Score", kpis["mobile_score"]["curr"],kpis["mobile_score"]["prev"], decimals=0)
+        mm_kpi_card("Weekly Sessions",    kpis["sessions"]["curr"],    kpis["sessions"]["prev"]) +
+        mm_kpi_card("Active Users",       kpis["users"]["curr"],       kpis["users"]["prev"]) +
+        mm_kpi_card("GSC Clicks",         kpis["clicks"]["curr"],      kpis["clicks"]["prev"]) +
+        mm_kpi_card("GSC Impressions",    kpis["impressions"]["curr"], kpis["impressions"]["prev"]) +
+        mm_kpi_card("Avg Position",       kpis["avg_position"]["curr"],kpis["avg_position"]["prev"], lower_better=True, decimals=1) +
+        mm_kpi_card("Mobile Speed Score", kpis["mobile_score"]["curr"],kpis["mobile_score"]["prev"], decimals=0)
     )
-    kpi_grid = (
-        f'<div style="display:grid;grid-template-columns:repeat(6,1fr);border:2px solid #000;margin-bottom:0;">'
-        f'{kpi_cards}</div>'
-    )
+    kpi_grid = mm_kpi_grid(kpi_cards)
 
     # ── Tables ────────────────────────────────────────────────────────────────
     ga4_pages   = data["ga4_pages"]
@@ -761,99 +664,112 @@ def generate_html_dashboard(bullets, chart_paths, data, kpis):
 
     cat_cols  = [c for c in ["category", "sessions", "clicks", "engagement_rate", "avg_duration"] if c in content_cat.columns]
     cat_hdrs  = [c.replace("_", " ").title() for c in cat_cols]
-    cat_tbl   = _build_html_table(content_cat.head(12), cat_cols, cat_hdrs)
+    cat_tbl   = _build_html_table(content_cat.head(50), cat_cols, cat_hdrs)
+
+    # ── Charts (ApexCharts Data Preparation) ──────────────────────────────────
+    
+    # 1. KPI Overview (Bar)
+    kpi_chart = mm_apex_chart("kpi_overview", {
+        "chart": {"type": "bar", "height": 350},
+        "series": [
+            {"name": "Previous", "data": [float(kpis["sessions"]["prev"]), float(kpis["users"]["prev"]), float(kpis["clicks"]["prev"]), float(kpis["impressions"]["prev"] / 10)]},
+            {"name": "Current", "data": [float(kpis["sessions"]["curr"]), float(kpis["users"]["curr"]), float(kpis["clicks"]["curr"]), float(kpis["impressions"]["curr"] / 10)]}
+        ],
+        "xaxis": {"categories": ["Sessions", "Users", "Clicks", "Impr / 10"]},
+        "title": {"text": "Weekly KPI Performance (WoW)"}
+    })
+
+    # 2. Content Category (Donut - variety!)
+    cat_chart = ""
+    if not content_cat.empty:
+        cat_chart = mm_apex_chart("cat_share", {
+            "chart": {"type": "donut", "height": 380},
+            "series": [float(x) for x in content_cat.head(15)["sessions"].tolist()],
+            "labels": content_cat.head(15)["category"].tolist(),
+            "title": {"text": "Sessions by Content Pillar"},
+            "legend": {"position": "bottom"}
+        })
+
+    # 3. Keyword Movement (Lollipop style via Scatter/Bar)
+    kw_chart = ""
+    if not kw_comp.empty:
+        kw_comp_work = kw_comp.copy()
+        kw_comp_work["position_change"] = pd.to_numeric(kw_comp_work["position_change"], errors="coerce").fillna(0)
+        movers = pd.concat([
+            kw_comp_work[kw_comp_work["position_change"] < 0].nsmallest(5, "position_change"),
+            kw_comp_work[kw_comp_work["position_change"] > 0].nlargest(5, "position_change")
+        ]).sort_values("position_change")
+        
+        kw_chart = mm_apex_chart("kw_movement", {
+            "chart": {"type": "bar", "height": 400},
+            "series": [{"name": "Position Change", "data": [float(x) for x in movers["position_change"].tolist()]}],
+            "xaxis": {"categories": movers["keyword"].apply(lambda x: short_url(str(x), 30)).tolist()},
+            "plotOptions": {"bar": {"horizontal": True, "colors": {"ranges": [{"from": -100, "to": -0.1, "color": "#2A9D8F"}, {"from": 0.1, "to": 100, "color": "#E76F51"}]}}},
+            "title": {"text": "Keyword Ranking Movement (Gain/Loss)"}
+        })
+
+    # 4. Mobile Speed (Radar - Informational Variety)
+    speed_chart = ""
+    if not speed.empty:
+        mob_speed = speed[speed["strategy"] == "mobile"].head(6)
+        speed_chart = mm_apex_chart("speed_radar", {
+            "chart": {"type": "radar", "height": 400},
+            "series": [{"name": "Mobile Score", "data": [float(x) for x in mob_speed["performance_score"].tolist()]}],
+            "xaxis": {"categories": mob_speed["page"].apply(lambda x: short_url(str(x), 20)).tolist()},
+            "title": {"text": "Mobile Performance Radar"},
+            "colors": ["#212878"]
+        })
 
     # ── Body ──────────────────────────────────────────────────────────────────
-    body = f"""
-<header style="background:#000;color:#fff;padding:40px 48px;margin:0 -40px 0;position:relative;overflow:hidden;">
-  <div style="font-family:'JetBrains Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.2em;color:#999;margin-bottom:12px;">CIM SEO Intelligence</div>
-  <h1 style="font-family:'Playfair Display',Georgia,serif;font-size:clamp(28px,4vw,56px);font-weight:900;line-height:1;letter-spacing:-0.02em;color:#fff;margin-bottom:16px;">Weekly SEO<br>Master Report</h1>
-  <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#666;letter-spacing:0.05em;">
-    <span style="display:inline-block;width:24px;height:2px;background:#fff;vertical-align:middle;margin-right:16px;"></span>
-    Generated {today}
-  </div>
-</header>
-<hr style="border:none;border-top:4px solid #000;margin:0;">
+    body_content = (
+        mm_section("Executive Summary", 
+            mm_report_section(mm_exec_bullets(bullets))
+        ) +
+        '<div class="section" style="padding-top:0;">' + kpi_grid + '</div>'
+        '<hr class="rule-thick">' +
+        mm_section("Performance Overview",
+            mm_report_section(
+                '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#64748B;margin-bottom:16px;">\u24d8 <b>How to read:</b> Compares this week against last week. Impressions are scaled down (÷10) for visibility. Interactive: Hover for details.</p>' +
+                kpi_chart
+            )
+        ) +
+        mm_section("Content Pillar Distribution",
+            mm_report_section(
+                '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#64748B;margin-bottom:16px;">\u24d8 <b>How to read:</b> Visualises the share of total traffic across your main content categories. Larger slices indicate dominant pillars.</p>' +
+                cat_chart + "<br>" + cat_tbl
+            )
+        ) +
+        mm_section("Keyword Visibility Trends",
+            mm_report_section(
+                '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#64748B;margin-bottom:16px;">\u24d8 <b>How to read:</b> Gainers in Teal (negative change = better position), Losers in Coral. Focus on high-volume keywords dropping position.</p>' +
+                kw_chart
+            )
+        ) +
+        mm_section("Site Health & Speed",
+            mm_report_section(
+                '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#64748B;margin-bottom:16px;">\u24d8 <b>How to read:</b> The Radar chart shows performance balance across top pages. Scores closer to the edge are better.</p>' +
+                speed_chart + "<br>" + speed_tbl
+            )
+        ) +
+        mm_section("Search Intelligence Detail",
+            mm_report_section(
+                mm_col_header("Top Landing Pages (GA4)") + ga4_tbl +
+                mm_col_header("Top Search Queries (GSC)") + gsc_tbl
+            )
+        )
+    )
 
-<div style="padding:40px 0;">
-  {kpi_grid}
-</div>
-<hr style="border:none;border-top:4px solid #000;margin:0;">
+    html_doc = mm_html_shell(
+        title=f"CIM SEO Master Report — {today}",
+        eyebrow="CIM SEO Intelligence",
+        headline="Weekly SEO\nMaster Report",
+        meta_line=f"Generated {today}",
+        body_content=body_content
+    )
 
-{_section("Executive Summary",
-    _panel_label("Cross-Channel Analysis") + _exec_bullets(bullets)
-)}
-
-{_section("Performance Overview",
-    '<div class="col-header">Weekly KPI Overview</div>' +
-    _img_tag(chart_paths.get("kpi_overview"), "Weekly KPI overview") +
-    '<div class="col-header">Traffic vs Search Demand</div>' +
-    _img_tag(chart_paths.get("traffic_search"), "Traffic vs search demand")
-)}
-
-{_section("Top Landing Pages & Search Queries",
-    '<div class="col-header">Top Landing Pages by Sessions</div>' +
-    _img_tag(chart_paths.get("top_pages"),   "Top landing pages by sessions") +
-    '<div class="col-header">Top Search Queries by Clicks</div>' +
-    _img_tag(chart_paths.get("top_queries"),  "Top search queries by clicks")
-)}
-
-{_section("Keyword Ranking Movement",
-    _img_tag(chart_paths.get("kw_movement"), "Keyword ranking movement")
-)}
-
-{_section("Content Category Performance",
-    _img_tag(chart_paths.get("content_cat"), "Content category performance") + cat_tbl
-)}
-
-{_section("Mobile PageSpeed",
-    _img_tag(chart_paths.get("mobile_speed"), "Mobile performance scores") + speed_tbl
-)}
-
-{_section("Top Landing Pages — Detail",
-    ga4_tbl
-)}
-
-{_section("Top Search Queries — Detail",
-    gsc_tbl
-)}
-
-<hr style="border:none;border-top:4px solid #000;margin:0;">
-<footer style="padding:32px 0;display:flex;justify-content:space-between;align-items:center;">
-  <span style="font-family:'Playfair Display',Georgia,serif;font-size:13px;font-weight:700;letter-spacing:0.05em;">CIM SEO Intelligence</span>
-  <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#525252;text-transform:uppercase;letter-spacing:0.12em;">Generated {today}</span>
-</footer>
-"""
-
-    html_doc = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CIM SEO Master Report — {today}</title>
-{FONT_LINK}
-<style>
-*, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
-html {{ background: #fff; }}
-body {{
-    font-family: 'Source Serif 4', Georgia, serif;
-    font-size: 14px;
-    color: #000;
-    background: #fff;
-    line-height: 1.625;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 40px 80px;
-}}
-@media (max-width: 768px) {{
-    body {{ padding: 0 20px 60px; }}
-}}
-</style>
-</head>
-<body>
-{body}
-</body>
-</html>"""
+    with open("index.html", "w", encoding="utf-8") as f:
+        f.write(html_doc)
+    print("Dashboard generated as index.html")
 
     with open("index.html", "w", encoding="utf-8") as f:
         f.write(html_doc)

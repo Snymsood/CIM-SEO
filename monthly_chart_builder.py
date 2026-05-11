@@ -218,7 +218,7 @@ def chart_channel_performance(ga4_channels_current, ga4_channels_previous):
         df = prev[["channel", "sessions_previous"]].copy()
         df["sessions_current"] = 0
     
-    df = df.sort_values("sessions_current", ascending=False).head(10)
+    df = df.sort_values("sessions_current", ascending=False).head(25)
     
     x = np.arange(len(df))
     fig, ax = plt.subplots(figsize=(13, 4.8))
@@ -408,7 +408,7 @@ def chart_top_queries(gsc_queries):
     df = gsc_queries.copy()
     click_col = "clicks_current" if "clicks_current" in df.columns else "clicks"
     df[click_col] = pd.to_numeric(df[click_col], errors="coerce").fillna(0)
-    df = df.sort_values(click_col, ascending=True).tail(10)
+    df = df.sort_values(click_col, ascending=True).tail(25)
     df["label"] = df["query"].apply(lambda q: short_url(str(q), 40))
     
     max_v = df[click_col].max() or 1
@@ -439,7 +439,7 @@ def chart_top_pages(gsc_pages):
     df = gsc_pages.copy()
     click_col = "clicks_current" if "clicks_current" in df.columns else "clicks"
     df[click_col] = pd.to_numeric(df[click_col], errors="coerce").fillna(0)
-    df = df.sort_values(click_col, ascending=True).tail(10)
+    df = df.sort_values(click_col, ascending=True).tail(25)
     df["label"] = df["page"].apply(lambda p: short_url(str(p), 45))
     
     max_v = df[click_col].max() or 1
@@ -473,7 +473,7 @@ def chart_ga4_landing_pages(ga4_pages):
     
     df = ga4_pages.copy()
     df["sessions"] = pd.to_numeric(df["sessions"], errors="coerce").fillna(0)
-    df = df.sort_values("sessions", ascending=True).tail(10)
+    df = df.sort_values("sessions", ascending=True).tail(25)
     df["label"] = df["landingPage"].apply(lambda p: short_url(str(p), 45))
     
     max_v = df["sessions"].max() or 1
@@ -503,7 +503,7 @@ def chart_engagement_by_channel(ga4_channels_current):
     
     df = ga4_channels_current.copy()
     df["engagementRate"] = pd.to_numeric(df["engagementRate"], errors="coerce").fillna(0)
-    df = df.sort_values("engagementRate", ascending=True).tail(10)
+    df = df.sort_values("engagementRate", ascending=True).tail(25)
     
     # Convert to percentage
     df["engagementPct"] = df["engagementRate"] * 100

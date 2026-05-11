@@ -15,11 +15,11 @@ import html
 import math
 import base64
 import re
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import numpy as np
+import json
+from html_report_utils import (
+    mm_html_shell, mm_section, mm_kpi_card, mm_kpi_grid,
+    mm_apex_chart, mm_report_section, mm_col_header
+)
 
 from google_sheets_db import append_to_sheet
 from pdf_report_formatter import format_pct_change, format_num
@@ -110,7 +110,7 @@ def _fetch_landing_pages(client, start_date, end_date):
 def _fetch_channels(client, start_date, end_date):
     dims = ["sessionDefaultChannelGroup"]
     mets = ["sessions", "activeUsers", "engagementRate", "bounceRate"]
-    return _response_to_df(_run_report(client, dims, mets, start_date, end_date, 15), dims, mets)
+    return _response_to_df(_run_report(client, dims, mets, start_date, end_date, 50), dims, mets)
 
 
 def _fetch_devices(client, start_date, end_date):
@@ -122,7 +122,7 @@ def _fetch_devices(client, start_date, end_date):
 def _fetch_countries(client, start_date, end_date):
     dims = ["country"]
     mets = ["sessions", "activeUsers", "engagementRate"]
-    return _response_to_df(_run_report(client, dims, mets, start_date, end_date, 15), dims, mets)
+    return _response_to_df(_run_report(client, dims, mets, start_date, end_date, 50), dims, mets)
 
 
 def _load_conversion_config(path: str = "tracked_conversions.csv") -> pd.DataFrame:
@@ -450,126 +450,8 @@ def _fmt(val, decimals=0, pct=False):
         return s[:57] + "..." if len(s) > 60 else s
 
 
-def _delta_html(val, decimals=0, lower_is_better=False):
-    try:
-        v = float(val)
-    except (TypeError, ValueError):
-        return "-"
-    if math.isclose(v, 0, abs_tol=0.05):  # treat |Δ| < 0.05 as zero (avoids "+0" / "-0")
-        return '<span class="chg neu">—</span>'
-    positive_good = (v > 0 and not lower_is_better) or (v < 0 and lower_is_better)
-    cls  = "pos" if positive_good else "neg"
-    sign = "+" if v > 0 else ""
-    return f'<span class="chg {cls}">{sign}{v:.{decimals}f}</span>'
-
-
-def _bar_cell(value, max_value, color=C_NAVY):
-    if max_value <= 0:
-        return f"<td>{_fmt(value)}</td>"
-    pct = min(value / max_value * 100, 100)
-    return (
-        f'<td><div style="display:flex;align-items:center;gap:6px;">'
-        f'<div style="width:{pct:.1f}%;max-width:80px;height:8px;'
-        f'background:{color};border-radius:0;flex-shrink:0;"></div>'
-        f'<span style="font-family:\'JetBrains Mono\',monospace;font-size:9px;color:#374151;">'
-        f'{_fmt(value)}</span></div></td>'
-    )
-
-
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# CHART GENERATION
-# ══════════════════════════════════════════════════════════════════════════════
-
-def _style_ax(ax, title="", xlabel="", ylabel=""):
-    ax.set_title(title, fontsize=10, fontweight="600", color="#1A1A1A", pad=8, loc="left")
-    if xlabel:
-        ax.set_xlabel(xlabel, fontsize=8, color="#64748B", labelpad=4)
-    if ylabel:
-        ax.set_ylabel(ylabel, fontsize=8, color="#64748B", labelpad=4)
-    ax.tick_params(labelsize=8, colors="#64748B", length=0)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["left"].set_color(C_BORDER)
-    ax.spines["bottom"].set_color(C_BORDER)
-    ax.set_facecolor("#FAFAFA")
-
-
-def _save(fig, filename):
-    CHARTS_DIR.mkdir(exist_ok=True)
-    path = CHARTS_DIR / filename
-    fig.savefig(path, dpi=150, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
-    return path
-
-
-def _placeholder(filename):
-    fig, ax = plt.subplots(figsize=(13, 4.8))
-    fig.patch.set_facecolor("white")
-    ax.text(0.5, 0.5, "No data available for this period.",
-            ha="center", va="center", fontsize=12, color="#94A3B8",
-            transform=ax.transAxes)
-    ax.set_axis_off()
-    return _save(fig, filename)
-
-
-def plot_kpi_bars(kpis):
-    """Paired bar: current vs previous for 4 KPIs."""
-    panels = [
-        ("Sessions",        kpis["sessions"]["curr"],        kpis["sessions"]["prev"],        False),
-        ("Active Users",    kpis["users"]["curr"],           kpis["users"]["prev"],           False),
-        ("Engagement Rate", kpis["engagement_rate"]["curr"], kpis["engagement_rate"]["prev"], True),
-        ("Avg Duration (s)",kpis["avg_duration"]["curr"],    kpis["avg_duration"]["prev"],    False),
-    ]
-    fig, axes = plt.subplots(1, 4, figsize=(13, 4.8))
-    fig.patch.set_facecolor("white")
-    for ax, (label, curr, prev, is_pct) in zip(axes, panels):
-        good_color = C_NAVY if curr >= prev else C_CORAL
-        bars = ax.bar(["Prev", "Curr"], [prev, curr], color=[C_SLATE, good_color], width=0.45, zorder=2)
-        for bar, v in zip(bars, [prev, curr]):
-            label_str = f"{v:.1%}" if is_pct else f"{v:,.0f}"
-            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() * 1.03,
-                    label_str, ha="center", va="bottom", fontsize=9, color="#374151", fontweight="600")
-        _style_ax(ax, title=label)
-        ax.grid(axis="y", linestyle="--", alpha=0.35, color=C_BORDER, zorder=1)
-        ax.set_ylim(0, max(curr, prev) * 1.30 if max(curr, prev) > 0 else 1)
-    fig.tight_layout(pad=2.0)
-    return _save(fig, "ga4_kpi_bars.png")
-
-
-def plot_trend(trend_curr, trend_prev):
-    """7-day sessions trend with previous period overlay."""
-    if trend_curr.empty:
-        return _placeholder("ga4_trend.png")
-    fig, ax = plt.subplots(figsize=(13, 4.8))
-    fig.patch.set_facecolor("white")
-    x = range(len(trend_curr))
-    day_labels = [d.strftime("%a %d") for d in trend_curr["date"]]
-    ax.plot(list(x), trend_curr["sessions"].tolist(), color=C_NAVY, linewidth=2,
-            marker="o", markersize=4, label="Sessions (curr)", zorder=3)
-    if not trend_prev.empty and len(trend_prev) == len(trend_curr):
-        ax.plot(list(x), trend_prev["sessions"].tolist(), color=C_NAVY, linewidth=1.2,
-                linestyle="--", alpha=0.45, marker="o", markersize=3,
-                label="Sessions (prev)", zorder=2)
-    ax.fill_between(list(x), trend_curr["sessions"].tolist(), alpha=0.08, color=C_NAVY)
-    ax2 = ax.twinx()
-    ax2.plot(list(x), trend_curr["engagedSessions"].tolist(), color=C_TEAL, linewidth=2,
-             marker="s", markersize=4, label="Engaged (curr)", zorder=3)
-    ax.set_xticks(list(x))
-    ax.set_xticklabels(day_labels, fontsize=8, color="#64748B")
-    ax.tick_params(axis="y", labelsize=8, colors=C_NAVY, length=0)
-    ax2.tick_params(axis="y", labelsize=8, colors=C_TEAL, length=0)
-    ax.set_ylabel("Sessions", fontsize=8, color=C_NAVY)
-    ax2.set_ylabel("Engaged Sessions", fontsize=8, color=C_TEAL)
-    ax.set_facecolor("#FAFAFA")
-    for spine in ["top"]:
-        ax.spines[spine].set_visible(False)
-        ax2.spines[spine].set_visible(False)
-    ax.spines["left"].set_color(C_BORDER)
-    ax.spines["bottom"].set_color(C_BORDER)
-    ax2.spines["right"].set_color(C_BORDER)
-    ax.grid(axis="y", linestyle="--", alpha=0.3, color=C_BORDER)
+d# (Plotting functions removed - using ApexCharts)
+", alpha=0.3, color=C_BORDER)
     ax.set_title("7-Day Daily Trend — Sessions & Engaged Sessions", fontsize=10,
                  fontweight="600", color="#1A1A1A", pad=8, loc="left")
     lines1, labels1 = ax.get_legend_handles_labels()
@@ -613,167 +495,9 @@ def plot_channel_bars(curr_df, prev_df):
     return _save(fig, "ga4_channels.png")
 
 
-def plot_device_split(device_df):
-    """Horizontal stacked bar: sessions by device."""
-    if device_df.empty:
-        return _placeholder("ga4_devices.png")
-    device_df = device_df.copy()
-    device_df["sessions"] = pd.to_numeric(device_df["sessions"], errors="coerce").fillna(0)
-    device_df["deviceCategory"] = device_df["deviceCategory"].str.capitalize()
-    total = device_df["sessions"].sum()
-    if total == 0:
-        return _placeholder("ga4_devices.png")
-    device_df["pct"] = device_df["sessions"] / total * 100
-    colors = {"Mobile": C_NAVY, "Desktop": C_TEAL, "Tablet": C_AMBER}
-    fig, ax = plt.subplots(figsize=(13, 4.8))
-    fig.patch.set_facecolor("white")
-    left = 0
-    for _, row in device_df.iterrows():
-        dev = row["deviceCategory"]
-        c = colors.get(dev, C_SLATE)
-        ax.barh(0, row["pct"], left=left, color=c, height=0.55)
-        if row["pct"] > 5:
-            ax.text(left + row["pct"] / 2, 0, f"{dev}\n{row['pct']:.1f}%",
-                    ha="center", va="center", fontsize=10, color="white", fontweight="600")
-        left += row["pct"]
-    ax.set_xlim(0, 100)
-    ax.set_yticks([])
-    _style_ax(ax, title="Sessions by Device (%)")
-    ax.spines["left"].set_visible(False)
-    ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
-    fig.tight_layout(pad=2.0)
-    return _save(fig, "ga4_devices.png")
-
-
-def plot_top_pages(pages_df):
-    """Horizontal bar: top landing pages by sessions."""
-    if pages_df.empty:
-        return _placeholder("ga4_top_pages.png")
-    pages_df = pages_df.copy()
-    pages_df["sessions_current"] = pd.to_numeric(pages_df.get("sessions_current", pages_df.get("sessions", 0)),
-                                                   errors="coerce").fillna(0)
-    work = pages_df.nlargest(10, "sessions_current").iloc[::-1]
-    labels = [short_url(str(u), 45) for u in work["landingPage"]]
-    vals = work["sessions_current"].tolist()
-    max_v = max(vals) if vals else 1
-    fig, ax = plt.subplots(figsize=(13, 4.8))
-    fig.patch.set_facecolor("white")
-    bars = ax.barh(labels, vals, color=C_NAVY, height=0.55, zorder=2)
-    for bar, v in zip(bars, vals):
-        ax.text(v + max_v * 0.01, bar.get_y() + bar.get_height() / 2,
-                f"{int(v):,}", va="center", fontsize=9, color="#374151")
-    ax.set_xlim(0, max_v * 1.18)
-    ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
-    _style_ax(ax, title="Top Landing Pages by Sessions")
-    fig.tight_layout(pad=2.0)
-    return _save(fig, "ga4_top_pages.png")
-
-
-def plot_page_movers(pages_df):
-    """Lollipop: landing page session winners and losers WoW."""
-    if pages_df.empty or "sessions_change" not in pages_df.columns:
-        return _placeholder("ga4_page_movers.png")
-    gainers = pages_df.nlargest(6, "sessions_change")
-    losers  = pages_df.nsmallest(6, "sessions_change")
-    merged  = pd.concat([losers, gainers], ignore_index=True)
-    if merged.empty:
-        return _placeholder("ga4_page_movers.png")
-    labels = [short_url(str(u), 45) for u in merged["landingPage"]]
-    values = merged["sessions_change"].tolist()
-    colors = [C_CORAL if v < 0 else C_TEAL for v in values]
-    max_abs = max(abs(v) for v in values) if values else 1
-    fig, ax = plt.subplots(figsize=(13, 4.8))
-    fig.patch.set_facecolor("white")
-    for i, (v, c) in enumerate(zip(values, colors)):
-        ax.plot([0, v], [i, i], color=c, linewidth=2.0, zorder=2, solid_capstyle="round")
-        ax.scatter([v], [i], color=c, s=70, zorder=3, edgecolors="white", linewidths=0.8)
-        sign = "+" if v >= 0 else ""
-        ha = "left" if v >= 0 else "right"
-        ax.text(v + (max_abs * 0.025 if v >= 0 else -max_abs * 0.025), i,
-                f"{sign}{int(v)}", va="center", ha=ha, fontsize=9, color=c, fontweight="600")
-    ax.set_yticks(range(len(labels)))
-    ax.set_yticklabels(labels, fontsize=8)
-    ax.axvline(0, color="#374151", linewidth=1.2, zorder=1)
-    ax.axvspan(0, ax.get_xlim()[1] if ax.get_xlim()[1] > 0 else max_abs, alpha=0.03, color=C_TEAL)
-    ax.axvspan(ax.get_xlim()[0] if ax.get_xlim()[0] < 0 else -max_abs, 0, alpha=0.03, color=C_CORAL)
-    _style_ax(ax, title="Landing Page Session Winners & Losers (WoW)", xlabel="Session Change")
-    ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=0)
-    fig.tight_layout(pad=2.0)
-    return _save(fig, "ga4_page_movers.png")
-
-
-def plot_channel_quality(channels_df):
-    """
-    Scatter: sessions (x) vs engagement rate (y), bubble = active users.
-    Identifies high-volume / low-quality channels and vice versa.
-    """
-    if channels_df.empty:
-        return _placeholder("ga4_channel_quality.png")
-
-    df = channels_df.copy()
-    for col in ["sessions", "activeUsers", "engagementRate"]:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
-
-    df = df[df["sessions"] > 0]
-    if df.empty:
-        return _placeholder("ga4_channel_quality.png")
-
-    df["engPct"] = df["engagementRate"] * 100
-    max_users = df["activeUsers"].max() or 1
-    sizes = (df["activeUsers"] / max_users * 800).clip(lower=60)
-
-    colors = [C_GREEN if e >= 60 else C_AMBER if e >= 40 else C_CORAL for e in df["engPct"]]
-
-    fig, ax = plt.subplots(figsize=(13, 4.8))
-    fig.patch.set_facecolor("white")
-
-    ax.scatter(df["sessions"], df["engPct"], s=sizes, c=colors,
-               alpha=0.75, edgecolors="white", linewidths=1.2, zorder=3)
-
-    # Quadrant lines
-    med_x = df["sessions"].median()
-    med_y = df["engPct"].median()
-    ax.axvline(med_x, color=C_BORDER, linestyle="--", linewidth=1, zorder=1)
-    ax.axhline(med_y, color=C_BORDER, linestyle="--", linewidth=1, zorder=1)
-
-    # Quadrant labels
-    xlim = ax.get_xlim()
-    ylim = ax.get_ylim()
-    ax.text(xlim[1] * 0.98, ylim[1] * 0.98, "High Volume\nHigh Quality",
-            ha="right", va="top", fontsize=7, color=C_GREEN, fontweight="700")
-    ax.text(xlim[0] + (xlim[1] - xlim[0]) * 0.02, ylim[1] * 0.98, "Low Volume\nHigh Quality",
-            ha="left", va="top", fontsize=7, color=C_TEAL, fontweight="700")
-    ax.text(xlim[1] * 0.98, ylim[0] + (ylim[1] - ylim[0]) * 0.02, "High Volume\nLow Quality",
-            ha="right", va="bottom", fontsize=7, color=C_AMBER, fontweight="700")
-
-    # Label each channel
-    for _, row in df.iterrows():
-        ax.annotate(str(row["sessionDefaultChannelGroup"])[:20],
-                    xy=(row["sessions"], row["engPct"]),
-                    xytext=(5, 4), textcoords="offset points",
-                    fontsize=7, color="#374151",
-                    bbox=dict(boxstyle="round,pad=0.2", fc="white", ec=C_BORDER, alpha=0.85))
-
-    ax.grid(linestyle="--", alpha=0.25, color=C_BORDER, zorder=1)
-    _style_ax(ax, title="Channel Quality Matrix  ·  bubble = active users  ·  colour = engagement tier",
-              xlabel="Sessions", ylabel="Engagement Rate (%)")
-    fig.tight_layout(pad=2.0)
-    return _save(fig, "ga4_channel_quality.png")
-
-
-def build_all_charts(kpis, trend_curr, trend_prev, curr_channels, prev_channels,
-                     device_df, pages_comparison):
-    print("  Generating charts…", flush=True)
-    return {
-        "kpi_bars":         plot_kpi_bars(kpis),
-        "trend":            plot_trend(trend_curr, trend_prev),
-        "channels":         plot_channel_bars(curr_channels, prev_channels),
-        "devices":          plot_device_split(device_df),
-        "top_pages":        plot_top_pages(pages_comparison),
-        "page_movers":      plot_page_movers(pages_comparison),
-        "channel_quality":  plot_channel_quality(curr_channels),
-    }
+def build_all_charts(*args, **kwargs):
+    """Legacy helper (now using direct data injection into HTML)."""
+    return {}
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -892,7 +616,7 @@ def build_unified_bullets(kpis, pages_df, channels_df, current_start, current_en
 # HTML TABLE BUILDERS
 # ══════════════════════════════════════════════════════════════════════════════
 
-def build_pages_table(pages_df, n=20):
+def build_pages_table(pages_df, n=50):
     if pages_df.empty:
         return "<p style=\"font-family:'JetBrains Mono',monospace;font-size:10px;color:#94A3B8;\">No data.</p>"
     work = pages_df.head(n).copy()
@@ -1051,124 +775,103 @@ def _kpi_card(label, curr_val, prev_val=None, lower_better=False):
 
 def write_html_summary(kpis, exec_bullets, chart_paths, pages_df, channels_df,
                        device_df, country_df, current_start, current_end,
-                       previous_start, previous_end):
-    bullet_items = "".join(f"<li>{html.escape(b)}</li>" for b in exec_bullets)
-    kpi_grid = "".join([
-        _kpi_card("Sessions",        kpis["sessions"]["curr"],        kpis["sessions"]["prev"]),
-        _kpi_card("Active Users",    kpis["users"]["curr"],           kpis["users"]["prev"]),
-        _kpi_card("Engagement Rate", kpis["engagement_rate"]["curr"], kpis["engagement_rate"]["prev"]),
-        _kpi_card("Avg Duration",    kpis["avg_duration"]["curr"],    kpis["avg_duration"]["prev"]),
-        _kpi_card("Bounce Rate",     kpis["bounce_rate"]["curr"],     kpis["bounce_rate"]["prev"], lower_better=True),
-    ])
-    pages_tbl    = build_pages_table(pages_df)
-    channels_tbl = build_channels_table(channels_df)
+                       previous_start, previous_end, trend_curr, trend_prev):
+    """Build the final GA4 report with ApexCharts integration."""
     today = date.today().strftime("%B %d, %Y")
 
-    doc = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GA4 Weekly Performance Report</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<style>
-*, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
-html {{ background: #fff; background-image: repeating-linear-gradient(0deg,transparent,transparent 1px,#000 1px,#000 2px); background-size: 100% 4px; background-attachment: fixed; }}
-html::before {{ content: ''; position: fixed; inset: 0; background: rgba(255,255,255,0.97); pointer-events: none; z-index: 0; }}
-body {{ font-family: 'Source Serif 4', Georgia, serif; font-size: 14px; color: #000; background: transparent; line-height: 1.625; max-width: 1200px; margin: 0 auto; padding: 0 40px 80px; position: relative; z-index: 1; }}
-.site-header {{ background: #000; color: #fff; padding: 40px 48px; margin: 0 -40px 0; position: relative; overflow: hidden; }}
-.site-header::before {{ content: ''; position: absolute; inset: 0; background-image: repeating-linear-gradient(90deg,transparent,transparent 1px,#fff 1px,#fff 2px); background-size: 4px 100%; opacity: 0.03; pointer-events: none; }}
-.site-header__eyebrow {{ font-family: 'JetBrains Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.2em; color: #999; margin-bottom: 12px; }}
-.site-header__title {{ font-family: 'Playfair Display', Georgia, serif; font-size: clamp(32px, 5vw, 64px); font-weight: 900; line-height: 1; letter-spacing: -0.02em; color: #fff; margin-bottom: 16px; }}
-.site-header__meta {{ font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #666; letter-spacing: 0.05em; display: flex; align-items: center; gap: 16px; }}
-.site-header__meta::before {{ content: ''; display: inline-block; width: 24px; height: 2px; background: #fff; flex-shrink: 0; }}
-.section {{ padding: 40px 0; }}
-.section-title {{ font-family: 'Playfair Display', Georgia, serif; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.15em; color: #000; margin-bottom: 24px; display: flex; align-items: center; gap: 16px; }}
-.section-title::before {{ content: ''; display: inline-block; width: 8px; height: 8px; background: #000; flex-shrink: 0; }}
-.kpi-grid {{ display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; border: 2px solid #000; }}
-.kpi-grid > div {{ border-right: 2px solid #000; }}
-.kpi-grid > div:last-child {{ border-right: none; }}
-.report-section {{ background: #fff; border: 2px solid #000; padding: 28px 32px; }}
-.rule-thick {{ border: none; border-top: 4px solid #000; margin: 0; }}
-{get_extra_css()}
-@media (max-width: 768px) {{ body {{ padding: 0 20px 60px; }} .site-header {{ padding: 28px 24px; margin: 0 -20px 0; }} .kpi-grid {{ grid-template-columns: repeat(3, 1fr); }} .chart-row-2 {{ grid-template-columns: 1fr; }} }}
-</style>
-</head>
-<body>
-<header class="site-header">
-  <div class="site-header__eyebrow">Google Analytics 4</div>
-  <h1 class="site-header__title">Weekly Performance<br>Report</h1>
-  <div class="site-header__meta">{current_start} &rarr; {current_end} &nbsp;/&nbsp; prev {previous_start} &rarr; {previous_end}</div>
-</header>
-<hr class="rule-thick">
-<div class="section">
-  <div class="section-title">Executive Summary</div>
-  <div class="exec-panel"><ul class="exec-bullets">{bullet_items}</ul></div>
-</div>
-<hr class="rule-thick">
-<div class="section" style="padding-top:0;">
-  <div class="kpi-grid">{kpi_grid}</div>
-</div>
-<hr class="rule-thick">
-<div class="section">
-  <div class="section-title">Performance Overview</div>
-  <div class="report-section">
-    <div class="col-header">KPI Comparison — Current vs Previous Week</div>
-    {_chart_wrap(chart_paths.get("kpi_bars"), "KPI bars")}
-    <div class="col-header">7-Day Daily Trend</div>
-    {_chart_wrap(chart_paths.get("trend"), "Daily trend")}
-  </div>
-</div>
-<hr class="rule-thick">
-<div class="section">
-  <div class="section-title">Channel &amp; Device Mix</div>
-  <div class="report-section">
-    <div class="col-header">Sessions by Channel</div>
-    {_chart_wrap(chart_paths.get("channels"), "Channel performance")}
-    <div class="col-header">Sessions by Device</div>
-    {_chart_wrap(chart_paths.get("devices"), "Device split")}
-  </div>
-</div>
-<hr class="rule-thick">
-<div class="section">
-  <div class="section-title">Channel Quality Matrix</div>
-  <div class="report-section">
-    {_chart_wrap(chart_paths.get("channel_quality"), "Channel quality matrix")}
-  </div>
-</div>
-<hr class="rule-thick">
-<div class="section">
-  <div class="section-title">Landing Page Performance</div>
-  <div class="report-section">
-    <div class="col-header">Top Landing Pages by Sessions</div>
-    {_chart_wrap(chart_paths.get("top_pages"), "Top landing pages")}
-    <div class="col-header">Session Winners &amp; Losers (WoW)</div>
-    {_chart_wrap(chart_paths.get("page_movers"), "Page movers")}
-  </div>
-</div>
-<hr class="rule-thick">
-<div class="section">
-  <div class="section-title">Top Landing Pages</div>
-  <div class="report-section">{pages_tbl}</div>
-</div>
-<hr class="rule-thick">
-<div class="section">
-  <div class="section-title">Channel Breakdown</div>
-  <div class="report-section">{channels_tbl}</div>
-</div>
-<hr class="rule-thick">
-<footer style="padding:32px 0;display:flex;justify-content:space-between;align-items:center;">
-  <span style="font-family:'Playfair Display',Georgia,serif;font-size:13px;font-weight:700;letter-spacing:0.05em;">CIM SEO Intelligence</span>
-  <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#525252;text-transform:uppercase;letter-spacing:0.12em;">Generated {today}</span>
-</footer>
-</body>
-</html>"""
+    # 1. KPI Grid
+    kpi_cards = (
+        mm_kpi_card("Sessions",        kpis["sessions"]["curr"],        kpis["sessions"]["prev"]) +
+        mm_kpi_card("Active Users",    kpis["users"]["curr"],           kpis["users"]["prev"]) +
+        mm_kpi_card("Engagement Rate", kpis["engagement_rate"]["curr"], kpis["engagement_rate"]["prev"], is_pct=True) +
+        mm_kpi_card("Avg Duration",    kpis["avg_duration"]["curr"],    kpis["avg_duration"]["prev"]) +
+        mm_kpi_card("Bounce Rate",     kpis["bounce_rate"]["curr"],     kpis["bounce_rate"]["prev"], lower_better=True, is_pct=True)
+    )
+    kpi_grid = mm_kpi_grid(kpi_cards)
+
+    # 2. Charts (ApexCharts)
+    
+    # 7-Day Trend (Area)
+    trend_chart = ""
+    if not trend_curr.empty:
+        trend_chart = mm_apex_chart("ga4_trend", {
+            "chart": {"type": "area", "height": 350, "zoom": {"enabled": False}},
+            "series": [
+                {"name": "Current Sessions", "data": [float(x) for x in trend_curr["sessions"].tolist()]},
+                {"name": "Previous Sessions", "data": [float(x) for x in trend_prev["sessions"].tolist()] if not trend_prev.empty else []}
+            ],
+            "xaxis": {"categories": [d.strftime("%a %d") for d in trend_curr["date"]]},
+            "title": {"text": "7-Day Traffic Trend"},
+            "colors": ["#212878", "#94A3B8"],
+            "stroke": {"curve": "smooth", "width": [3, 2]}
+        })
+
+    # Channel Mix (Donut)
+    channel_chart = ""
+    if not channels_df.empty:
+        top_channels = channels_df.head(12)
+        channel_chart = mm_apex_chart("channel_mix", {
+            "chart": {"type": "donut", "height": 380},
+            "series": [float(x) for x in top_channels["sessions"].tolist()],
+            "labels": top_channels["sessionDefaultChannelGroup"].tolist(),
+            "title": {"text": "Traffic Source Mix"},
+            "legend": {"position": "bottom"}
+        })
+
+    # Page Movers (Horizontal Bar)
+    movers_chart = ""
+    if not pages_df.empty and "sessions_change" in pages_df.columns:
+        movers = pd.concat([
+            pages_df.nsmallest(25, "sessions_change"),
+            pages_df.nlargest(25, "sessions_change")
+        ]).sort_values("sessions_change")
+        movers_chart = mm_apex_chart("page_movers", {
+            "chart": {"type": "bar", "height": 400},
+            "series": [{"name": "Session Change", "data": [float(x) for x in movers["sessions_change"].tolist()]}],
+            "xaxis": {"categories": movers["landingPage"].apply(lambda x: short_url(str(x), 35)).tolist()},
+            "plotOptions": {"bar": {"horizontal": True, "colors": {"ranges": [{"from": -9999, "to": -0.1, "color": "#E76F51"}, {"from": 0.1, "to": 9999, "color": "#2A9D8F"}]}}},
+            "title": {"text": "Top WoW Page Movers (Session Δ)"}
+        })
+
+    # 3. Tables
+    pages_tbl    = build_pages_table(pages_df)
+    channels_tbl = build_channels_table(channels_df)
+
+    # 4. Assemble
+    body_content = (
+        mm_section("Executive Summary", 
+            mm_report_section(mm_exec_bullets(exec_bullets))
+        ) +
+        '<div class="section" style="padding-top:0;">' + kpi_grid + '</div>'
+        '<hr class="rule-thick">' +
+        mm_section("Performance Deep-Dive",
+            mm_report_section(
+                '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#64748B;margin-bottom:16px;">\u24d8 <b>How to read:</b> Compares this week against the previous. Hover over data points for specific numbers. High density peaks indicate successful campaign launches or organic spikes.</p>' +
+                trend_chart + "<br>" + channel_chart
+            )
+        ) +
+        mm_section("Content Strategy: Movers & Shakers",
+            mm_report_section(
+                '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#64748B;margin-bottom:16px;">\u24d8 <b>How to read:</b> Green bars are pages growing in traffic. Red bars show declining sessions. Focus optimizations on high-value pages in the red.</p>' +
+                movers_chart + "<br>" + mm_col_header("Top Landing Pages Detailed") + pages_tbl
+            )
+        ) +
+        mm_section("Acquisition Breakdown",
+            mm_report_section(channels_tbl)
+        )
+    )
+
+    doc = mm_html_shell(
+        title=f"GA4 Weekly Report — {today}",
+        eyebrow="Google Analytics 4 Intelligence",
+        headline="Weekly Performance\nReport",
+        meta_line=f"{current_start} &rarr; {current_end} / prev {previous_start} &rarr; {previous_end}",
+        body_content=body_content
+    )
 
     with open("ga4_weekly_summary.html", "w", encoding="utf-8") as f:
         f.write(doc)
-    print("  Saved ga4_weekly_summary.html", flush=True)
+    print("  Saved ga4_weekly_summary.html with ApexCharts", flush=True)
 
 
 def generate_self_contained():
@@ -1324,10 +1027,11 @@ def main():
         current_start, current_end, previous_start, previous_end
     )
 
-    # HTML report
+    # HTML report (Now passing trend data directly)
     write_html_summary(kpis, exec_bullets, chart_paths, pages_df, curr_channels,
                        curr_devices, curr_countries,
-                       current_start, current_end, previous_start, previous_end)
+                       current_start, current_end, previous_start, previous_end,
+                       trend_curr, trend_prev)
     generate_self_contained()
 
     try:

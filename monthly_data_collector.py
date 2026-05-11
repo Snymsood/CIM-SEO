@@ -124,7 +124,7 @@ def fetch_ga4_landing_pages(client, start_date, end_date):
             Metric(name="averageSessionDuration"),
         ],
         date_ranges=[DateRange(start_date=start_date.isoformat(), end_date=end_date.isoformat())],
-        limit=100,
+        limit=25000,
     )
     
     try:
@@ -155,7 +155,7 @@ def fetch_ga4_channels(client, start_date, end_date):
             Metric(name="engagementRate"),
         ],
         date_ranges=[DateRange(start_date=start_date.isoformat(), end_date=end_date.isoformat())],
-        limit=20,
+        limit=50,
     )
     
     try:
@@ -226,7 +226,7 @@ def fetch_gsc_queries(service, start_date, end_date):
         "startDate": start_date.isoformat(),
         "endDate": end_date.isoformat(),
         "dimensions": ["query"],
-        "rowLimit": 1000,
+        "rowLimit": 25000,
     }
     
     try:
@@ -253,7 +253,7 @@ def fetch_gsc_pages(service, start_date, end_date):
         "startDate": start_date.isoformat(),
         "endDate": end_date.isoformat(),
         "dimensions": ["page"],
-        "rowLimit": 1000,
+        "rowLimit": 25000,
     }
     
     try:

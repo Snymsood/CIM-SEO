@@ -10,11 +10,11 @@ import google_auth_httplib2
 import httplib2
 from openai import OpenAI
 import pandas as pd
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import numpy as np
+import json
+from html_report_utils import (
+    mm_html_shell, mm_section, mm_kpi_card, mm_kpi_grid,
+    mm_apex_chart, mm_report_section, mm_col_header
+)
 
 from google_sheets_db import append_to_sheet
 from pdf_report_formatter import get_pdf_css, build_card, format_pct_change
@@ -30,7 +30,7 @@ MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
 MONDAY_ITEM_ID   = os.getenv("MONDAY_ITEM_ID")
 CHARTS_DIR = Path("charts")
 
-ROW_LIMIT = 1000   # raised from 250
+ROW_LIMIT = 25000   # raised from 1000 for max collection
 
 # ── Brand palette ──────────────────────────────────────────────────────────────
 C_NAVY   = "#212878"
@@ -320,300 +320,9 @@ def _fmt(val, decimals=0, pct=False):
         s = str(val)
         return s[:57] + "..." if len(s) > 60 else s
 
-
-def _delta_html(val, decimals=0, lower_is_better=False):
-    """Return a coloured delta span for a numeric change value."""
-    try:
-        v = float(val)
-    except (TypeError, ValueError):
-        return "-"
-    if math.isclose(v, 0, abs_tol=0.05):  # treat |Δ| < 0.05 as zero (avoids "+0" / "-0")
-        return '<span class="chg neu">—</span>'
-    positive_good = (v > 0 and not lower_is_better) or (v < 0 and lower_is_better)
-    cls  = "pos" if positive_good else "neg"
-    sign = "+" if v > 0 else ""
-    return f'<span class="chg {cls}">{sign}{v:.{decimals}f}</span>'
-
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# CHART GENERATION
-# ══════════════════════════════════════════════════════════════════════════════
-
-def _style_ax(ax, title="", xlabel="", ylabel=""):
-    """Apply consistent clean styling to a matplotlib Axes."""
-    ax.set_title(title, fontsize=10, fontweight="600", color="#1A1A1A", pad=8, loc="left")
-    if xlabel:
-        ax.set_xlabel(xlabel, fontsize=8, color="#64748B", labelpad=4)
-    if ylabel:
-        ax.set_ylabel(ylabel, fontsize=8, color="#64748B", labelpad=4)
-    ax.tick_params(labelsize=8, colors="#64748B", length=0)
-    ax.spines["top"].set_visible(False)
-    ax.spines["right"].set_visible(False)
-    ax.spines["left"].set_color(C_BORDER)
-    ax.spines["bottom"].set_color(C_BORDER)
-    ax.set_facecolor("#FAFAFA")
-
-
-def _save(fig, filename):
-    CHARTS_DIR.mkdir(exist_ok=True)
-    path = CHARTS_DIR / filename
-    fig.savefig(path, dpi=150, bbox_inches="tight", facecolor="white")
-    plt.close(fig)
-    return path
-
-
-def plot_kpi_grid(kpis):
-    """1×4 KPI bar grid — sized to fill half an A4 page."""
-    panels = [
-        ("Clicks",       kpis["clicks_current"],     kpis["clicks_previous"],     False, False),
-        ("Impressions",  kpis["impressions_current"], kpis["impressions_previous"], False, False),
-        ("CTR (%)",      kpis["ctr_current"] * 100,  kpis["ctr_previous"] * 100,  True,  False),
-        ("Avg Position", kpis["position_current"],    kpis["position_previous"],    False, True),
-    ]
-    fig, axes = plt.subplots(1, 4, figsize=(13, 4.8))
-    fig.patch.set_facecolor("white")
-
-    for ax, (label, curr, prev, is_pct, lower_better) in zip(axes, panels):
-        good_color = C_NAVY if ((curr >= prev and not lower_better) or (curr <= prev and lower_better)) else C_CORAL
-        bars = ax.bar(["Prev", "Curr"], [prev, curr],
-                      color=[C_SLATE, good_color], width=0.45, zorder=2)
-        for bar, v in zip(bars, [prev, curr]):
-            label_str = f"{v:.1f}%" if is_pct else f"{v:,.0f}"
-            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() * 1.03,
-                    label_str, ha="center", va="bottom", fontsize=9, color="#374151", fontweight="600")
-        _style_ax(ax, title=label)
-        ax.grid(axis="y", linestyle="--", alpha=0.35, color=C_BORDER, zorder=1)
-        ax.set_ylim(0, max(curr, prev) * 1.30 if max(curr, prev) > 0 else 1)
-        ax.tick_params(labelsize=9)
-
-    fig.tight_layout(pad=2.0)
-    return _save(fig, "kpi_grid.png")
-
-
-def plot_trend_lines(trend_curr, trend_prev):
-    """Dual-axis 7-day trend — sized to fill half an A4 page."""
-    if trend_curr.empty:
-        return None
-
-    fig, ax1 = plt.subplots(figsize=(13, 4.8))
-    fig.patch.set_facecolor("white")
-
-    day_labels = [d.strftime("%a %d") for d in trend_curr["date"]]
-    x = range(len(day_labels))
-
-    ax1.plot(list(x), trend_curr["clicks"].tolist(), color=C_NAVY,
-             linewidth=2, marker="o", markersize=4, label="Clicks (curr)", zorder=3)
-    if not trend_prev.empty and len(trend_prev) == len(trend_curr):
-        ax1.plot(list(x), trend_prev["clicks"].tolist(), color=C_NAVY,
-                 linewidth=1.2, linestyle="--", alpha=0.45, marker="o", markersize=3,
-                 label="Clicks (prev)", zorder=2)
-    ax1.fill_between(list(x), trend_curr["clicks"].tolist(), alpha=0.08, color=C_NAVY)
-
-    ax2 = ax1.twinx()
-    ax2.plot(list(x), trend_curr["impressions"].tolist(), color=C_TEAL,
-             linewidth=2, marker="s", markersize=4, label="Impressions (curr)", zorder=3)
-    if not trend_prev.empty and len(trend_prev) == len(trend_curr):
-        ax2.plot(list(x), trend_prev["impressions"].tolist(), color=C_TEAL,
-                 linewidth=1.2, linestyle="--", alpha=0.45, marker="s", markersize=3,
-                 label="Impressions (prev)", zorder=2)
-
-    ax1.set_xticks(list(x))
-    ax1.set_xticklabels(day_labels, fontsize=8, color="#64748B")
-    ax1.tick_params(axis="y", labelsize=8, colors=C_NAVY, length=0)
-    ax2.tick_params(axis="y", labelsize=8, colors=C_TEAL, length=0)
-    ax1.set_ylabel("Clicks", fontsize=8, color=C_NAVY)
-    ax2.set_ylabel("Impressions", fontsize=8, color=C_TEAL)
-    ax1.set_facecolor("#FAFAFA")
-    for spine in ["top"]:
-        ax1.spines[spine].set_visible(False)
-        ax2.spines[spine].set_visible(False)
-    ax1.spines["left"].set_color(C_BORDER)
-    ax1.spines["bottom"].set_color(C_BORDER)
-    ax2.spines["right"].set_color(C_BORDER)
-    ax1.grid(axis="y", linestyle="--", alpha=0.3, color=C_BORDER)
-    ax1.set_title("7-Day Daily Trend — Clicks & Impressions", fontsize=10,
-                  fontweight="600", color="#1A1A1A", pad=8, loc="left")
-
-    # Combined legend
-    lines1, labels1 = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, fontsize=7.5,
-               frameon=False, loc="upper right", ncol=2)
-
-    fig.tight_layout(pad=1.5)
-    return _save(fig, "trend_lines.png")
-
-
-def plot_device_split(device_df):
-    """Grouped horizontal bar — clicks and impressions side-by-side per device."""
-    if device_df.empty:
-        return None
-
-    device_df = device_df.copy()
-    device_df["device"] = device_df["device"].str.capitalize()
-    total_clicks = device_df["clicks"].sum()
-    total_impr   = device_df["impressions"].sum()
-    if total_clicks == 0 and total_impr == 0:
-        return None
-
-    device_df["click_pct"] = device_df["clicks"] / total_clicks * 100 if total_clicks else 0
-    device_df["impr_pct"]  = device_df["impressions"] / total_impr * 100 if total_impr else 0
-
-    colors = {
-        "Mobile":  C_NAVY,
-        "Desktop": C_TEAL,
-        "Tablet":  C_AMBER,
-    }
-
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.8))
-    fig.patch.set_facecolor("white")
-
-    for ax, col, title in [(ax1, "click_pct", "Clicks by Device (%)"),
-                            (ax2, "impr_pct",  "Impressions by Device (%)")]:
-        device_colors = [colors.get(d, C_SLATE) for d in device_df["device"]]
-        bars = ax.barh(device_df["device"], device_df[col], color=device_colors, height=0.5, zorder=2)
-        max_v = device_df[col].max() or 1
-        for bar, row in zip(bars, device_df.itertuples()):
-            v = bar.get_width()
-            ax.text(v + max_v * 0.02, bar.get_y() + bar.get_height() / 2,
-                    f"{v:.1f}%", va="center", fontsize=9, color="#374151", fontweight="600")
-        ax.set_xlim(0, max_v * 1.25)
-        ax.set_title(title, fontsize=10, fontweight="600", color="#1A1A1A", pad=8, loc="left")
-        ax.spines["top"].set_visible(False)
-        ax.spines["right"].set_visible(False)
-        ax.spines["left"].set_color(C_BORDER)
-        ax.spines["bottom"].set_color(C_BORDER)
-        ax.tick_params(labelsize=9, colors="#64748B", length=0)
-        ax.set_facecolor("#FAFAFA")
-        ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=1)
-
-    fig.tight_layout(pad=2.5)
-    return _save(fig, "device_split.png")
-
-
-def plot_ctr_position_scatter(query_df):
-    """CTR vs Avg Position scatter — large bubbles, vivid colormap, top-query labels."""
-    df = query_df[
-        (query_df["impressions_current"] > 0) &
-        (query_df["position_current"] > 0)
-    ].copy().head(100)
-
-    if df.empty:
-        # Return a placeholder chart rather than None (avoids blank page)
-        fig, ax = plt.subplots(figsize=(13, 6.5))
-        fig.patch.set_facecolor("white")
-        ax.text(0.5, 0.5, "No impression data available for this period.",
-                ha="center", va="center", fontsize=12, color="#94A3B8",
-                transform=ax.transAxes)
-        ax.set_axis_off()
-        return _save(fig, "ctr_position_scatter.png")
-
-    fig, ax = plt.subplots(figsize=(13, 6.5))
-    fig.patch.set_facecolor("white")
-
-    max_impr = df["impressions_current"].max()
-    # Scale bubbles much larger — min 60, max 1200
-    sizes = (df["impressions_current"] / max_impr * 1200).clip(lower=60)
-
-    scatter = ax.scatter(
-        df["position_current"],
-        df["ctr_current"] * 100,
-        s=sizes,
-        c=df["clicks_current"],
-        cmap="RdYlGn",          # vivid green→yellow→red gradient
-        alpha=0.80,
-        edgecolors="#FFFFFF",
-        linewidths=0.8,
-        zorder=3,
-    )
-
-    # Reference band shading
-    ax.axvspan(0, 3.5,  alpha=0.06, color=C_GREEN,  zorder=1)
-    ax.axvspan(3.5, 10.5, alpha=0.04, color=C_AMBER, zorder=1)
-    ax.axvspan(10.5, df["position_current"].max() + 1, alpha=0.04, color=C_CORAL, zorder=1)
-
-    # Reference lines
-    ax.axvline(10.5, color=C_AMBER, linewidth=1.2, linestyle="--", alpha=0.7, zorder=2)
-    ax.axvline(3.5,  color=C_GREEN, linewidth=1.2, linestyle="--", alpha=0.7, zorder=2)
-
-    # Band labels at top of chart
-    y_top = df["ctr_current"].max() * 100 * 1.05 if df["ctr_current"].max() > 0 else 10
-    ax.text(1.8,  y_top, "Top 3",  fontsize=8, color=C_GREEN, fontweight="700", ha="center", va="bottom")
-    ax.text(7.0,  y_top, "Page 1", fontsize=8, color=C_AMBER, fontweight="700", ha="center", va="bottom")
-    ax.text(13.0, y_top, "Page 2+",fontsize=8, color=C_CORAL, fontweight="700", ha="center", va="bottom")
-
-    # Label the top 8 queries by clicks
-    top_labels = df.nlargest(8, "clicks_current")
-    for _, row in top_labels.iterrows():
-        label = str(row["query"])[:28]
-        ax.annotate(
-            label,
-            xy=(row["position_current"], row["ctr_current"] * 100),
-            xytext=(6, 4), textcoords="offset points",
-            fontsize=7, color="#374151",
-            bbox=dict(boxstyle="round,pad=0.2", fc="white", ec=C_BORDER, alpha=0.85),
-        )
-
-    cbar = fig.colorbar(scatter, ax=ax, pad=0.01, shrink=0.85)
-    cbar.set_label("Clicks (colour)", fontsize=8, color="#64748B")
-    cbar.ax.tick_params(labelsize=7)
-
-    _style_ax(ax,
-              title="CTR vs Avg Position  ·  bubble size = impressions  ·  colour = clicks",
-              xlabel="Average Position  (lower = better, axis inverted)",
-              ylabel="CTR (%)")
-    ax.grid(linestyle="--", alpha=0.25, color=C_BORDER, zorder=1)
-    ax.invert_xaxis()
-    ax.set_ylim(bottom=-2)
-
-    fig.tight_layout(pad=1.8)
-    return _save(fig, "ctr_position_scatter.png")
-
-
-def plot_lollipop_movers(gainers_df, losers_df, label_col, change_col, title, filename):
-    """Lollipop chart — sized to fill half an A4 page so two fit per page."""
-    gainers = gainers_df[[label_col, change_col]].head(8).copy()
-    losers  = losers_df[[label_col, change_col]].head(8).copy()
-    merged  = pd.concat([losers, gainers], ignore_index=True)
-    if merged.empty:
-        return None
-
-    labels = [short_url(v, 52) for v in merged[label_col].astype(str)]
-    values = merged[change_col].astype(float).tolist()
-    colors = [C_CORAL if v < 0 else C_TEAL for v in values]
-    max_abs = max(abs(x) for x in values) if values else 1
-
-    fig, ax = plt.subplots(figsize=(13, 4.8))
-    fig.patch.set_facecolor("white")
-
-    y_pos = range(len(labels))
-    for y, v, c in zip(y_pos, values, colors):
-        ax.plot([0, v], [y, y], color=c, linewidth=2.0, zorder=2, solid_capstyle="round")
-        ax.scatter([v], [y], color=c, s=70, zorder=3, edgecolors="white", linewidths=0.8)
-        sign = "+" if v > 0 else ""
-        offset = max_abs * 0.025
-        ha = "left" if v >= 0 else "right"
-        ax.text(v + (offset if v >= 0 else -offset), y,
-                f"{sign}{v:.0f}", va="center", ha=ha,
-                fontsize=9, color=c, fontweight="600")
-
-    ax.set_yticks(list(y_pos))
-    ax.set_yticklabels(labels, fontsize=9)
-    ax.axvline(0, color="#374151", linewidth=1.2, zorder=1)
-    _style_ax(ax, title=title, xlabel="Click Change (current vs previous week)")
-    ax.tick_params(labelsize=9)
-    ax.grid(axis="x", linestyle="--", alpha=0.3, color=C_BORDER, zorder=0)
-    padding = max_abs * 0.30
-    ax.set_xlim(
-        (min(values) - padding) if min(values) < 0 else -padding * 0.5,
-        (max(values) + padding) if max(values) > 0 else padding * 0.5,
-    )
-    ax.axvspan(0, ax.get_xlim()[1], alpha=0.03, color=C_TEAL)
-    ax.axvspan(ax.get_xlim()[0], 0, alpha=0.03, color=C_CORAL)
-
-    fig.tight_layout(pad=2.0)
-    return _save(fig, filename)
+def build_all_charts(*args, **kwargs):
+    """Legacy helper (now using direct data injection into HTML)."""
+    return {}
 
 
 def plot_search_appearance(appearance_df):
@@ -1327,124 +1036,105 @@ def generate_self_contained_html():
 
 def write_html_summary(query_df, page_df, exec_bullets, kpis,
                        chart_paths, device_df, appearance_df,
-                       current_start, current_end, previous_start, previous_end):
+                       current_start, current_end, previous_start, previous_end,
+                       trend_curr, trend_prev):
+    """Build the final GSC report with ApexCharts integration."""
+    today = date.today().strftime("%B %d, %Y")
 
-    bullet_items = "".join(f"<li>{html.escape(b)}</li>" for b in exec_bullets)
+    # 1. KPI Grid
+    kpi_cards = (
+        mm_kpi_card("Total Clicks",    kpis["clicks_current"],      kpis["clicks_previous"]) +
+        mm_kpi_card("Impressions",     kpis["impressions_current"], kpis["impressions_previous"]) +
+        mm_kpi_card("Average CTR",     kpis["ctr_current"],         kpis["ctr_previous"], is_pct=True) +
+        mm_kpi_card("Average Position", kpis["position_current"],    kpis["position_previous"], lower_better=True)
+    )
+    kpi_grid = mm_kpi_grid(kpi_cards)
 
-    # ── KPI cards — inverted (black bg, white text) ────────────────────────
-    def _kpi_card(label, curr_val, prev_val, is_pct=False, decimals=0, lower_better=False):
-        from pdf_report_formatter import format_num, format_pct_change
-        curr_str  = format_num(curr_val, decimals, as_percent=is_pct)
-        prev_str  = format_num(prev_val, decimals, as_percent=is_pct)
-        delta_str = format_pct_change(curr_val, prev_val)
-        if delta_str == "-":
-            delta_html_str = '<span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#525252;">—</span>'
-        else:
-            is_pos = delta_str.startswith("+")
-            good   = (is_pos and not lower_better) or (not is_pos and lower_better)
-            d_color = "#fff" if good else "#000"
-            d_bg    = "#000" if good else "#fff"
-            d_border = "1px solid #000"
-            delta_html_str = (
-                f'<span style="font-family:\'JetBrains Mono\',monospace;font-size:10px;'
-                f'font-weight:700;padding:2px 8px;background:{d_bg};color:{d_color};'
-                f'border:{d_border};">{delta_str}</span>'
-            )
-        return f"""
-        <div style="background:#000;color:#fff;padding:24px 20px;border:2px solid #000;position:relative;overflow:hidden;">
-          <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(90deg,transparent,transparent 1px,#fff 1px,#fff 2px);background-size:4px 100%;opacity:0.03;pointer-events:none;"></div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;text-transform:uppercase;letter-spacing:0.15em;color:#999;margin-bottom:12px;">{html.escape(label)}</div>
-          <div style="font-family:'Playfair Display',Georgia,serif;font-size:36px;font-weight:700;color:#fff;line-height:1;margin-bottom:10px;">{html.escape(curr_str)}</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#999;margin-bottom:8px;">prev {html.escape(prev_str)}</div>
-          {delta_html_str}
-        </div>"""
+    # 2. Charts (ApexCharts)
+    
+    # 7-Day Search Trend (Area)
+    trend_chart = ""
+    if not trend_curr.empty:
+        trend_chart = mm_apex_chart("gsc_trend", {
+            "chart": {"type": "area", "height": 350},
+            "series": [
+                {"name": "Current Clicks", "data": [float(x) for x in trend_curr["clicks"].tolist()]},
+                {"name": "Previous Clicks", "data": [float(x) for x in trend_prev["clicks"].tolist()] if not trend_prev.empty else []}
+            ],
+            "xaxis": {"categories": [pd.to_datetime(d).strftime("%a %d") for d in trend_curr["date"]]},
+            "title": {"text": "Weekly Search Visibility Trend"},
+            "colors": ["#212878", "#94A3B8"]
+        })
 
-    kpi_grid = "".join([
-        _kpi_card("Clicks",       kpis["clicks_current"],      kpis["clicks_previous"]),
-        _kpi_card("Impressions",  kpis["impressions_current"],  kpis["impressions_previous"]),
-        _kpi_card("CTR",          kpis["ctr_current"],          kpis["ctr_previous"],  is_pct=True),
-        _kpi_card("Avg Position", kpis["position_current"],     kpis["position_previous"], decimals=1, lower_better=True),
-    ])
-
-    top_queries_tbl = build_top_table(query_df, "query", is_page=False, n=15)
-    top_pages_tbl   = build_top_table(page_df,  "page",  is_page=True,  n=15)
-
-    q_gainers = query_df.nlargest(15, "clicks_change")
-    q_losers  = query_df.nsmallest(15, "clicks_change")
-    p_gainers = page_df.nlargest(15, "clicks_change")
-    p_losers  = page_df.nsmallest(15, "clicks_change")
-
-    query_movers_tbl = build_movers_table(q_gainers, q_losers, "query", n=10)
-    page_movers_tbl  = build_movers_table(p_gainers, p_losers, "page",  n=10)
-    new_lost_block   = build_new_lost_block(query_df)
-
-    device_rows = ""
+    # Device Split (Donut)
+    device_chart = ""
     if not device_df.empty:
-        for _, row in device_df.iterrows():
-            device_rows += (
-                f"<tr><td>{html.escape(str(row['device']).capitalize())}</td>"
-                f"<td>{_fmt(row['clicks'])}</td>"
-                f"<td>{_fmt(row['impressions'])}</td>"
-                f"<td>{_fmt(row['ctr'], pct=True)}</td>"
-                f"<td>{_fmt(row['position'], decimals=1)}</td></tr>"
+        device_chart = mm_apex_chart("device_split", {
+            "chart": {"type": "donut", "height": 350},
+            "series": [float(x) for x in device_df["clicks"].tolist()],
+            "labels": device_df["device"].str.capitalize().tolist(),
+            "title": {"text": "Clicks by Device Type"}
+        })
+
+    # Query Movers (Bar)
+    movers_chart = ""
+    if not query_df.empty:
+        movers = pd.concat([
+            query_df.nsmallest(25, "clicks_change"),
+            query_df.nlargest(25, "clicks_change")
+        ]).sort_values("clicks_change")
+        movers_chart = mm_apex_chart("query_movers", {
+            "chart": {"type": "bar", "height": 400},
+            "series": [{"name": "Click Change", "data": [float(x) for x in movers["clicks_change"].tolist()]}],
+            "xaxis": {"categories": movers["query"].apply(lambda x: short_url(str(x), 30)).tolist()},
+            "plotOptions": {"bar": {"horizontal": True, "colors": {"ranges": [{"from": -9999, "to": -0.1, "color": "#E76F51"}, {"from": 0.1, "to": 9999, "color": "#2A9D8F"}]}}},
+            "title": {"text": "Top WoW Query Movers (Click Δ)"}
+        })
+
+    # 3. Body
+    body_content = (
+        mm_section("Executive Summary", 
+            mm_report_section(mm_exec_bullets(exec_bullets))
+        ) +
+        '<div class="section" style="padding-top:0;">' + kpi_grid + '</div>'
+        '<hr class="rule-thick">' +
+        mm_section("Search Performance Deep-Dive",
+            mm_report_section(
+                '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#64748B;margin-bottom:16px;">\u24d8 <b>How to read:</b> Compares this week against the previous. Area chart shows search volume stability. Donut shows audience platform preferences.</p>' +
+                trend_chart + "<br>" + device_chart
             )
-    device_table = (
-        f"<table><thead><tr>"
-        f"<th>Device</th><th>Clicks</th><th>Impressions</th><th>CTR</th><th>Avg Pos</th>"
-        f"</tr></thead><tbody>{device_rows}</tbody></table>"
-        if device_rows else '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#525252;">No device data.</p>'
+        ) +
+        mm_section("Query Dynamics",
+            mm_report_section(
+                '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#64748B;margin-bottom:16px;">\u24d8 <b>How to read:</b> Teal indicates growing search demand or ranking improvement. Coral indicates loss. Focus on high-impression queries in the coral zone.</p>' +
+                movers_chart
+            )
+        ) +
+        mm_section("Deep Performance Tables",
+            mm_report_section(
+                mm_col_header("Top 50 Queries by Clicks") +
+                _build_top_table(query_df, "query", is_page=False, n=50) +
+                "<br><br>" +
+                mm_col_header("Top 50 Landing Pages by Clicks") +
+                _build_top_table(page_df, "page", is_page=True, n=50)
+            )
+        )
     )
 
-    # ── Horizontal rule between sections ──────────────────────────────────
-    HR = '<hr style="border:none;border-top:4px solid #000;margin:40px 0;">'
-    HR_THIN = '<hr style="border:none;border-top:1px solid #E5E5E5;margin:32px 0;">'
+    doc = mm_html_shell(
+        title=f"GSC Weekly Report — {today}",
+        eyebrow="Google Search Console Intelligence",
+        headline="Weekly Search\nPerformance",
+        meta_line=f"{current_start} &rarr; {current_end} / prev {previous_start} &rarr; {previous_end}",
+        body_content=body_content
+    )
 
-    doc = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>GSC Weekly Performance Summary</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-<style>
-*, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    with open("weekly_summary.html", "w", encoding="utf-8") as f:
+        f.write(doc)
+    print("Saved weekly_summary.html with ApexCharts")
 
-/* ── Global horizontal line texture ── */
-html {{
-    background: #fff;
-    background-image: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 1px,
-        #000 1px,
-        #000 2px
-    );
-    background-size: 100% 4px;
-    background-attachment: fixed;
-}}
-html::before {{
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: rgba(255,255,255,0.97);
-    pointer-events: none;
-    z-index: 0;
-}}
 
-body {{
-    font-family: 'Source Serif 4', Georgia, serif;
-    font-size: 14px;
-    color: #000;
-    background: transparent;
-    line-height: 1.625;
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 40px 80px;
-    position: relative;
-    z-index: 1;
-}}
+
 
 /* ── Header ── */
 .site-header {{
@@ -1487,314 +1177,7 @@ body {{
     color: #fff;
     margin-bottom: 16px;
 }}
-.site-header__meta {{
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 11px;
-    color: #666;
-    letter-spacing: 0.05em;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}}
-.site-header__meta::before {{
-    content: '';
-    display: inline-block;
-    width: 24px;
-    height: 2px;
-    background: #fff;
-    flex-shrink: 0;
-}}
 
-/* ── Section wrapper ── */
-.section {{
-    padding: 40px 0;
-}}
-
-/* ── Section title ── */
-.section-title {{
-    font-family: 'Playfair Display', Georgia, serif;
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    color: #000;
-    margin-bottom: 24px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-}}
-.section-title::before {{
-    content: '';
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    background: #000;
-    flex-shrink: 0;
-}}
-
-/* ── KPI grid ── */
-.kpi-grid {{
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 2px;
-    margin-bottom: 0;
-    border: 2px solid #000;
-}}
-.kpi-grid > div {{
-    border-right: 2px solid #000;
-}}
-.kpi-grid > div:last-child {{ border-right: none; }}
-
-/* ── Report section ── */
-.report-section {{
-    background: #fff;
-    border: 2px solid #000;
-    padding: 28px 32px;
-    margin-bottom: 0;
-}}
-
-/* ── Two-column layout ── */
-.two-col {{
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2px;
-}}
-.two-col > .report-section {{
-    border-right: none;
-}}
-.two-col > .report-section:last-child {{
-    border-left: 2px solid #000;
-    border-right: 2px solid #000;
-}}
-
-/* ── Thick rule ── */
-.rule-thick {{
-    border: none;
-    border-top: 4px solid #000;
-    margin: 0;
-}}
-.rule-thin {{
-    border: none;
-    border-top: 1px solid #E5E5E5;
-    margin: 24px 0;
-}}
-
-{get_extra_css()}
-
-/* ── Table overrides for monochrome ── */
-table {{
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    width: 100%;
-    border-collapse: collapse;
-}}
-th {{
-    background: #000;
-    color: #fff;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 8px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
-    padding: 10px 12px;
-    text-align: left;
-    border: none;
-}}
-td {{
-    padding: 9px 12px;
-    border-bottom: 1px solid #E5E5E5;
-    color: #000;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-}}
-td.url-cell {{
-    font-family: 'Source Serif 4', Georgia, serif;
-    font-size: 11px;
-    color: #000;
-    max-width: 220px;
-    overflow-wrap: break-word;
-    word-break: break-word;
-}}
-tr:hover td {{ background: #F5F5F5; }}
-tr:nth-child(even) td {{ background: transparent; }}
-
-/* ── Responsive ── */
-@media (max-width: 768px) {{
-    body {{ padding: 0 20px 60px; }}
-    .site-header {{ padding: 28px 24px; margin: 0 -20px 0; }}
-    .kpi-grid {{ grid-template-columns: 1fr 1fr; }}
-    .two-col {{ grid-template-columns: 1fr; }}
-    .chart-row-2 {{ grid-template-columns: 1fr; }}
-    .nl-grid {{ grid-template-columns: 1fr; }}
-}}
-</style>
-</head>
-<body>
-
-<!-- ══ HEADER ══════════════════════════════════════════════════════ -->
-<header class="site-header">
-  <div class="site-header__eyebrow">Google Search Console</div>
-  <h1 class="site-header__title">Weekly Performance<br>Summary</h1>
-  <div class="site-header__meta">
-    {current_start} → {current_end} &nbsp;/&nbsp; prev {previous_start} → {previous_end}
-  </div>
-</header>
-
-<hr class="rule-thick">
-
-<!-- ══ EXECUTIVE SUMMARY ══════════════════════════════════════════ -->
-<div class="section">
-  <div class="section-title">Executive Summary</div>
-  <div class="exec-panel">
-    <ul class="exec-bullets">{bullet_items}</ul>
-  </div>
-</div>
-
-<hr class="rule-thick">
-
-<!-- ══ KPI CARDS ══════════════════════════════════════════════════ -->
-<div class="section" style="padding-top:0;">
-  <div class="kpi-grid">{kpi_grid}</div>
-</div>
-
-<hr class="rule-thick">
-
-<!-- ══ KPI CHART + TREND ══════════════════════════════════════════ -->
-<div class="section">
-  <div class="section-title">Performance Overview</div>
-  <div class="report-section">
-    <div class="col-header">KPI Comparison — Current vs Previous Week</div>
-    {_chart_wrap(chart_paths.get("kpi_grid"), "KPI comparison grid")}
-    <div class="col-header">7-Day Daily Trend</div>
-    {_chart_wrap(chart_paths.get("trend"), "7-day daily trend")}
-  </div>
-</div>
-
-<hr class="rule-thick">
-
-<!-- ══ DEVICE + SEARCH APPEARANCE ════════════════════════════════ -->
-<div class="section">
-  <div class="section-title">Audience &amp; Visibility</div>
-  <div class="report-section">
-    <div class="col-header">Sessions by Device</div>
-    {_chart_wrap(chart_paths.get("device"), "Device split")}
-    <div class="col-header">Impressions by Search Appearance</div>
-    {_chart_wrap(chart_paths.get("appearance"), "Search appearance")}
-  </div>
-</div>
-
-<hr class="rule-thick">
-
-<!-- ══ CTR vs POSITION SCATTER ═══════════════════════════════════ -->
-<div class="section">
-  <div class="section-title">CTR vs Average Position</div>
-  <div class="report-section">
-    {_chart_wrap(chart_paths.get("scatter"), "CTR vs position scatter")}
-  </div>
-</div>
-
-<hr class="rule-thick">
-
-<!-- ══ CTR OPPORTUNITY HEATMAP ═══════════════════════════════════ -->
-<div class="section">
-  <div class="section-title">CTR Opportunity Heatmap</div>
-  <div class="report-section">
-    {_chart_wrap(chart_paths.get("ctr_heatmap"), "CTR opportunity heatmap")}
-  </div>
-</div>
-
-<hr class="rule-thick">
-
-<!-- ══ CLICK POTENTIAL GAP ═══════════════════════════════════════ -->
-<div class="section">
-  <div class="section-title">Click Potential Gap</div>
-  <div class="report-section">
-    {_chart_wrap(chart_paths.get("click_potential_gap"), "Click potential gap")}
-  </div>
-</div>
-
-<hr class="rule-thick">
-
-<!-- ══ MOVERS ════════════════════════════════════════════════════ -->
-<div class="section">
-  <div class="section-title">Winners &amp; Losers</div>
-  <div class="report-section">
-    <div class="col-header">Query Winners &amp; Losers (Click Δ)</div>
-    {_chart_wrap(chart_paths.get("query_movers"), "Query winners & losers")}
-    <div class="col-header">Page Winners &amp; Losers (Click Δ)</div>
-    {_chart_wrap(chart_paths.get("page_movers"), "Page winners & losers")}
-  </div>
-</div>
-
-<hr class="rule-thick">
-
-<!-- ══ NEW / LOST QUERIES ════════════════════════════════════════ -->
-<div class="section">
-  <div class="section-title">Query Signals</div>
-  <div class="report-section">
-    <div class="col-header">New &amp; Lost Queries This Week</div>
-    {new_lost_block}
-  </div>
-</div>
-
-<hr class="rule-thick">
-
-<!-- ══ TOP QUERIES ════════════════════════════════════════════════ -->
-<div class="section">
-  <div class="section-title">Top Queries by Clicks</div>
-  <div class="report-section">
-    {top_queries_tbl}
-  </div>
-</div>
-
-<hr class="rule-thick">
-
-<!-- ══ TOP PAGES ═════════════════════════════════════════════════ -->
-<div class="section">
-  <div class="section-title">Top Pages by Clicks</div>
-  <div class="report-section">
-    {top_pages_tbl}
-  </div>
-</div>
-
-<hr class="rule-thick">
-
-<!-- ══ QUERY MOVEMENT ════════════════════════════════════════════ -->
-<div class="section">
-  <div class="section-title">Query Movement</div>
-  <div class="report-section">
-    <div class="col-header">Gainers &amp; Losers</div>
-    {query_movers_tbl}
-  </div>
-</div>
-
-<hr class="rule-thick">
-
-<!-- ══ PAGE MOVEMENT + DEVICE ════════════════════════════════════ -->
-<div class="section">
-  <div class="section-title">Page Movement</div>
-  <div class="report-section">
-    <div class="col-header">Gainers &amp; Losers</div>
-    {page_movers_tbl}
-    <div class="col-header">Device Breakdown</div>
-    {device_table}
-  </div>
-</div>
-
-<hr class="rule-thick">
-
-<!-- ══ FOOTER ════════════════════════════════════════════════════ -->
-<footer style="padding:32px 0;display:flex;justify-content:space-between;align-items:center;">
-  <span style="font-family:'Playfair Display',Georgia,serif;font-size:13px;font-weight:700;letter-spacing:0.05em;">CIM SEO Intelligence</span>
-  <span style="font-family:'JetBrains Mono',monospace;font-size:9px;color:#525252;text-transform:uppercase;letter-spacing:0.12em;">Generated {date.today().strftime('%B %d, %Y')}</span>
-</footer>
-
-</body>
-</html>"""
-
-    with open("weekly_summary.html", "w", encoding="utf-8") as f:
-        f.write(doc)
-    print("Saved weekly_summary.html")
 
 
 
@@ -1981,7 +1364,8 @@ def main():
 
     write_html_summary(query_df, page_df, exec_bullets, kpis,
                        chart_paths, device_df, appearance_df,
-                       current_start, current_end, previous_start, previous_end)
+                       current_start, current_end, previous_start, previous_end,
+                       trend_curr, trend_prev)
 
     generate_self_contained_html()
 

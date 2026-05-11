@@ -282,7 +282,7 @@ def generate_monthly_dashboard(bullets, chart_paths, data, kpis, date_range):
     # GA4 landing pages table
     page_col = "landingPage" if "landingPage" in ga4_pages.columns else (ga4_pages.columns[0] if not ga4_pages.empty else "page")
     ga4_tbl = _build_html_table(
-        ga4_pages.head(25),
+        ga4_pages.head(50),
         [page_col, "sessions", "activeUsers", "engagementRate"],
         ["Landing Page", "Sessions", "Users", "Engagement Rate"]
     )
@@ -294,7 +294,7 @@ def generate_monthly_dashboard(bullets, chart_paths, data, kpis, date_range):
     p_col   = "position_current"   if "position_current"   in gsc_queries.columns else "position"
     ctr_col = "ctr_current"        if "ctr_current"        in gsc_queries.columns else "ctr"
     gsc_tbl = _build_html_table(
-        gsc_queries.head(25),
+        gsc_queries.head(50),
         [q_col, c_col, i_col, ctr_col, p_col],
         ["Query", "Clicks", "Impressions", "CTR", "Position"]
     )
@@ -305,7 +305,7 @@ def generate_monthly_dashboard(bullets, chart_paths, data, kpis, date_range):
     i_col_gsc    = "impressions_current"if "impressions_current"in gsc_pages.columns else "impressions"
     p_col_gsc    = "position_current"   if "position_current"   in gsc_pages.columns else "position"
     gsc_pages_tbl = _build_html_table(
-        gsc_pages.head(25),
+        gsc_pages.head(50),
         [page_col_gsc, c_col_gsc, i_col_gsc, p_col_gsc],
         ["Page", "Clicks", "Impressions", "Position"]
     )
@@ -313,7 +313,7 @@ def generate_monthly_dashboard(bullets, chart_paths, data, kpis, date_range):
     # Broken links issues table (top 25 broken only)
     broken_issues_tbl = '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#94A3B8;">No broken link data available.</p>'
     if not broken_link_data.empty and "issue_type" in broken_link_data.columns:
-        broken_df = broken_link_data[broken_link_data["issue_type"] == "broken"].head(25)
+        broken_df = broken_link_data[broken_link_data["issue_type"] == "broken"].head(50)
         if not broken_df.empty:
             src_col = "source_url" if "source_url" in broken_df.columns else broken_df.columns[0]
             tgt_col = "target_url" if "target_url" in broken_df.columns else broken_df.columns[1]
@@ -417,15 +417,15 @@ def generate_monthly_dashboard(bullets, chart_paths, data, kpis, date_range):
 )}
 
 {_section("Detailed Data Tables",
-    _panel_label("Top 25 Landing Pages (GA4)") + ga4_tbl +
+    _panel_label("Top 50 Landing Pages (GA4)") + ga4_tbl +
     "<br><br>" +
-    _panel_label("Top 25 Search Queries (GSC)") + gsc_tbl +
+    _panel_label("Top 50 Search Queries (GSC)") + gsc_tbl +
     "<br><br>" +
-    _panel_label("Top 25 Landing Pages (GSC)") + gsc_pages_tbl +
+    _panel_label("Top 50 Landing Pages (GSC)") + gsc_pages_tbl +
     "<br><br>" +
     _panel_label("Content Category Performance") + cat_tbl +
     "<br><br>" +
-    _panel_label("Top 25 Broken Links (404/410)") + broken_issues_tbl,
+    _panel_label("Top 50 Broken Links (404/410)") + broken_issues_tbl,
     "detailed-data"
 )}
 
