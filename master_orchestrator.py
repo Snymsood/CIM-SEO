@@ -651,6 +651,7 @@ def generate_html_dashboard(bullets, chart_paths, data, kpis):
     gsc_queries = data["gsc_queries"]
     speed       = data["speed"]
     content_cat = data["content_cat"]
+    kw_comp     = data["kw_comp"]
 
     page_col  = "landingPage" if "landingPage" in ga4_pages.columns else (ga4_pages.columns[0] if not ga4_pages.empty else "page")
     ga4_tbl   = _build_html_table(ga4_pages.head(10),  [page_col, "sessions", "activeUsers", "engagementRate"],
@@ -731,7 +732,7 @@ def generate_html_dashboard(bullets, chart_paths, data, kpis):
         mm_section("Executive Summary", 
             mm_report_section(mm_exec_bullets(bullets))
         ) +
-        '<div class="section" style="padding-top:0;">' + kpi_grid + '</div>'
+        '<div class="section" style="padding-top:0;">' + kpi_grid + '</div>' +
         '<hr class="rule-thick">' +
         mm_section("Performance Overview",
             mm_report_section(
