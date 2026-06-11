@@ -1260,6 +1260,77 @@ def post_to_monday(action_queue: list[dict], kpis: dict, html_path: str,
 # MAIN
 # ══════════════════════════════════════════════════════════════════════════════
 
+def _serialize_action_queue(items) -> list[dict]:
+    res = []
+    for item in items:
+        res.append({
+            "issue": item.get("action", ""),
+            "url": item.get("url", ""),
+            "source": item.get("source", ""),
+            "detail": item.get("evidence", "")
+        })
+    return res
+
+def _serialize_anomalies(items) -> list[dict]:
+    res = []
+    for item in items:
+        res.append({
+            "metric": item.get("metric", ""),
+            "url": item.get("url", ""),
+            "delta": float(item.get("delta", 0.0)) if item.get("delta") is not None else 0.0,
+            "threshold": float(item.get("threshold", 0.0)) if item.get("threshold") is not None else 0.0,
+            "source": item.get("source", "")
+        })
+    return res
+
+def _serialize_decay(decay_df) -> list[dict]:
+    if decay_df is None or (hasattr(decay_df, 'empty') and decay_df.empty):
+        return []
+    records = decay_df.to_dict('records')
+    res = []
+    for rec in records:
+        res.append({
+            "url": str(rec.get("page", "")),
+            "traffic_delta_pct": float(rec.get("pct_change_clicks", 0.0)) if rec.get("pct_change_clicks") is not None else 0.0,
+            "current_sessions": float(rec.get("current_sessions", 0)) if rec.get("current_sessions") is not None else 0.0,
+            "top_keyword": str(rec.get("top_keyword", ""))
+        })
+    return res
+
+def _collect_wins(kpis: dict) -> list[dict]:
+    """Surface positive metric deltas from weekly KPIs as structured wins."""
+    wins = []
+    checks = [
+        ("gsc_clicks_curr",       "gsc_clicks_prev",       "clicks",      "GSC organic clicks up {delta:.0%} WoW ({curr:,.0f} clicks)"),
+        ("gsc_impressions_curr",  "gsc_impressions_prev",  "impressions", "GSC impressions up {delta:.0%} WoW ({curr:,.0f} impressions)"),
+        ("ga4_sessions_curr",     "ga4_sessions_prev",     "sessions",    "GA4 sessions up {delta:.0%} WoW ({curr:,.0f} sessions)"),
+        ("conv_total_curr",       "conv_total_prev",       "conversions", "Conversions up {delta:.0%} WoW ({curr:,.0f} conversions)"),
+    ]
+    for curr_key, prev_key, metric, template in checks:
+        curr = float(kpis.get(curr_key) or 0)
+        prev = float(kpis.get(prev_key) or 0)
+        if curr > 0 and prev > 0:
+            delta = (curr - prev) / prev
+            if delta >= 0.05:  # only surface gains ≥ 5%
+                wins.append({
+                    "description": template.format(delta=delta, curr=curr),
+                    "metric": metric,
+                    "delta": round(delta, 4)
+                })
+    # Position improvement (lower is better)
+    pos_curr = float(kpis.get("gsc_avg_position_curr") or 0)
+    pos_prev = float(kpis.get("gsc_avg_position_prev") or 0)
+    if pos_curr > 0 and pos_prev > 0 and pos_curr < pos_prev:
+        improvement = (pos_prev - pos_curr) / pos_prev
+        if improvement >= 0.03:  # at least 3% rank improvement
+            wins.append({
+                "description": f"Avg position improved {pos_prev:.1f} → {pos_curr:.1f} (↑{improvement:.0%})",
+                "metric": "position",
+                "delta": round(improvement, 4)
+            })
+    return wins
+
+
 def main(dry_run: bool = False) -> None:
     if not ENABLE_INTELLIGENCE:
         print("Weekly intelligence layer disabled (ENABLE_WEEKLY_INTELLIGENCE=false). Skipping.")
@@ -1372,6 +1443,27 @@ def main(dry_run: bool = False) -> None:
     print("WEEKLY SEO INTELLIGENCE LAYER — COMPLETE")
     print(f"  Actions: {len(action_queue)} | Anomalies: {len(anomalies)} | Decay: {len(decay_df)} | Warnings: {len(warnings)}")
     print("=" * 70 + "\n")
+
+    # --- ActionLayer JSON sidecar ---
+    import json as _json
+    from pathlib import Path as _Path
+    from datetime import date as _date
+
+    _output = {
+        "action_queue": _serialize_action_queue(action_queue),
+        "anomaly_report": _serialize_anomalies(anomalies),
+        "content_decay_candidates": _serialize_decay(decay_df),
+        "wins": _collect_wins(kpis),
+        "run_date": str(_date.today())
+    }
+
+    _sidecar_path = _Path("outputs/weekly_intelligence.json")
+    _sidecar_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(_sidecar_path, "w") as _f:
+        _json.dump(_output, _f, indent=2)
+
+    print(f"[intelligence] ActionLayer sidecar written to {_sidecar_path}")
+    # --- end ActionLayer JSON sidecar ---
 
 
 if __name__ == "__main__":
