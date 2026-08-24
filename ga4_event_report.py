@@ -22,7 +22,7 @@ from google.analytics.data_v1beta.types import (
     Filter, FilterExpressionList,
 )
 
-from email_utils import send_html_email, get_recipients, get_smtp_config
+from email_utils import send_html_email
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
