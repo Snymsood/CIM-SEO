@@ -560,6 +560,8 @@ def _kpi_box(label: str, curr_val: float, prev_val: float, help_text: str) -> st
 
 def _page_table(df_pages: pd.DataFrame, event_name: str) -> str:
     """Render a top-pages breakdown table for one event."""
+    if df_pages.empty or "eventName" not in df_pages.columns:
+        return '<p class="no-data">No page-level data available for this period.</p>'
     sub = df_pages[df_pages["eventName"].str.lower() == event_name.lower()]
     if sub.empty:
         return '<p class="no-data">No page-level data available for this period.</p>'
@@ -599,6 +601,8 @@ def _page_table(df_pages: pd.DataFrame, event_name: str) -> str:
 
 def _device_table(df_device: pd.DataFrame, event_name: str) -> str:
     """Render a device breakdown table for one event."""
+    if df_device.empty or "eventName" not in df_device.columns:
+        return '<p class="no-data">No device data available.</p>'
     sub = df_device[df_device["eventName"].str.lower() == event_name.lower()]
     if sub.empty:
         return '<p class="no-data">No device data available.</p>'
@@ -645,6 +649,8 @@ def _device_table(df_device: pd.DataFrame, event_name: str) -> str:
 
 def _channel_table(df_channel: pd.DataFrame, event_name: str) -> str:
     """Render a traffic channel breakdown table for one event."""
+    if df_channel.empty or "eventName" not in df_channel.columns:
+        return '<p class="no-data">No channel data available.</p>'
     sub = df_channel[df_channel["eventName"].str.lower() == event_name.lower()]
     if sub.empty:
         return '<p class="no-data">No channel data available.</p>'
