@@ -105,7 +105,7 @@ async def run_all_scripts():
         "GA4_PROPERTY_ID":            "341629008",
         "MONDAY_ITEM_ID":             os.getenv("MONDAY_EVENT_REPORT_ITEM_ID", ""),
         "EVENT_CONFIG_PATH":          "event_tracking_config.csv",
-        "EVENT_REPORT_RECIPIENTS":    os.getenv("EVENT_REPORT_RECIPIENTS", ""),
+        "EVENT_REPORT_RECIPIENTS":    os.getenv("EVENT_REPORT_RECIPIENTS", "ssood@cim.org,molaguera@cim.org"),
         "SMTP_HOST":                  os.getenv("SMTP_HOST", ""),
         "SMTP_PORT":                  os.getenv("SMTP_PORT", "587"),
         "SMTP_PASSWORD":              os.getenv("SMTP_PASSWORD", ""),
