@@ -101,6 +101,18 @@ async def run_all_scripts():
         await run_script("ai_snippet_verification.py", snippet_env)
         await run_script("ai_snippet_pdf_report.py",   snippet_env)
 
+    event_report_env = {
+        "GA4_PROPERTY_ID":            "341629008",
+        "MONDAY_ITEM_ID":             os.getenv("MONDAY_EVENT_REPORT_ITEM_ID", ""),
+        "EVENT_CONFIG_PATH":          "event_tracking_config.csv",
+        "EVENT_REPORT_RECIPIENTS":    os.getenv("EVENT_REPORT_RECIPIENTS", ""),
+        "SMTP_HOST":                  os.getenv("SMTP_HOST", ""),
+        "SMTP_PORT":                  os.getenv("SMTP_PORT", "587"),
+        "SMTP_PASSWORD":              os.getenv("SMTP_PASSWORD", ""),
+        "DIGEST_EMAIL_SENDER":        os.getenv("DIGEST_EMAIL_SENDER", ""),
+        "EMAIL_FROM_NAME":            os.getenv("EMAIL_FROM_NAME", "CIM SEO Reports"),
+    }
+
     print("--- Starting API-based pipelines (concurrent) ---")
     await asyncio.gather(
         run_script("ga4_weekly_report.py",          ga4_env),
@@ -109,6 +121,7 @@ async def run_all_scripts():
         run_script("gsc_landing_pages_report.py",   gsc_landing_env),
         run_script("site_speed_monitoring.py",      speed_env),
         run_snippet_pipeline(),
+        run_script("ga4_event_report.py",           event_report_env),
     )
 
     # ── Group 2: Crawl-based pipelines — sequential to avoid overloading cim.org

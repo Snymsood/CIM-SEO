@@ -1,0 +1,11 @@
+group_name,event_name,display_name,description
+Hero Banner,homepage_banner_button_1,Banner Button 1,Clicks on the first hero banner CTA button
+Hero Banner,homepage_banner_button_2,Banner Button 2,Clicks on the second hero banner CTA button
+Spotlight,homepage_bigspotlight_class,Big Spotlight,Interactions with the main homepage spotlight feature
+Spotlight,hp_tracking,HP Tracking,General homepage tracking event
+Spotlight News,hp_spotlight_news_title_class_1,Spotlight News Title 1,Clicks on spotlight news item title 1
+Spotlight News,hp_spotlight_news_title_class_2,Spotlight News Title 2,Clicks on spotlight news item title 2
+Spotlight News,hp_spotlight_news_title_class_3,Spotlight News Title 3,Clicks on spotlight news item title 3
+Spotlight News,hp_spotlight_news_class_1,Spotlight News Item 1,Clicks on spotlight news card 1
+Spotlight News,hp_spotlight_news_class_2,Spotlight News Item 2,Clicks on spotlight news card 2
+Spotlight News,hp_spotlight_news_class_3,Spotlight News Item 3,Clicks on spotlight news card 3
