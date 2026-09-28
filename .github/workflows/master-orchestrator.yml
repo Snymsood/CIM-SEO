@@ -68,6 +68,10 @@ jobs:
             evidence/
             charts/
 
+      - name: Remove service account key before publishing
+        if: always()
+        run: rm -f gsc-key.json
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
