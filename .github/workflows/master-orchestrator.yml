@@ -72,13 +72,23 @@ jobs:
         if: always()
         run: rm -f gsc-key.json
 
+      - name: Prepare Pages site
+        run: |
+          mkdir -p public_site
+          find . -maxdepth 1 -type f \( -name '*.csv' -o -name '*.html' -o -name '*.pdf' -o -name '*.png' \) -exec cp {} public_site/ \;
+          for dir in reports screenshots evidence charts; do
+            if [ -d "$dir" ]; then
+              cp -R "$dir" "public_site/$dir"
+            fi
+          done
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
       - name: Upload GitHub Pages Artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "."
+          path: "public_site"
 
   deploy:
     environment:
