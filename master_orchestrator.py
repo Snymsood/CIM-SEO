@@ -97,6 +97,7 @@ async def run_all_scripts():
         snippet_env = {
             "MONDAY_API_KEY":              MONDAY_API_TOKEN or "",
             "MONDAY_AI_SNIPPET_ITEM_ID":   os.getenv("MONDAY_AI_SNIPPET_ITEM_ID", ""),
+            "MONDAY_ITEM_ID":              os.getenv("MONDAY_AI_SNIPPET_ITEM_ID", ""),
             "GROQ_MODEL":                  GROQ_MODEL,
         }
         await run_script("ai_snippet_verification.py", snippet_env)

@@ -62,6 +62,7 @@ jobs:
           MONDAY_CONTENT_AUDIT_ITEM_ID: ${{ secrets.MONDAY_CONTENT_AUDIT_ITEM_ID }}
           MONDAY_CONTENT_CATEGORY_ITEM_ID: ${{ secrets.MONDAY_CONTENT_CATEGORY_ITEM_ID }}
           MONDAY_INTELLIGENCE_ITEM_ID: ${{ secrets.MONDAY_INTELLIGENCE_ITEM_ID }}
+          MONDAY_EVENT_REPORT_ITEM_ID: ${{ secrets.MONDAY_EVENT_REPORT_ITEM_ID }}
         run: python -u master_orchestrator.py
 
       - name: Upload Master Artifacts

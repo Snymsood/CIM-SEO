@@ -15,7 +15,7 @@ MD_PATH    = REPORT_DIR / "ai_snippet_verification.md"
 GROQ_API_KEY     = os.getenv("GROQ_API_KEY")
 GROQ_MODEL       = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
-MONDAY_ITEM_ID   = os.getenv("MONDAY_ITEM_ID")
+MONDAY_ITEM_ID   = os.getenv("MONDAY_ITEM_ID") or os.getenv("MONDAY_AI_SNIPPET_ITEM_ID")
 MONDAY_API_URL   = "https://api.monday.com/v2"
 MONDAY_FILE_API_URL = "https://api.monday.com/v2/file"
 
