@@ -1,0 +1,41 @@
+name: GA4 Event Report
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "45 14 * * 1"
+
+jobs:
+  ga4-event-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write service account key
+        run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
+
+      - name: Run GA4 event report
+        env:
+          GA4_PROPERTY_ID: "341629008"
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_ITEM_ID: ${{ secrets.MONDAY_EVENT_REPORT_ITEM_ID }}
+          EVENT_CONFIG_PATH: event_tracking_config.csv
+        run: python -u ga4_event_report.py
+
+      - name: Upload GA4 event artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ga4-event-report
+          path: |
+            event_tracking_config.csv
+            ga4_event_report_output.html

@@ -156,7 +156,7 @@ Actions are sorted by priority score descending and assigned rank 1, 2, 3...
 
 ## How AI Action Plans Are Generated
 
-The AI action plan uses the existing Groq/Llama 3.3-70b integration.
+The AI action plan uses the configured Groq-compatible model, defaulting to `openai/gpt-oss-120b`.
 
 The prompt:
 1. Supplies the top 8 deterministic actions as structured evidence
@@ -209,7 +209,7 @@ The intelligence layer is always non-fatal. If it fails, existing reports are no
 
 4. **The intelligence report is static HTML.** No interactive filtering or drill-down is available in this version.
 
-5. **No email delivery.** Reports are posted to Monday.com and saved locally. Email delivery is planned for a future phase.
+5. **No email delivery.** Reports are posted to Monday.com and saved as workflow artifacts.
 
 6. **No Slack notifications.** The `SLACK_WEBHOOK_URL` variable is documented but not yet implemented.
 

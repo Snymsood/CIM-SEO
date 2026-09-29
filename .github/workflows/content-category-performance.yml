@@ -1,0 +1,46 @@
+name: Content Category Performance
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "15 15 * * 1"
+
+jobs:
+  content-category-performance:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write service account key
+        run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
+
+      - name: Run content category performance
+        env:
+          GSC_PROPERTY: "https://www.cim.org/"
+          GA4_PROPERTY_ID: "341629008"
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_ITEM_ID: ${{ secrets.MONDAY_CONTENT_CATEGORY_ITEM_ID }}
+        run: python -u content_category_performance.py
+
+      - name: Upload content category artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: content-category-performance
+          path: |
+            content_category_performance.csv
+            content_category_performance_summary.html
+            content_category_performance_summary_final.html
+            charts/content_clicks_by_category.png
+            charts/content_ecosystem_map.png
+            charts/content_engagement_by_category.png
+            charts/content_share_of_voice.png

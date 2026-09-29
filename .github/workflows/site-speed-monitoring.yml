@@ -2,8 +2,8 @@ name: Site Speed Monitoring
 
 on:
   workflow_dispatch:
-#  schedule:
-#    - cron: "45 13 * * 1"
+  schedule:
+    - cron: "45 13 * * 1"
 
 permissions:
   contents: read
@@ -32,9 +32,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          PREVIOUS_RUN_ID="$(gh run list --workflow site-speed-monitoring.yml --branch "${{ github.ref_name }}" --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          PREVIOUS_RUN_ID="$(gh run list --workflow site-speed-monitoring.yml --branch "${{ github.ref_name }}" --status completed --limit 10 --json databaseId,conclusion --jq '.[] | select(.conclusion == "success") | .databaseId' | head -n 1)"
           if [ -n "$PREVIOUS_RUN_ID" ]; then
-            gh run download "$PREVIOUS_RUN_ID" --name site-speed-monitoring --dir . || echo "No previous site-speed-monitoring artifact found."
+            mkdir -p previous_site_speed
+            if gh run download "$PREVIOUS_RUN_ID" --name site-speed-monitoring --dir previous_site_speed; then
+              cp -f previous_site_speed/site_speed_latest_snapshot.csv site_speed_latest_snapshot.csv 2>/dev/null || true
+              cp -f previous_site_speed/site_speed_history.csv site_speed_history.csv 2>/dev/null || true
+            else
+              echo "No previous site-speed-monitoring artifact found."
+            fi
           else
             echo "No previous successful site speed run found."
           fi

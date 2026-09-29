@@ -32,24 +32,46 @@ jobs:
       - name: Write service account key
         run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
 
-      - name: Download latest master orchestrator artifacts
+      - name: Download latest individual weekly artifacts
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          MASTER_RUN_ID="$(gh run list --workflow master-orchestrator.yml --branch "${{ github.ref_name }}" --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
-          if [ -n "$MASTER_RUN_ID" ]; then
-            gh run download "$MASTER_RUN_ID" --name master-orchestrator-artifacts --dir . || echo "No previous master-orchestrator-artifacts artifact found."
-          else
-            echo "No previous successful master orchestrator run found."
-          fi
+          download_latest_artifact() {
+            workflow="$1"
+            artifact="$2"
+            run_id="$(gh run list --workflow "$workflow" --branch "${{ github.ref_name }}" --status completed --limit 10 --json databaseId,conclusion --jq '.[] | select(.conclusion == "success") | .databaseId' | head -n 1)"
+            if [ -n "$run_id" ]; then
+              tmp_dir="downloaded-${artifact}"
+              rm -rf "$tmp_dir"
+              mkdir -p "$tmp_dir"
+              if gh run download "$run_id" --name "$artifact" --dir "$tmp_dir"; then
+                cp -Rf "$tmp_dir"/. .
+              else
+                echo "Artifact $artifact not available from $workflow."
+              fi
+            else
+              echo "No successful run found for $workflow."
+            fi
+          }
+
+          download_latest_artifact gsc-weekly-report.yml gsc-weekly-report
+          download_latest_artifact ga4-weekly-report.yml ga4-weekly-report
+          download_latest_artifact keyword-ranking-review.yml keyword-ranking-review
+          download_latest_artifact critical-landing-pages.yml critical-landing-pages
+          download_latest_artifact site-speed-monitoring.yml site-speed-monitoring
+          download_latest_artifact broken-link-check.yml broken-link-check
+          download_latest_artifact internal-linking-audit.yml internal-linking-audit
+          download_latest_artifact content-audit-schedule.yml content-audit-schedule
+          download_latest_artifact content-category-performance.yml content-category-performance
+          download_latest_artifact ga4-event-report.yml ga4-event-report
+          download_latest_artifact ai-snippet-verification.yml ai-snippet-verification-report
+          download_latest_artifact weekly-seo-intelligence.yml weekly-seo-intelligence
 
       - name: Run site speed monitoring (if no snapshot available)
         env:
           PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
-          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
-          MONDAY_ITEM_ID: ${{ secrets.MONDAY_ITEM_ID }}
         run: |
           if [ ! -f site_speed_latest_snapshot.csv ]; then
             echo "No snapshot found — running site_speed_monitoring.py"
@@ -62,8 +84,6 @@ jobs:
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
-          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
-          MONDAY_ITEM_ID: ${{ secrets.MONDAY_BROKEN_LINK_ITEM_ID }}
         run: |
           if [ ! -f broken_link_results.csv ]; then
             echo "No broken link results found — running broken_link_check.py"
@@ -76,8 +96,6 @@ jobs:
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
-          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
-          MONDAY_ITEM_ID: ${{ secrets.MONDAY_INTERNAL_LINK_ITEM_ID }}
         run: |
           if [ ! -f internal_linking_page_summary.csv ]; then
             echo "No internal linking data found — running internal_linking_audit.py"
@@ -91,8 +109,6 @@ jobs:
           GSC_PROPERTY: "https://www.cim.org/"
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
-          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
-          MONDAY_ITEM_ID: ${{ secrets.MONDAY_CONTENT_AUDIT_ITEM_ID }}
         run: |
           if [ ! -f content_audit_candidates.csv ]; then
             echo "No content audit data found — running content_audit_schedule_report.py"
@@ -105,8 +121,6 @@ jobs:
         env:
           GSC_PROPERTY: "https://www.cim.org/"
           GA4_PROPERTY_ID: "341629008"
-          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
-          MONDAY_ITEM_ID: ${{ secrets.MONDAY_CONTENT_CATEGORY_ITEM_ID }}
         run: |
           if [ ! -f content_category_performance.csv ]; then
             echo "No content category data found — running content_category_performance.py"
@@ -119,10 +133,6 @@ jobs:
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
-          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
-          MONDAY_API_KEY: ${{ secrets.MONDAY_API_TOKEN }}
-          MONDAY_AI_SNIPPET_ITEM_ID: ${{ secrets.MONDAY_AI_SNIPPET_ITEM_ID }}
-          MONDAY_ITEM_ID: ${{ secrets.MONDAY_AI_SNIPPET_ITEM_ID }}
         run: |
           if [ ! -f reports/ai_snippet_verification.csv ]; then
             echo "No AI snippet data found — running ai_snippet_verification.py"

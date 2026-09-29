@@ -36,7 +36,7 @@ An enterprise-grade SEO automation platform that orchestrates multiple monitorin
         │                                   │
    ┌────▼────┐                        ┌────▼────┐
    │ Outputs │                        │ Storage │
-   │ • PDFs  │                        │ • Sheets│
+        │ • HTML  │                        │ • Sheets│
    │ • CSVs  │                        │ • Monday│
    │ • HTML  │                        │ • Local │
    └─────────┘                        └─────────┘
@@ -58,11 +58,11 @@ An enterprise-grade SEO automation platform that orchestrates multiple monitorin
 
 ### AI & Innovation
 - **AI Snippet Verification**: Evaluates pages for AI search readiness and hallucination risk
-- **AI-Powered Insights**: Executive summaries generated using Groq's Llama models
+- **AI-Powered Insights**: Executive summaries generated using the configured Groq model
 - **Content Strategy Analysis**: Performance mapping by content pillar
 
 ### Reporting & Integration
-- **Multi-Format Output**: PDF, HTML, CSV, Markdown reports
+- **Multi-Format Output**: self-contained HTML, CSV, JSON, and Markdown reports
 - **Monday.com Integration**: Automated project management updates
 - **Google Sheets Database**: Historical data persistence and trend analysis
 - **Interactive Dashboards**: HTML dashboards with charts and KPIs
@@ -118,16 +118,22 @@ GA4_PROPERTY_ID=123456789
 MONDAY_API_TOKEN=your_monday_token
 MONDAY_MASTER_ITEM_ID=your_master_item_id
 MONDAY_GSC_ITEM_ID=your_gsc_item_id
+MONDAY_GA4_WEEKLY_ITEM_ID=your_ga4_weekly_item_id
+MONDAY_SITE_SPEED_ITEM_ID=your_site_speed_item_id
 MONDAY_GSC_KEYWORD_ITEM_ID=your_keyword_item_id
 MONDAY_GSC_LANDING_ITEM_ID=your_landing_item_id
 MONDAY_BROKEN_LINK_ITEM_ID=your_broken_link_item_id
 MONDAY_INTERNAL_LINK_ITEM_ID=your_internal_link_item_id
 MONDAY_CONTENT_AUDIT_ITEM_ID=your_content_audit_item_id
+MONDAY_CONTENT_CATEGORY_ITEM_ID=your_content_category_item_id
 MONDAY_AI_SNIPPET_ITEM_ID=your_ai_snippet_item_id
+MONDAY_EVENT_REPORT_ITEM_ID=your_ga4_event_item_id
+MONDAY_INTELLIGENCE_ITEM_ID=your_intelligence_item_id
+MONDAY_MONTHLY_ITEM_ID=your_monthly_item_id
 
 # AI/LLM Integration
 GROQ_API_KEY=your_groq_api_key
-GROQ_MODEL=llama-3.3-70b-versatile
+GROQ_MODEL=openai/gpt-oss-120b
 
 # PageSpeed Insights
 PAGESPEED_API_KEY=your_pagespeed_api_key
@@ -181,12 +187,11 @@ python content_category_performance.py
 
 ## 📊 Output Files
 
-Each report generates multiple output formats:
+Reports generate multiple output formats:
 
-- **PDF Reports**: `*_summary.pdf` - Formatted stakeholder reports
-- **HTML Reports**: `*_summary.html` - Interactive web reports
+- **HTML Reports**: `*_summary_final.html` - Self-contained stakeholder reports
 - **CSV Data**: `*.csv` - Raw data for further analysis
-- **Markdown**: `*_summary.md` - Text-based summaries
+- **JSON/Markdown**: Machine-readable summaries and AI action plans
 - **Charts**: `charts/*.png` - Visualization assets
 - **Screenshots**: `screenshots/*.png` - Page captures (AI verification)
 
@@ -200,7 +205,7 @@ Each report generates multiple output formats:
 | `seo_utils.py` | Date windows, URL utilities, calculations |
 | `monday_utils.py` | Monday.com API integration |
 | `google_sheets_db.py` | Historical data persistence |
-| `pdf_report_formatter.py` | Consistent PDF styling |
+| `pdf_report_formatter.py` | Shared formatting helpers retained for report compatibility |
 
 ### Report Scripts
 

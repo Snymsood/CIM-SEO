@@ -2,8 +2,8 @@ name: GA4 Weekly Report
 
 on:
   workflow_dispatch:
-#  schedule:
-#    - cron: "15 14 * * 1"
+  schedule:
+    - cron: "15 14 * * 1"
 
 jobs:
   ga4-weekly-report:
@@ -44,5 +44,10 @@ jobs:
             ga4_top_channels.csv
             ga4_device_split.csv
             ga4_country_split.csv
+            ga4_conversion_summary.csv
+            ga4_conversion_pages.csv
+            ga4_conversion_channels.csv
+            ga4_conversions_current.csv
+            ga4_conversions_previous.csv
             ga4_weekly_summary.html
             ga4_weekly_summary_final.html
