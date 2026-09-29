@@ -46,6 +46,9 @@ jobs:
             mailchimp_campaigns.csv
             mailchimp_campaign_reports.csv
             mailchimp_link_clicks.csv
+            mailchimp_content_links.csv
+            mailchimp_segment_summary.csv
+            mailchimp_top_story_clicks.csv
             mailchimp_weekly_summary.csv
             mailchimp_weekly_summary.html
             mailchimp_weekly_summary_final.html
