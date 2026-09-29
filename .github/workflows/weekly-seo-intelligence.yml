@@ -3,7 +3,7 @@ name: Weekly SEO Intelligence
 on:
   workflow_dispatch:
   schedule:
-    - cron: "30 16 * * 1"
+    - cron: "0 18 * * 1"
 
 permissions:
   contents: read
