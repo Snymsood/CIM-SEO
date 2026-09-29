@@ -446,7 +446,18 @@ def build_top_story_clicks(campaigns_df: pd.DataFrame, clicks_df: pd.DataFrame) 
         "unique_clicks": "top_story_unique_clicks",
         "total_clicks": "top_story_total_clicks",
     })
-    return out[[c for c in columns if c in out.columns]]
+    out["top_story_unique_clicks"] = pd.to_numeric(out["top_story_unique_clicks"], errors="coerce").fillna(0)
+    out["top_story_total_clicks"] = pd.to_numeric(out["top_story_total_clicks"], errors="coerce").fillna(0)
+    grouped = out.groupby(
+        ["campaign_id", "send_time", "newsletter_segment", "subject_line", "top_story_url"],
+        as_index=False,
+        dropna=False,
+    ).agg(
+        top_story_anchor_text=("top_story_anchor_text", "first"),
+        top_story_unique_clicks=("top_story_unique_clicks", "sum"),
+        top_story_total_clicks=("top_story_total_clicks", "sum"),
+    )
+    return grouped[[c for c in columns if c in grouped.columns]]
 
 
 def _fmt_num(value, decimals=0, pct=False):
