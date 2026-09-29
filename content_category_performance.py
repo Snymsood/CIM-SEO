@@ -16,6 +16,14 @@ from google.analytics.data_v1beta.types import (
     RunReportRequest,
 )
 from seo_utils import get_weekly_date_windows
+from html_report_utils import (
+    generate_self_contained_html,
+    mm_chart_wrap,
+    mm_html_shell,
+    mm_report_section,
+    mm_section,
+    upload_html_to_monday,
+)
 
 # GSC Configuration
 GSC_SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly"]
@@ -25,6 +33,8 @@ GSC_PROPERTY = os.environ.get("GSC_PROPERTY")
 # GA4 Configuration
 GA4_PROPERTY_ID = os.environ.get("GA4_PROPERTY_ID")
 GA4_KEY_FILE = "gsc-key.json"
+MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
+MONDAY_ITEM_ID = os.getenv("MONDAY_ITEM_ID")
 
 CHARTS_DIR = Path("charts")
 CHARTS_DIR.mkdir(exist_ok=True)
@@ -308,6 +318,113 @@ def build_all_charts(df):
     }
 
 
+def _fmt_num(value, decimals=0):
+    try:
+        value = float(value)
+    except Exception:
+        return "-"
+    if decimals:
+        return f"{value:,.{decimals}f}"
+    return f"{value:,.0f}"
+
+
+def _build_category_table(df):
+    if df.empty:
+        return '<p style="font-family:JetBrains Mono,monospace;font-size:10px;color:#64748B;">No content category data available.</p>'
+
+    work = df.copy()
+    if "sessions" in work.columns:
+        work = work.sort_values("sessions", ascending=False)
+
+    rows = []
+    for _, row in work.iterrows():
+        rows.append(
+            "<tr>"
+            f"<td>{row.get('category', '-')}</td>"
+            f"<td>{_fmt_num(row.get('sessions'))}</td>"
+            f"<td>{_fmt_num(row.get('clicks'))}</td>"
+            f"<td>{_fmt_num(row.get('impressions'))}</td>"
+            f"<td>{_fmt_num(row.get('engagement_rate', 0) * 100, 1)}%</td>"
+            f"<td>{_fmt_num(row.get('avg_duration'), 1)}s</td>"
+            "</tr>"
+        )
+
+    return (
+        "<table style=\"width:100%;border-collapse:collapse;font-family:JetBrains Mono,monospace;font-size:10px;\">"
+        "<thead><tr style=\"background:#212878;color:white;\">"
+        "<th style=\"padding:10px;text-align:left;\">Category</th>"
+        "<th style=\"padding:10px;text-align:right;\">Sessions</th>"
+        "<th style=\"padding:10px;text-align:right;\">Clicks</th>"
+        "<th style=\"padding:10px;text-align:right;\">Impressions</th>"
+        "<th style=\"padding:10px;text-align:right;\">Engagement</th>"
+        "<th style=\"padding:10px;text-align:right;\">Avg Duration</th>"
+        "</tr></thead>"
+        "<tbody>"
+        + "".join(
+            row.replace("<td>", "<td style=\"padding:9px 10px;border-bottom:1px solid #E2E8F0;\">", 1)
+               .replace("<td>", "<td style=\"padding:9px 10px;border-bottom:1px solid #E2E8F0;text-align:right;\">")
+            for row in rows
+        )
+        + "</tbody></table>"
+    )
+
+
+def write_html_summary(df, chart_paths):
+    top_category = "-"
+    total_sessions = 0
+    total_clicks = 0
+    if not df.empty:
+        total_sessions = float(df.get("sessions", pd.Series(dtype=float)).sum())
+        total_clicks = float(df.get("clicks", pd.Series(dtype=float)).sum())
+        if "sessions" in df.columns and df["sessions"].sum() > 0:
+            top_category = str(df.sort_values("sessions", ascending=False).iloc[0]["category"])
+
+    body = (
+        mm_section(
+            "Summary",
+            mm_report_section(
+                "<ul style=\"font-family:Source Serif 4,serif;font-size:15px;line-height:1.6;\">"
+                f"<li>Top session category: <strong>{top_category}</strong>.</li>"
+                f"<li>Total categorized sessions: <strong>{_fmt_num(total_sessions)}</strong>.</li>"
+                f"<li>Total categorized GSC clicks: <strong>{_fmt_num(total_clicks)}</strong>.</li>"
+                "</ul>"
+            ),
+        )
+        + mm_section(
+            "Category Performance",
+            mm_report_section(
+                mm_chart_wrap(str(chart_paths["share"]), "Sessions by content category")
+                + mm_chart_wrap(str(chart_paths["ecosystem"]), "Content ecosystem map")
+                + mm_chart_wrap(str(chart_paths["clicks"]), "GSC clicks by category")
+                + mm_chart_wrap(str(chart_paths["engagement"]), "Engagement by category")
+            ),
+        )
+        + mm_section("Category Table", mm_report_section(_build_category_table(df)))
+    )
+
+    html = mm_html_shell(
+        title="Content Category Performance",
+        eyebrow="CIM SEO",
+        headline="Content Category Performance",
+        meta_line=f"Generated {date.today().isoformat()}",
+        body_content=body,
+    )
+    Path("content_category_performance_summary.html").write_text(html, encoding="utf-8")
+    generate_self_contained_html(
+        "content_category_performance_summary.html",
+        "content_category_performance_summary_final.html",
+    )
+    print("  Saved content_category_performance_summary_final.html", flush=True)
+
+
+def upload_to_monday():
+    upload_html_to_monday(
+        "content_category_performance_summary_final.html",
+        "content-category-performance.html",
+        body_text="Content Category Performance report attached as self-contained HTML.",
+    )
+
+
 def main():
     print("Content Category Performance — starting", flush=True)
     curr_start, curr_end, prev_start, prev_end = get_weekly_date_windows()
@@ -342,6 +459,8 @@ def main():
 
     chart_paths = build_all_charts(content_perf)
     print(f"  Generated {len(chart_paths)} charts", flush=True)
+    write_html_summary(content_perf, chart_paths)
+    upload_to_monday()
     print("Content Category Performance — complete", flush=True)
 
 

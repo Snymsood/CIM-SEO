@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -32,16 +33,21 @@ jobs:
         run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
 
       - name: Download latest master orchestrator artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: master-orchestrator-artifacts
-          path: .
-        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          MASTER_RUN_ID="$(gh run list --workflow master-orchestrator.yml --branch "${{ github.ref_name }}" --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          if [ -n "$MASTER_RUN_ID" ]; then
+            gh run download "$MASTER_RUN_ID" --name master-orchestrator-artifacts --dir . || echo "No previous master-orchestrator-artifacts artifact found."
+          else
+            echo "No previous successful master orchestrator run found."
+          fi
 
       - name: Run site speed monitoring (if no snapshot available)
         env:
           PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
           MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
           MONDAY_ITEM_ID: ${{ secrets.MONDAY_ITEM_ID }}
         run: |
@@ -55,6 +61,7 @@ jobs:
       - name: Run broken link check (if no results available)
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
           MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
           MONDAY_ITEM_ID: ${{ secrets.MONDAY_BROKEN_LINK_ITEM_ID }}
         run: |
@@ -68,6 +75,7 @@ jobs:
       - name: Run internal linking audit (if no results available)
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
           MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
           MONDAY_ITEM_ID: ${{ secrets.MONDAY_INTERNAL_LINK_ITEM_ID }}
         run: |
@@ -82,6 +90,7 @@ jobs:
         env:
           GSC_PROPERTY: "https://www.cim.org/"
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
           MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
           MONDAY_ITEM_ID: ${{ secrets.MONDAY_CONTENT_AUDIT_ITEM_ID }}
         run: |
@@ -96,6 +105,8 @@ jobs:
         env:
           GSC_PROPERTY: "https://www.cim.org/"
           GA4_PROPERTY_ID: "341629008"
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_ITEM_ID: ${{ secrets.MONDAY_CONTENT_CATEGORY_ITEM_ID }}
         run: |
           if [ ! -f content_category_performance.csv ]; then
             echo "No content category data found — running content_category_performance.py"
@@ -104,11 +115,34 @@ jobs:
             echo "Content category data found — skipping content_category_performance.py"
           fi
 
+      - name: Run AI snippet verification (if no results available)
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_API_KEY: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_AI_SNIPPET_ITEM_ID: ${{ secrets.MONDAY_AI_SNIPPET_ITEM_ID }}
+          MONDAY_ITEM_ID: ${{ secrets.MONDAY_AI_SNIPPET_ITEM_ID }}
+        run: |
+          if [ ! -f reports/ai_snippet_verification.csv ]; then
+            echo "No AI snippet data found — running ai_snippet_verification.py"
+            python -u ai_snippet_verification.py
+          else
+            echo "AI snippet data found — skipping ai_snippet_verification.py"
+          fi
+          if [ ! -f reports/ai_snippet_verification_report_final.html ]; then
+            echo "No AI snippet HTML report found — running ai_snippet_pdf_report.py"
+            python -u ai_snippet_pdf_report.py
+          else
+            echo "AI snippet HTML report found — skipping ai_snippet_pdf_report.py"
+          fi
+
       - name: Run Monthly Master Report
         env:
           GA4_PROPERTY_ID: "341629008"
           GSC_PROPERTY: "https://www.cim.org/"
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
           MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
           MONDAY_MONTHLY_ITEM_ID: ${{ secrets.MONDAY_MONTHLY_ITEM_ID }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
@@ -166,13 +200,25 @@ jobs:
           name: monthly-dashboard-artifacts
           path: .
 
+      - name: Prepare Pages site
+        run: |
+          mkdir -p monthly_public
+          cp monthly_dashboard.html monthly_public/index.html
+          if [ -d monthly_data ]; then
+            cp -R monthly_data monthly_public/monthly_data
+          fi
+          if [ -d charts ]; then
+            mkdir -p monthly_public/charts
+            find charts -maxdepth 1 -type f -name 'monthly_*.png' -exec cp {} monthly_public/charts/ \;
+          fi
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
       - name: Upload to GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
-          path: "."
+          path: "monthly_public"
 
       - name: Deploy to GitHub Pages
         id: deployment

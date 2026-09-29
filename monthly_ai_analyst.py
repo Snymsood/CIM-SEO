@@ -7,7 +7,7 @@ Generates executive summary bullets for the monthly dashboard:
 - AI bullets: Insights and recommendations from Groq API
 - Unified output: Combined bullet list for dashboard
 
-Uses Groq API with llama-3.3-70b-versatile for AI analysis.
+Uses Groq API for AI analysis. Set GROQ_MODEL to override the default model.
 """
 
 import os
@@ -21,7 +21,7 @@ from pdf_report_formatter import format_pct_change
 # ══════════════════════════════════════════════════════════════════════════════
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # DETERMINISTIC BULLETS

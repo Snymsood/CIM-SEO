@@ -57,6 +57,7 @@ from pdf_report_formatter import format_pct_change
 ENABLE_INTELLIGENCE  = os.getenv("ENABLE_WEEKLY_INTELLIGENCE", "true").lower() == "true"
 ENABLE_AI_PLAN       = os.getenv("ENABLE_AI_ACTION_PLAN", "true").lower() == "true"
 GROQ_API_KEY         = os.getenv("GROQ_API_KEY")
+GROQ_MODEL           = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 MONDAY_API_TOKEN     = os.getenv("MONDAY_API_TOKEN")
 MONDAY_INTEL_ITEM_ID = os.getenv("MONDAY_INTELLIGENCE_ITEM_ID", "11983799551")
 
@@ -684,7 +685,7 @@ def generate_ai_action_plan(action_queue: list[dict], anomalies: list[dict],
         from openai import OpenAI
         client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=GROQ_MODEL,
             messages=[
                 {"role": "system", "content": "You are a senior SEO analyst. Write precise, evidence-based action plans. Never invent data."},
                 {"role": "user",   "content": prompt},

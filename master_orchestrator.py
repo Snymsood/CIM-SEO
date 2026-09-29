@@ -27,6 +27,7 @@ from html_report_utils import (
 MONDAY_API_TOKEN    = os.getenv("MONDAY_API_TOKEN")
 MONDAY_MASTER_ITEM_ID = os.getenv("MONDAY_MASTER_ITEM_ID")
 GROQ_API_KEY        = os.getenv("GROQ_API_KEY")
+GROQ_MODEL          = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 
 CHARTS_DIR = Path("charts")
 CHARTS_DIR.mkdir(exist_ok=True)
@@ -74,7 +75,7 @@ async def run_all_scripts():
     # ── Group 1: API-based pipelines — run fully concurrently ─────────────────
     ga4_env = {
         "GA4_PROPERTY_ID": "341629008",
-        "MONDAY_ITEM_ID":  "11818936551",
+        "MONDAY_ITEM_ID":  os.getenv("MONDAY_GA4_WEEKLY_ITEM_ID", ""),
     }
     gsc_weekly_env = {
         "GSC_PROPERTY": "https://www.cim.org/",
@@ -89,14 +90,14 @@ async def run_all_scripts():
         "MONDAY_ITEM_ID": os.getenv("MONDAY_GSC_LANDING_ITEM_ID", ""),
     }
     speed_env = {
-        "MONDAY_ITEM_ID": "11404492774",
+        "MONDAY_ITEM_ID": os.getenv("MONDAY_SITE_SPEED_ITEM_ID", ""),
     }
 
     async def run_snippet_pipeline():
         snippet_env = {
             "MONDAY_API_KEY":              MONDAY_API_TOKEN or "",
             "MONDAY_AI_SNIPPET_ITEM_ID":   os.getenv("MONDAY_AI_SNIPPET_ITEM_ID", ""),
-            "GROQ_MODEL":                  "llama-3.1-8b-instant",
+            "GROQ_MODEL":                  GROQ_MODEL,
         }
         await run_script("ai_snippet_verification.py", snippet_env)
         await run_script("ai_snippet_pdf_report.py",   snippet_env)
@@ -105,12 +106,6 @@ async def run_all_scripts():
         "GA4_PROPERTY_ID":            "341629008",
         "MONDAY_ITEM_ID":             os.getenv("MONDAY_EVENT_REPORT_ITEM_ID", ""),
         "EVENT_CONFIG_PATH":          "event_tracking_config.csv",
-        "EVENT_REPORT_RECIPIENTS":    os.getenv("EVENT_REPORT_RECIPIENTS", "ssood@cim.org,molaguera@cim.org"),
-        "SMTP_HOST":                  os.getenv("SMTP_HOST", ""),
-        "SMTP_PORT":                  os.getenv("SMTP_PORT", "587"),
-        "SMTP_PASSWORD":              os.getenv("SMTP_PASSWORD", ""),
-        "DIGEST_EMAIL_SENDER":        os.getenv("DIGEST_EMAIL_SENDER", ""),
-        "EMAIL_FROM_NAME":            os.getenv("EMAIL_FROM_NAME", "CIM SEO Reports"),
     }
 
     print("--- Starting API-based pipelines (concurrent) ---")
@@ -134,6 +129,7 @@ async def run_all_scripts():
     content_perf_env = {
         "GSC_PROPERTY":   "https://www.cim.org/",
         "GA4_PROPERTY_ID": "341629008",
+        "MONDAY_ITEM_ID": os.getenv("MONDAY_CONTENT_CATEGORY_ITEM_ID", ""),
     }
 
     print("--- Starting crawl-based pipelines (sequential) ---")
@@ -565,7 +561,7 @@ Content category performance:
     try:
         client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
         response = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=GROQ_MODEL,
             messages=[
                 {"role": "system", "content": "You write polished weekly executive SEO master briefs as bullet points only."},
                 {"role": "user", "content": prompt},

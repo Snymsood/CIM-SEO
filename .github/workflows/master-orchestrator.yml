@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
   pages: write
   id-token: write
 
@@ -29,11 +30,15 @@ jobs:
           playwright install chromium
 
       - name: Download previous site speed history
-        uses: actions/download-artifact@v4
-        with:
-          name: site-speed-monitoring
-          path: .
-        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PREVIOUS_RUN_ID="$(gh run list --workflow master-orchestrator.yml --branch "${{ github.ref_name }}" --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          if [ -n "$PREVIOUS_RUN_ID" ]; then
+            gh run download "$PREVIOUS_RUN_ID" --name site-speed-monitoring --dir . || echo "No previous site-speed-monitoring artifact found."
+          else
+            echo "No previous successful master run found."
+          fi
 
       - name: Write service account key
         run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
@@ -42,9 +47,12 @@ jobs:
         env:
           PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
           MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
-          MONDAY_GSC_ITEM_ID: ${{ secrets.MONDAY_ITEM_ID }}
+          MONDAY_GSC_ITEM_ID: ${{ secrets.MONDAY_GSC_ITEM_ID || secrets.MONDAY_ITEM_ID }}
+          MONDAY_GA4_WEEKLY_ITEM_ID: ${{ secrets.MONDAY_GA4_WEEKLY_ITEM_ID }}
+          MONDAY_SITE_SPEED_ITEM_ID: ${{ secrets.MONDAY_SITE_SPEED_ITEM_ID }}
           MONDAY_AI_SNIPPET_ITEM_ID: ${{ secrets.MONDAY_AI_SNIPPET_ITEM_ID }}
           MONDAY_MASTER_ITEM_ID: ${{ secrets.MONDAY_MASTER_ITEM_ID }}
           MONDAY_GSC_KEYWORD_ITEM_ID: ${{ secrets.MONDAY_GSC_KEYWORD_ITEM_ID }}
@@ -52,6 +60,7 @@ jobs:
           MONDAY_BROKEN_LINK_ITEM_ID: ${{ secrets.MONDAY_BROKEN_LINK_ITEM_ID }}
           MONDAY_INTERNAL_LINK_ITEM_ID: ${{ secrets.MONDAY_INTERNAL_LINK_ITEM_ID }}
           MONDAY_CONTENT_AUDIT_ITEM_ID: ${{ secrets.MONDAY_CONTENT_AUDIT_ITEM_ID }}
+          MONDAY_CONTENT_CATEGORY_ITEM_ID: ${{ secrets.MONDAY_CONTENT_CATEGORY_ITEM_ID }}
           MONDAY_INTELLIGENCE_ITEM_ID: ${{ secrets.MONDAY_INTELLIGENCE_ITEM_ID }}
         run: python -u master_orchestrator.py
 
@@ -67,6 +76,22 @@ jobs:
             screenshots/
             evidence/
             charts/
+
+      - name: Upload site speed history
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-speed-monitoring
+          path: |
+            tracked_speed_pages.csv
+            site_speed_current_snapshot.csv
+            site_speed_comparison.csv
+            site_speed_opportunities.csv
+            site_speed_latest_snapshot.csv
+            site_speed_history.csv
+            site_speed_summary.html
+            site_speed_summary_final.html
+            site_speed_charts/
+          if-no-files-found: warn
 
       - name: Remove service account key before publishing
         if: always()

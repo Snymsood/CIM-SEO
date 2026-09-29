@@ -5,6 +5,10 @@ on:
 #  schedule:
 #    - cron: "45 13 * * 1"
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
   site-speed-monitoring:
     runs-on: ubuntu-latest
@@ -25,18 +29,23 @@ jobs:
         run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
 
       - name: Download previous site speed history
-        uses: actions/download-artifact@v4
-        with:
-          name: site-speed-monitoring
-          path: .
-        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PREVIOUS_RUN_ID="$(gh run list --workflow site-speed-monitoring.yml --branch "${{ github.ref_name }}" --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          if [ -n "$PREVIOUS_RUN_ID" ]; then
+            gh run download "$PREVIOUS_RUN_ID" --name site-speed-monitoring --dir . || echo "No previous site-speed-monitoring artifact found."
+          else
+            echo "No previous successful site speed run found."
+          fi
 
       - name: Run site speed monitoring
         env:
           PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
           MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
-          MONDAY_ITEM_ID: "11404492774"
+          MONDAY_ITEM_ID: ${{ secrets.MONDAY_SITE_SPEED_ITEM_ID }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
         run: python -u site_speed_monitoring.py
 

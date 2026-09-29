@@ -1,8 +1,7 @@
 # ══════════════════════════════════════════════════════════════════════════════
 # ga4_event_report.py
 # CIM SEO — GA4 Custom Event Weekly Report
-# Pulls grouped custom events from GA4, builds a styled HTML email report,
-# and delivers it via SMTP.
+# Pulls grouped custom events from GA4 and builds a styled HTML report.
 # ══════════════════════════════════════════════════════════════════════════════
 
 import os
@@ -21,8 +20,7 @@ from google.analytics.data_v1beta.types import (
     DateRange, Dimension, Metric, RunReportRequest, FilterExpression,
     Filter, FilterExpressionList,
 )
-
-from email_utils import send_html_email
+from html_report_utils import upload_html_to_monday
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -902,8 +900,8 @@ def main():
     print("\n[3/4] Fetching GA4 data…", flush=True)
     data = fetch_all_data(all_event_names, curr_start, curr_end, prev_start, prev_end)
 
-    # 4. Build + send report
-    print("\n[4/4] Building HTML report and sending email…", flush=True)
+    # 4. Build report
+    print("\n[4/4] Building HTML report…", flush=True)
     html_body = build_report_html(
         groups, data, curr_start, curr_end, prev_start, prev_end
     )
@@ -912,19 +910,13 @@ def main():
     out_path = Path("ga4_event_report_output.html")
     out_path.write_text(html_body, encoding="utf-8")
     print(f"  ✓ HTML saved to {out_path.resolve()}", flush=True)
-
-    # Send email
-    from datetime import date as _date
-    _fmt = lambda d: _date.fromisoformat(d).strftime("%-d %b %Y")
-    subject = (
-        f"CIM GA4 Homepage Event Report — {_fmt(curr_start)} to {_fmt(curr_end)}"
+    upload_html_to_monday(
+        str(out_path),
+        "ga4-event-report.html",
+        body_text="GA4 Custom Event report attached as self-contained HTML.",
     )
-    success = send_html_email(subject=subject, html_body=html_body)
 
-    if success:
-        print("\n✅ Report sent successfully.", flush=True)
-    else:
-        print("\n⚠️  Report built but email delivery failed. Check SMTP config in .env.", flush=True)
+    print("\n✅ Report built successfully.", flush=True)
 
     print("=" * 70, flush=True)
 

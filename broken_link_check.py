@@ -35,6 +35,7 @@ from seo_utils import short_url
 # ══════════════════════════════════════════════════════════════════════════════
 
 GROQ_API_KEY      = os.getenv("GROQ_API_KEY")
+GROQ_MODEL        = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 MONDAY_API_TOKEN  = os.getenv("MONDAY_API_TOKEN")
 MONDAY_ITEM_ID    = os.getenv("MONDAY_ITEM_ID")
 MONDAY_API_URL    = "https://api.monday.com/v2"
@@ -794,7 +795,7 @@ Sample issues (top 25):
     try:
         client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
         resp = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=GROQ_MODEL,
             messages=[
                 {"role": "system", "content": "You write precise weekly technical SEO audit briefs as bullet points only."},
                 {"role": "user",   "content": prompt},

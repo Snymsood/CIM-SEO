@@ -26,6 +26,7 @@ SCOPES    = ["https://www.googleapis.com/auth/webmasters.readonly"]
 KEY_FILE  = "gsc-key.json"
 SITE_URL  = os.environ["GSC_PROPERTY"]
 GROQ_API_KEY    = os.getenv("GROQ_API_KEY")
+GROQ_MODEL      = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
 MONDAY_ITEM_ID   = os.getenv("MONDAY_ITEM_ID")
 CHARTS_DIR = Path("charts")
@@ -436,7 +437,7 @@ Top pages:
     try:
         client = OpenAI(api_key=GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
         resp = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model=GROQ_MODEL,
             messages=[
                 {"role": "system", "content": "You write polished weekly executive SEO briefs as bullet points only."},
                 {"role": "user",   "content": prompt},

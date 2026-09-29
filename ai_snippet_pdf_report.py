@@ -13,6 +13,7 @@ CSV_PATH   = REPORT_DIR / "ai_snippet_verification.csv"
 MD_PATH    = REPORT_DIR / "ai_snippet_verification.md"
 
 GROQ_API_KEY     = os.getenv("GROQ_API_KEY")
+GROQ_MODEL       = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
 MONDAY_API_TOKEN = os.getenv("MONDAY_API_TOKEN")
 MONDAY_ITEM_ID   = os.getenv("MONDAY_ITEM_ID")
 MONDAY_API_URL   = "https://api.monday.com/v2"
@@ -151,7 +152,7 @@ def build_ai_bullets(df, md_text):
     try:
         resp = requests.post("https://api.groq.com/openai/v1/chat/completions",
             headers={"Authorization":f"Bearer {GROQ_API_KEY}","Content-Type":"application/json"},
-            json={"model":"llama-3.3-70b-versatile","messages":[
+            json={"model":GROQ_MODEL,"messages":[
                 {"role":"system","content":"You write polished executive SEO briefs as bullet points only."},
                 {"role":"user","content":prompt}],"temperature":0.2},timeout=60)
         resp.raise_for_status()
