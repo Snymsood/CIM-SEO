@@ -67,11 +67,20 @@ jobs:
           MONDAY_EVENT_REPORT_ITEM_ID: ${{ secrets.MONDAY_EVENT_REPORT_ITEM_ID }}
         run: python -u master_orchestrator.py
 
+      - name: Finalize reporting artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "Master Orchestrator"
+
       - name: Upload Master Artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: master-orchestrator-artifacts
           path: |
+            report_manifest.json
+            reporting_quality_warnings.csv
+            reporting_artifact_index.html
+            normalized/
             *.csv
             *.html
             *.pdf
@@ -81,6 +90,7 @@ jobs:
             charts/
 
       - name: Upload site speed history
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: site-speed-monitoring

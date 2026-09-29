@@ -34,11 +34,20 @@ jobs:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
         run: python -u gsc_keyword_ranking_report.py
 
+      - name: Finalize reporting artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "Keyword Ranking Review"
+
       - name: Upload keyword ranking artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: keyword-ranking-review
           path: |
+            report_manifest.json
+            reporting_quality_warnings.csv
+            reporting_artifact_index.html
+            normalized/
             tracked_keywords.csv
             tracked_keywords_current_week.csv
             tracked_keywords_previous_week.csv

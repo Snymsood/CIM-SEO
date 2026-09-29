@@ -34,11 +34,20 @@ jobs:
           PYTHONUNBUFFERED: "1"
         run: python -u gsc_landing_pages_report.py
 
+      - name: Finalize reporting artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "Critical Landing Pages"
+
       - name: Upload landing pages artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: critical-landing-pages
           path: |
+            report_manifest.json
+            reporting_quality_warnings.csv
+            reporting_artifact_index.html
+            normalized/
             tracked_pages.csv
             tracked_pages_current_week.csv
             tracked_pages_previous_week.csv

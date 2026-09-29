@@ -72,11 +72,20 @@ jobs:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
         run: python -u weekly_seo_intelligence.py
 
+      - name: Finalize reporting artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "Weekly SEO Intelligence"
+
       - name: Upload intelligence artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: weekly-seo-intelligence
           path: |
+            report_manifest.json
+            reporting_quality_warnings.csv
+            reporting_artifact_index.html
+            normalized/
             weekly_seo_action_queue.csv
             weekly_seo_action_queue.json
             weekly_seo_anomalies.csv

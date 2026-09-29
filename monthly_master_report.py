@@ -28,6 +28,7 @@ from monthly_ai_analyst import build_unified_bullets
 from monthly_dashboard_generator import generate_monthly_dashboard
 from seo_utils import get_monthly_date_windows
 from pdf_report_formatter import format_pct_change
+from reporting_ops import finalize_report_artifacts
 
 # Monday.com and Google Sheets integration
 from google_sheets_db import append_to_sheet
@@ -433,6 +434,7 @@ def main():
     print("PHASE 5: HTML DASHBOARD GENERATION")
     print("-" * 80)
     html_path = generate_monthly_dashboard(bullets, chart_paths, data, kpis, date_range)
+    finalize_report_artifacts("Monthly SEO Master Dashboard")
     print()
     
     # Phase 6: Monday.com Upload

@@ -34,11 +34,20 @@ jobs:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
         run: python -u ga4_weekly_report.py
 
+      - name: Finalize reporting artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "GA4 Weekly Report"
+
       - name: Upload GA4 artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ga4-weekly-report
           path: |
+            report_manifest.json
+            reporting_quality_warnings.csv
+            reporting_artifact_index.html
+            normalized/
             ga4_summary_comparison.csv
             ga4_top_landing_pages.csv
             ga4_top_channels.csv

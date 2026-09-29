@@ -475,6 +475,15 @@ def upload_html_to_monday(html_path, html_filename, body_text=None, api_token=No
     if not html_file.exists():
         print(f"Monday file attach skipped: {html_path} not found.")
         return
+
+    try:
+        from reporting_ops import finalize_report_artifacts
+
+        report_name = Path(html_filename).stem.replace("-", " ").replace("_", " ").title()
+        finalize_report_artifacts(report_name)
+    except Exception as e:
+        print(f"Reporting finalizer skipped before Monday upload: {e}")
+
     with open(html_file, "rb") as f:
         file_resp = requests.post(
             MONDAY_FILE_API_URL,
@@ -492,4 +501,3 @@ def upload_html_to_monday(html_path, html_filename, body_text=None, api_token=No
     if "errors" in file_data:
         raise RuntimeError(f"Monday file attach failed: {file_data['errors']}")
     print(f"Uploaded {html_filename} to Monday.com successfully.")
-

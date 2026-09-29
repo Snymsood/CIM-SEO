@@ -32,10 +32,19 @@ jobs:
           EVENT_CONFIG_PATH: event_tracking_config.csv
         run: python -u ga4_event_report.py
 
+      - name: Finalize reporting artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "GA4 Event Report"
+
       - name: Upload GA4 event artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ga4-event-report
           path: |
+            report_manifest.json
+            reporting_quality_warnings.csv
+            reporting_artifact_index.html
+            normalized/
             event_tracking_config.csv
             ga4_event_report_output.html

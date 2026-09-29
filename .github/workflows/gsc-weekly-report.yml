@@ -34,11 +34,20 @@ jobs:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
         run: python gsc_weekly_report.py
 
+      - name: Finalize reporting artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "GSC Weekly Report"
+
       - name: Upload report files
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: gsc-weekly-report
           path: |
+            report_manifest.json
+            reporting_quality_warnings.csv
+            reporting_artifact_index.html
+            normalized/
             weekly_gsc_report.csv
             weekly_comparison.csv
             weekly_pages_report.csv

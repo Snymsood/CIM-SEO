@@ -32,11 +32,20 @@ jobs:
           MONDAY_ITEM_ID: ${{ secrets.MONDAY_CONTENT_CATEGORY_ITEM_ID }}
         run: python -u content_category_performance.py
 
+      - name: Finalize reporting artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "Content Category Performance"
+
       - name: Upload content category artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: content-category-performance
           path: |
+            report_manifest.json
+            reporting_quality_warnings.csv
+            reporting_artifact_index.html
+            normalized/
             content_category_performance.csv
             content_category_performance_summary.html
             content_category_performance_summary_final.html

@@ -37,11 +37,20 @@ jobs:
           MONDAY_ITEM_ID: ${{ secrets.MONDAY_AI_SNIPPET_ITEM_ID }}
         run: python -u ai_snippet_pdf_report.py
 
+      - name: Finalize reporting artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "AI Snippet Verification"
+
       - name: Upload report artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ai-snippet-verification-report
           path: |
+            report_manifest.json
+            reporting_quality_warnings.csv
+            reporting_artifact_index.html
+            normalized/
             reports/
             screenshots/
             evidence/

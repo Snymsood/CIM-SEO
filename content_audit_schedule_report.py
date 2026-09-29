@@ -551,8 +551,8 @@ def main():
     previous_end = current_start - timedelta(days=1)
     previous_start = previous_end - timedelta(days=27)
 
-    current_df = fetch_page_data(service, current_start, current_end, row_limit=1000)
-    previous_df = fetch_page_data(service, previous_start, previous_end, row_limit=1000)
+    current_df = fetch_page_data(service, current_start, current_end, row_limit=25000)
+    previous_df = fetch_page_data(service, previous_start, previous_end, row_limit=25000)
 
     current_df = normalize_page_groups(apply_page_rules(current_df, config_df))
     previous_df = normalize_page_groups(apply_page_rules(previous_df, config_df))

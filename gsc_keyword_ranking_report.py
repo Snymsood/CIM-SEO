@@ -1316,11 +1316,11 @@ def main():
     current_start, current_end, previous_start, previous_end = get_weekly_date_windows()
 
     print("Fetching GSC data...")
-    current_query_df  = fetch_query_data(service, current_start, current_end, row_limit=1000)
-    previous_query_df = fetch_query_data(service, previous_start, previous_end, row_limit=1000)
+    current_query_df  = fetch_query_data(service, current_start, current_end, row_limit=25000)
+    previous_query_df = fetch_query_data(service, previous_start, previous_end, row_limit=25000)
 
     # New dimension fetches — all gracefully return empty DataFrames on failure
-    current_page_df   = fetch_page_data(service, current_start, current_end, row_limit=1000)
+    current_page_df   = fetch_page_data(service, current_start, current_end, row_limit=25000)
     device_df         = fetch_device_data(service, current_start, current_end)
     country_df        = fetch_country_data(service, current_start, current_end)
     discover_df       = fetch_discover_data(service, current_start, current_end)

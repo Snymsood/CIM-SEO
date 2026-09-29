@@ -158,12 +158,21 @@ jobs:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
         run: python -u monthly_master_report.py
 
+      - name: Finalize reporting artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "Monthly SEO Master Dashboard"
+
       - name: Upload Monthly Dashboard Artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: monthly-dashboard-artifacts
           path: |
             monthly_dashboard.html
+            report_manifest.json
+            reporting_quality_warnings.csv
+            reporting_artifact_index.html
+            normalized/
             monthly_data/*.csv
             charts/monthly_*.png
           retention-days: 90
@@ -173,6 +182,7 @@ jobs:
           MONTH=$(date -d "last month" +%Y-%m)
           mkdir -p archives/$MONTH
           cp monthly_dashboard.html archives/$MONTH/
+          cp report_manifest.json reporting_quality_warnings.csv reporting_artifact_index.html archives/$MONTH/ 2>/dev/null || true
           cp -r monthly_data archives/$MONTH/
           echo "Archived dashboard for $MONTH"
 
@@ -216,6 +226,10 @@ jobs:
           cp monthly_dashboard.html monthly_public/index.html
           if [ -d monthly_data ]; then
             cp -R monthly_data monthly_public/monthly_data
+          fi
+          cp report_manifest.json reporting_quality_warnings.csv reporting_artifact_index.html monthly_public/ 2>/dev/null || true
+          if [ -d normalized ]; then
+            cp -R normalized monthly_public/normalized
           fi
           if [ -d charts ]; then
             mkdir -p monthly_public/charts

@@ -33,15 +33,25 @@ jobs:
           MONDAY_ITEM_ID: ${{ secrets.MONDAY_BROKEN_LINK_ITEM_ID }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
 
+      - name: Finalize reporting artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "Broken Link Check"
+
       - name: Upload broken link artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: broken-link-check
           path: |
+            report_manifest.json
+            reporting_quality_warnings.csv
+            reporting_artifact_index.html
+            normalized/
             broken_link_seed_domains.csv
             discovered_internal_links.csv
             broken_link_results.csv
             broken_link_issues_only.csv
+            broken_link_unique_issues.csv
             broken_link_summary.html
             broken_link_summary_final.html
             charts/

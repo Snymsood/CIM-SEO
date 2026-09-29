@@ -1,6 +1,7 @@
 from collections import Counter, deque
 from datetime import date
 from openai import OpenAI
+from pathlib import Path
 from urllib.parse import urljoin, urlparse, urldefrag
 from bs4 import BeautifulSoup
 import matplotlib.pyplot as plt
@@ -208,6 +209,32 @@ async def _crawl_internal_links_async(config_df):
 
 def crawl_internal_links(config_df):
     return asyncio.run(_crawl_internal_links_async(config_df))
+
+
+def load_shared_crawl_artifact():
+    """Reuse the broken-link crawl artifact when it exists in the same run."""
+    shared_path = Path("discovered_internal_links.csv")
+    if not shared_path.exists():
+        return None, None
+
+    try:
+        links_df = pd.read_csv(shared_path)
+    except Exception as e:
+        print(f"Shared crawl artifact could not be read: {e}", flush=True)
+        return None, None
+
+    required = {"source_url", "target_url", "anchor_text"}
+    if links_df.empty or not required.issubset(set(links_df.columns)):
+        return None, None
+
+    links_df = links_df[["source_url", "target_url", "anchor_text"]].drop_duplicates()
+    crawled_pages = sorted(set(links_df["source_url"].dropna().astype(str).tolist()))
+    crawled_pages_df = pd.DataFrame({"page": crawled_pages})
+    print(
+        f"Reusing shared crawl artifact: {len(links_df):,} links across {len(crawled_pages_df):,} pages.",
+        flush=True,
+    )
+    return crawled_pages_df, links_df
 
 
 def analyze_internal_links(crawled_pages_df, links_df, config_df):
@@ -539,7 +566,10 @@ def upload_to_monday():
 def main():
     config_df = load_config()
 
-    crawled_pages_df, links_df = crawl_internal_links(config_df)
+    crawled_pages_df, links_df = load_shared_crawl_artifact()
+    if crawled_pages_df is None or links_df is None:
+        crawled_pages_df, links_df = crawl_internal_links(config_df)
+
     page_summary_df, flagged_pages_df, priority_target_df, generic_anchor_examples_df = analyze_internal_links(
         crawled_pages_df,
         links_df,

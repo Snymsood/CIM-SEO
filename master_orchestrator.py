@@ -15,6 +15,7 @@ from datetime import date
 from pathlib import Path
 from seo_utils import short_url
 from pdf_report_formatter import format_num, format_delta, format_pct_change
+from reporting_ops import finalize_report_artifacts
 from html_report_utils import (
     mm_html_shell, mm_kpi_card, mm_kpi_grid, mm_section, mm_report_section,
     mm_col_header, mm_apex_chart, mm_exec_bullets
@@ -788,10 +789,6 @@ def generate_html_dashboard(bullets, chart_paths, data, kpis):
         f.write(html_doc)
     print("Dashboard generated as index.html")
 
-    with open("index.html", "w", encoding="utf-8") as f:
-        f.write(html_doc)
-    print("Dashboard generated as index.html")
-
 
 # ══════════════════════════════════════════════════════════════════════════════
 # MONDAY.COM
@@ -852,6 +849,7 @@ def main():
 
     print("--- GENERATING DASHBOARD ---")
     generate_html_dashboard(bullets, chart_paths, data, kpis)
+    finalize_report_artifacts("Master Orchestrator")
 
     print("--- POSTING TO MONDAY.COM ---")
     try:

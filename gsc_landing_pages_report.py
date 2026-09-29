@@ -1476,8 +1476,8 @@ def main():
     print(f"Previous: {previous_start} → {previous_end}")
 
     # Fetch data
-    current_page_df = fetch_page_data(service, current_start, current_end, row_limit=1000)
-    previous_page_df = fetch_page_data(service, previous_start, previous_end, row_limit=1000)
+    current_page_df = fetch_page_data(service, current_start, current_end, row_limit=25000)
+    previous_page_df = fetch_page_data(service, previous_start, previous_end, row_limit=25000)
 
     # Build snapshots
     current_snapshot_df = build_page_snapshot(tracked_df, current_page_df)

@@ -55,11 +55,20 @@ jobs:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
         run: python -u site_speed_monitoring.py
 
+      - name: Finalize reporting artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "Site Speed Monitoring"
+
       - name: Upload site speed artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: site-speed-monitoring
           path: |
+            report_manifest.json
+            reporting_quality_warnings.csv
+            reporting_artifact_index.html
+            normalized/
             tracked_speed_pages.csv
             site_speed_current_snapshot.csv
             site_speed_comparison.csv

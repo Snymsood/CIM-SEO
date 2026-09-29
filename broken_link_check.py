@@ -305,6 +305,48 @@ def compute_kpis(results_df):
     }
 
 
+def build_unique_issue_summary(results_df):
+    """Collapse row-level link issues into a target-level remediation queue."""
+    columns = [
+        "target_url", "issue_type", "status_code", "final_url", "redirect_count",
+        "source_page_count", "sample_source_pages", "sample_anchor_text",
+    ]
+    if results_df.empty or "issue_type" not in results_df.columns:
+        return pd.DataFrame(columns=columns)
+
+    issues = results_df[results_df["issue_type"] != "ok"].copy()
+    if issues.empty:
+        return pd.DataFrame(columns=columns)
+
+    def sample_values(series, limit=3):
+        values = []
+        for value in series.dropna().astype(str):
+            cleaned = value.strip()
+            if cleaned and cleaned not in values:
+                values.append(cleaned)
+            if len(values) >= limit:
+                break
+        return " | ".join(values)
+
+    grouped = (
+        issues.groupby("target_url", dropna=False)
+        .agg(
+            issue_type=("issue_type", "first"),
+            status_code=("status_code", "first"),
+            final_url=("final_url", "first"),
+            redirect_count=("redirect_count", "first"),
+            source_page_count=("source_url", "nunique"),
+            sample_source_pages=("source_url", sample_values),
+            sample_anchor_text=("anchor_text", sample_values),
+        )
+        .reset_index()
+    )
+    severity_order = {"broken": 0, "server_error": 1, "client_error": 2, "error": 3, "redirect": 4}
+    grouped["_severity_rank"] = grouped["issue_type"].map(severity_order).fillna(9)
+    grouped = grouped.sort_values(["_severity_rank", "source_page_count"], ascending=[True, False])
+    return grouped.drop(columns=["_severity_rank"])[columns]
+
+
 def _fmt(val, decimals=0, pct=False):
     """Lightweight number formatter for table cells."""
     try:
@@ -1592,9 +1634,12 @@ def main():
     results_df.to_csv("broken_link_results.csv", index=False)
     issue_df = results_df[results_df["issue_type"] != "ok"].copy()
     issue_df.to_csv("broken_link_issues_only.csv", index=False)
+    unique_issue_df = build_unique_issue_summary(results_df)
+    unique_issue_df.to_csv("broken_link_unique_issues.csv", index=False)
     print("  ✓ Saved discovered_internal_links.csv")
     print("  ✓ Saved broken_link_results.csv")
     print("  ✓ Saved broken_link_issues_only.csv\n")
+    print("  ✓ Saved broken_link_unique_issues.csv\n")
 
     # ── Phase 4: KPIs ─────────────────────────────────────────────────────
     kpis = compute_kpis(results_df)

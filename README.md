@@ -66,6 +66,7 @@ An enterprise-grade SEO automation platform that orchestrates multiple monitorin
 - **Monday.com Integration**: Automated project management updates
 - **Google Sheets Database**: Historical data persistence and trend analysis
 - **Interactive Dashboards**: HTML dashboards with charts and KPIs
+- **Run Quality Layer**: Each report emits a manifest, quality-warning CSV, artifact index, and normalized URL exports. See [`docs/reporting-experience-improvements.md`](docs/reporting-experience-improvements.md).
 
 ## 📦 Installation
 

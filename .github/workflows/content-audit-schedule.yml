@@ -34,11 +34,20 @@ jobs:
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
         run: python -u content_audit_schedule_report.py
 
+      - name: Finalize reporting artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "Content Audit Schedule"
+
       - name: Upload content audit artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: content-audit-schedule
           path: |
+            report_manifest.json
+            reporting_quality_warnings.csv
+            reporting_artifact_index.html
+            normalized/
             content_audit_config.csv
             content_audit_page_comparison.csv
             content_audit_candidates.csv
