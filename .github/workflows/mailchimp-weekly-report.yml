@@ -1,0 +1,52 @@
+name: Mailchimp Weekly Content Report
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "45 16 * * 1"
+
+jobs:
+  mailchimp-weekly-report:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Mailchimp weekly content report
+        env:
+          MAILCHIMP_API_KEY: ${{ secrets.MAILCHIMP_API_KEY }}
+          MAILCHIMP_AUDIENCE_ID: ${{ secrets.MAILCHIMP_AUDIENCE_ID }}
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_ITEM_ID: ${{ secrets.MONDAY_MAILCHIMP_ITEM_ID }}
+        run: python -u mailchimp_weekly_report.py
+
+      - name: Finalize reporting artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "Mailchimp Weekly Content Report"
+
+      - name: Upload Mailchimp artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mailchimp-weekly-report
+          path: |
+            report_manifest.json
+            reporting_quality_warnings.csv
+            reporting_artifact_index.html
+            normalized/
+            mailchimp_campaigns.csv
+            mailchimp_campaign_reports.csv
+            mailchimp_link_clicks.csv
+            mailchimp_weekly_summary.csv
+            mailchimp_weekly_summary.html
+            mailchimp_weekly_summary_final.html
+            charts/mailchimp_*.png

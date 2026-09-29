@@ -65,6 +65,10 @@ jobs:
           MONDAY_CONTENT_CATEGORY_ITEM_ID: ${{ secrets.MONDAY_CONTENT_CATEGORY_ITEM_ID }}
           MONDAY_INTELLIGENCE_ITEM_ID: ${{ secrets.MONDAY_INTELLIGENCE_ITEM_ID }}
           MONDAY_EVENT_REPORT_ITEM_ID: ${{ secrets.MONDAY_EVENT_REPORT_ITEM_ID }}
+          MAILCHIMP_API_KEY: ${{ secrets.MAILCHIMP_API_KEY }}
+          MAILCHIMP_AUDIENCE_ID: ${{ secrets.MAILCHIMP_AUDIENCE_ID }}
+          MONDAY_MAILCHIMP_ITEM_ID: ${{ secrets.MONDAY_MAILCHIMP_ITEM_ID }}
+          MONDAY_CONTENT_STRATEGY_ITEM_ID: ${{ secrets.MONDAY_CONTENT_STRATEGY_ITEM_ID }}
         run: python -u master_orchestrator.py
 
       - name: Finalize reporting artifacts

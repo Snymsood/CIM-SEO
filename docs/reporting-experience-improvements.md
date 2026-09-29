@@ -10,6 +10,12 @@ all produce operational metadata alongside the user-facing report.
   Monday item.
 - The monthly report remains the combined executive dashboard.
 - The manual master orchestrator remains an end-to-end test/run path.
+- Mailchimp and Content Strategy are weekly content-focused reports:
+  - `mailchimp-weekly-report.yml` creates aggregate campaign and link-click
+    outputs without subscriber-level activity.
+  - `content-strategy-report.yml` combines GSC, GA4, content audit, internal
+    linking, category performance, and Mailchimp link clicks for Web Content
+    Manager decisions.
 
 Each run now emits:
 
@@ -39,6 +45,10 @@ Each run now emits:
   sample anchors.
 - Internal linking can reuse `discovered_internal_links.csv` from the broken
   link crawl when both run in the same workspace, avoiding a duplicate crawl.
+- Mailchimp link clicks are normalized by canonical URL and can be joined into
+  the Content Strategy scorecard.
+- Content Strategy outputs include `content_strategy_scorecard.csv` and
+  `content_strategy_opportunities.csv`.
 - Monthly and master reports run the finalizer before publishing their dashboard
   artifacts, so the combined report has the same operational evidence as weekly
   reports.

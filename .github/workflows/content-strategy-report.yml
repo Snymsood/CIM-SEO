@@ -1,16 +1,16 @@
-name: Weekly SEO Intelligence
+name: Content Strategy Report
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "30 16 * * 1"
+    - cron: "15 17 * * 1"
 
 permissions:
   contents: read
   actions: read
 
 jobs:
-  weekly-seo-intelligence:
+  content-strategy-report:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Download weekly report artifacts
+      - name: Download source report artifacts
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -49,50 +49,34 @@ jobs:
 
           download_latest_artifact gsc-weekly-report.yml gsc-weekly-report
           download_latest_artifact ga4-weekly-report.yml ga4-weekly-report
-          download_latest_artifact keyword-ranking-review.yml keyword-ranking-review
           download_latest_artifact critical-landing-pages.yml critical-landing-pages
-          download_latest_artifact site-speed-monitoring.yml site-speed-monitoring
-          download_latest_artifact broken-link-check.yml broken-link-check
           download_latest_artifact internal-linking-audit.yml internal-linking-audit
           download_latest_artifact content-audit-schedule.yml content-audit-schedule
           download_latest_artifact content-category-performance.yml content-category-performance
-          download_latest_artifact ai-snippet-verification.yml ai-snippet-verification-report
           download_latest_artifact mailchimp-weekly-report.yml mailchimp-weekly-report
-          download_latest_artifact content-strategy-report.yml content-strategy-report
 
-      - name: Write service account key
-        run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
-
-      - name: Run weekly intelligence
+      - name: Run content strategy report
         env:
-          ENABLE_WEEKLY_INTELLIGENCE: "true"
-          ENABLE_AI_ACTION_PLAN: "true"
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
           MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
-          MONDAY_INTELLIGENCE_ITEM_ID: ${{ secrets.MONDAY_INTELLIGENCE_ITEM_ID }}
-          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
-        run: python -u weekly_seo_intelligence.py
+          MONDAY_ITEM_ID: ${{ secrets.MONDAY_CONTENT_STRATEGY_ITEM_ID }}
+        run: python -u content_strategy_report.py
 
       - name: Finalize reporting artifacts
         if: always()
-        run: python -u finalize_report.py --report-name "Weekly SEO Intelligence"
+        run: python -u finalize_report.py --report-name "Content Strategy Report"
 
-      - name: Upload intelligence artifacts
+      - name: Upload content strategy artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: weekly-seo-intelligence
+          name: content-strategy-report
           path: |
             report_manifest.json
             reporting_quality_warnings.csv
             reporting_artifact_index.html
             normalized/
-            weekly_seo_action_queue.csv
-            weekly_seo_action_queue.json
-            weekly_seo_anomalies.csv
-            weekly_content_decay_candidates.csv
-            weekly_seo_intelligence_report.html
-            weekly_seo_intelligence_summary.json
-            weekly_seo_intelligence_ai_recommendations.md
-            outputs/weekly_intelligence.json
+            content_strategy_scorecard.csv
+            content_strategy_opportunities.csv
+            content_strategy_report.html
+            content_strategy_report_final.html
+            charts/content_strategy_*.png

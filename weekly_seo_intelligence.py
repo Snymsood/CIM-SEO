@@ -156,6 +156,10 @@ def load_all_report_data() -> dict:
         "content_selection":  _load("content_audit_selection.csv"),
         # Content categories
         "content_cat":        _load("content_category_performance.csv"),
+        # Content strategy / email
+        "content_strategy":   _load("content_strategy_scorecard.csv"),
+        "mailchimp_summary":  _load("mailchimp_weekly_summary.csv"),
+        "mailchimp_clicks":   _load("mailchimp_link_clicks.csv"),
         # AI snippet
         "ai_snippet":         _load("reports/ai_snippet_verification.csv"),
         # Config
@@ -663,7 +667,51 @@ def build_action_queue(data: dict, kpis: dict, anomalies: list[dict],
                 business_value=40,
             ))
 
-    # ── 10. Anomaly-driven actions ────────────────────────────────────────────
+    # ── 10. Content Strategy / Mailchimp Opportunities ───────────────────────
+    content_strategy = data.get("content_strategy", pd.DataFrame())
+    if not content_strategy.empty and "strategy_status" in content_strategy.columns:
+        cs = content_strategy.copy()
+        for col in ["strategy_score", "email_unique_clicks", "gsc_impressions", "ga4_engagement_rate"]:
+            if col in cs.columns:
+                cs[col] = pd.to_numeric(cs[col], errors="coerce").fillna(0)
+
+        email_interest = cs[cs["strategy_status"] == "Email interest, weak on-site engagement"].sort_values(
+            ["email_unique_clicks", "strategy_score"], ascending=False
+        ).head(2)
+        for _, row in email_interest.iterrows():
+            page = short_url(str(row.get("page_canonical", "")), 55)
+            actions.append(make_action(
+                action=f"Improve landing experience for email-clicked content: {page}",
+                category="Content Strategy",
+                source="Content Strategy + Mailchimp",
+                evidence=f"{safe_float(row.get('email_unique_clicks', 0)):,.0f} email clicks, {safe_float(row.get('ga4_engagement_rate', 0)):.1%} engagement rate",
+                why_it_matters="Email promotion is generating interest, but the landing page may not be satisfying visitor intent",
+                estimated_impact="medium",
+                effort="medium",
+                confidence="medium",
+                urgency="medium",
+                business_value=65,
+            ))
+
+        distribution_gap = cs[cs["strategy_status"] == "Distribution gap"].sort_values(
+            ["gsc_impressions", "strategy_score"], ascending=False
+        ).head(2)
+        for _, row in distribution_gap.iterrows():
+            page = short_url(str(row.get("page_canonical", "")), 55)
+            actions.append(make_action(
+                action=f"Promote search-visible content through email or homepage placements: {page}",
+                category="Content Strategy",
+                source="Content Strategy Report",
+                evidence=f"{safe_float(row.get('gsc_impressions', 0)):,.0f} search impressions and no Mailchimp clicks this period",
+                why_it_matters="The page has proven search demand but lacks active distribution support",
+                estimated_impact="medium",
+                effort="low",
+                confidence="medium",
+                urgency="low",
+                business_value=55,
+            ))
+
+    # ── 11. Anomaly-driven actions ────────────────────────────────────────────
     for anomaly in anomalies:
         if anomaly.get("severity") == "high":
             metric = anomaly.get("metric", "unknown")

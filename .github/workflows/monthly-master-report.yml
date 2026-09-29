@@ -66,6 +66,8 @@ jobs:
           download_latest_artifact ga4-event-report.yml ga4-event-report
           download_latest_artifact ai-snippet-verification.yml ai-snippet-verification-report
           download_latest_artifact weekly-seo-intelligence.yml weekly-seo-intelligence
+          download_latest_artifact mailchimp-weekly-report.yml mailchimp-weekly-report
+          download_latest_artifact content-strategy-report.yml content-strategy-report
 
       - name: Run site speed monitoring (if no snapshot available)
         env:

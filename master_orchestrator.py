@@ -109,6 +109,11 @@ async def run_all_scripts():
         "MONDAY_ITEM_ID":             os.getenv("MONDAY_EVENT_REPORT_ITEM_ID", ""),
         "EVENT_CONFIG_PATH":          "event_tracking_config.csv",
     }
+    mailchimp_env = {
+        "MAILCHIMP_API_KEY":          os.getenv("MAILCHIMP_API_KEY", ""),
+        "MAILCHIMP_AUDIENCE_ID":      os.getenv("MAILCHIMP_AUDIENCE_ID", ""),
+        "MONDAY_ITEM_ID":             os.getenv("MONDAY_MAILCHIMP_ITEM_ID", ""),
+    }
 
     print("--- Starting API-based pipelines (concurrent) ---")
     await asyncio.gather(
@@ -119,6 +124,7 @@ async def run_all_scripts():
         run_script("site_speed_monitoring.py",      speed_env),
         run_snippet_pipeline(),
         run_script("ga4_event_report.py",           event_report_env),
+        run_script("mailchimp_weekly_report.py",    mailchimp_env),
     )
 
     # ── Group 2: Crawl-based pipelines — sequential to avoid overloading cim.org
@@ -139,6 +145,9 @@ async def run_all_scripts():
     await run_script("internal_linking_audit.py",      internal_link_env)
     await run_script("content_audit_schedule_report.py", content_audit_env)
     await run_script("content_category_performance.py",  content_perf_env)
+    await run_script("content_strategy_report.py", {
+        "MONDAY_ITEM_ID": os.getenv("MONDAY_CONTENT_STRATEGY_ITEM_ID", ""),
+    })
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -162,6 +171,8 @@ def load_all_data():
     speed        = _load("site_speed_comparison.csv")
     content_cat  = _load("content_category_performance.csv")
     kw_comp      = _load("tracked_keywords_comparison.csv")
+    content_strategy = _load("content_strategy_scorecard.csv")
+    mailchimp_summary = _load("mailchimp_weekly_summary.csv")
 
     if not content_cat.empty and "sessions" in content_cat.columns:
         content_cat = content_cat.sort_values("sessions", ascending=False)
@@ -174,6 +185,8 @@ def load_all_data():
         "speed":        speed,
         "content_cat":  content_cat,
         "kw_comp":      kw_comp,
+        "content_strategy": content_strategy,
+        "mailchimp_summary": mailchimp_summary,
     }
 
 

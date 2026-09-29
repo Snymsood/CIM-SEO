@@ -60,6 +60,8 @@ An enterprise-grade SEO automation platform that orchestrates multiple monitorin
 - **AI Snippet Verification**: Evaluates pages for AI search readiness and hallucination risk
 - **AI-Powered Insights**: Executive summaries generated using the configured Groq model
 - **Content Strategy Analysis**: Performance mapping by content pillar
+- **Mailchimp Content Reporting**: Campaign-level and link-level content engagement from Mailchimp
+- **Content Strategy Report**: Web Content Manager view combining search, analytics, content audit, internal linking, and Mailchimp signals
 
 ### Reporting & Integration
 - **Multi-Format Output**: self-contained HTML, CSV, JSON, and Markdown reports
@@ -127,6 +129,8 @@ MONDAY_BROKEN_LINK_ITEM_ID=your_broken_link_item_id
 MONDAY_INTERNAL_LINK_ITEM_ID=your_internal_link_item_id
 MONDAY_CONTENT_AUDIT_ITEM_ID=your_content_audit_item_id
 MONDAY_CONTENT_CATEGORY_ITEM_ID=your_content_category_item_id
+MONDAY_CONTENT_STRATEGY_ITEM_ID=your_content_strategy_item_id
+MONDAY_MAILCHIMP_ITEM_ID=your_mailchimp_item_id
 MONDAY_AI_SNIPPET_ITEM_ID=your_ai_snippet_item_id
 MONDAY_EVENT_REPORT_ITEM_ID=your_ga4_event_item_id
 MONDAY_INTELLIGENCE_ITEM_ID=your_intelligence_item_id
@@ -138,6 +142,10 @@ GROQ_MODEL=openai/gpt-oss-120b
 
 # PageSpeed Insights
 PAGESPEED_API_KEY=your_pagespeed_api_key
+
+# Mailchimp
+MAILCHIMP_API_KEY=your_mailchimp_api_key
+MAILCHIMP_AUDIENCE_ID=your_mailchimp_audience_id
 
 # Google Sheets
 GOOGLE_SHEET_ID=your_sheet_id

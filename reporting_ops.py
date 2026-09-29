@@ -62,6 +62,10 @@ def infer_artifact_lineage(name: str) -> dict[str, str]:
         return {"source_system": "site_crawl", "data_stage": "processed"}
     if "content_audit" in lower or "content_category" in lower:
         return {"source_system": "content_reporting", "data_stage": "processed"}
+    if "content_strategy" in lower:
+        return {"source_system": "content_strategy", "data_stage": "derived"}
+    if "mailchimp" in lower:
+        return {"source_system": "mailchimp", "data_stage": "processed"}
     if "ai_snippet" in lower:
         return {"source_system": "ai_snippet_verification", "data_stage": "processed"}
     if "weekly_seo" in lower or "intelligence" in lower or "decay" in lower or "anomal" in lower:
