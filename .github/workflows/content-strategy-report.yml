@@ -47,6 +47,7 @@ jobs:
             fi
           }
 
+          download_latest_artifact master-orchestrator.yml master-orchestrator-artifacts
           download_latest_artifact gsc-weekly-report.yml gsc-weekly-report
           download_latest_artifact ga4-weekly-report.yml ga4-weekly-report
           download_latest_artifact critical-landing-pages.yml critical-landing-pages
