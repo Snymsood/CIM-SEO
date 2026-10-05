@@ -1,0 +1,155 @@
+name: Weekly Report Backfill
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: weekly-report-backfill-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  weekly-report-backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write service account key
+        run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
+
+      - name: Download successful source artifacts for today
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          since="$(date -u +%Y-%m-%dT00:00:00Z)"
+          until="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          range="${since}..${until}"
+          branch="${{ github.ref_name }}"
+
+          download_today_success() {
+            workflow="$1"
+            artifact="$2"
+            run_id="$(gh run list \
+              --workflow "$workflow" \
+              --branch "$branch" \
+              --created "$range" \
+              --status completed \
+              --limit 20 \
+              --json databaseId,conclusion \
+              --jq '.[] | select(.conclusion == "success") | .databaseId' | head -n 1)"
+
+            if [ -z "$run_id" ]; then
+              echo "No successful run today for $workflow."
+              return 0
+            fi
+
+            tmp_dir="downloaded-${artifact}"
+            rm -rf "$tmp_dir"
+            mkdir -p "$tmp_dir"
+            if gh run download "$run_id" --name "$artifact" --dir "$tmp_dir"; then
+              cp -Rf "$tmp_dir"/. .
+              echo "Downloaded $artifact from run $run_id."
+            else
+              echo "Artifact $artifact unavailable from run $run_id."
+            fi
+          }
+
+          download_latest_success() {
+            workflow="$1"
+            artifact="$2"
+            run_id="$(gh run list \
+              --workflow "$workflow" \
+              --branch "$branch" \
+              --status completed \
+              --limit 20 \
+              --json databaseId,conclusion \
+              --jq '.[] | select(.conclusion == "success") | .databaseId' | head -n 1)"
+
+            if [ -z "$run_id" ]; then
+              echo "No successful run found for $workflow."
+              return 0
+            fi
+
+            tmp_dir="downloaded-${artifact}-latest"
+            rm -rf "$tmp_dir"
+            mkdir -p "$tmp_dir"
+            if gh run download "$run_id" --name "$artifact" --dir "$tmp_dir"; then
+              cp -f "$tmp_dir"/site_speed_latest_snapshot.csv site_speed_latest_snapshot.csv 2>/dev/null || true
+              cp -f "$tmp_dir"/site_speed_history.csv site_speed_history.csv 2>/dev/null || true
+              echo "Downloaded latest $artifact history from run $run_id."
+            else
+              echo "Latest artifact $artifact unavailable from run $run_id."
+            fi
+          }
+
+          download_today_success broken-link-check.yml broken-link-check
+          download_today_success internal-linking-audit.yml internal-linking-audit
+          download_today_success ai-snippet-verification.yml ai-snippet-verification-report
+          download_today_success mailchimp-weekly-report.yml mailchimp-weekly-report
+          download_latest_success site-speed-monitoring.yml site-speed-monitoring
+
+      - name: Run weekly report backfill
+        env:
+          PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
+          MONDAY_GSC_ITEM_ID: ${{ secrets.MONDAY_GSC_ITEM_ID || secrets.MONDAY_ITEM_ID }}
+          MONDAY_GA4_WEEKLY_ITEM_ID: ${{ secrets.MONDAY_GA4_WEEKLY_ITEM_ID }}
+          MONDAY_SITE_SPEED_ITEM_ID: ${{ secrets.MONDAY_SITE_SPEED_ITEM_ID }}
+          MONDAY_GSC_KEYWORD_ITEM_ID: ${{ secrets.MONDAY_GSC_KEYWORD_ITEM_ID }}
+          MONDAY_GSC_LANDING_ITEM_ID: ${{ secrets.MONDAY_GSC_LANDING_ITEM_ID }}
+          MONDAY_CONTENT_AUDIT_ITEM_ID: ${{ secrets.MONDAY_CONTENT_AUDIT_ITEM_ID }}
+          MONDAY_CONTENT_CATEGORY_ITEM_ID: ${{ secrets.MONDAY_CONTENT_CATEGORY_ITEM_ID }}
+          MONDAY_EVENT_REPORT_ITEM_ID: ${{ secrets.MONDAY_EVENT_REPORT_ITEM_ID }}
+          MONDAY_CONTENT_STRATEGY_ITEM_ID: ${{ secrets.MONDAY_CONTENT_STRATEGY_ITEM_ID }}
+          MONDAY_INTELLIGENCE_ITEM_ID: ${{ secrets.MONDAY_INTELLIGENCE_ITEM_ID }}
+        run: python -u weekly_report_backfill.py
+
+      - name: Finalize backfill artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "Weekly Report Backfill"
+
+      - name: Upload backfill artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-report-backfill
+          path: |
+            report_manifest.json
+            reporting_quality_warnings.csv
+            reporting_artifact_index.html
+            normalized/
+            weekly_backfill_status.csv
+            weekly_backfill_status.json
+            weekly_backfill_summary.md
+            *.csv
+            *.html
+            *.md
+            reports/
+            screenshots/
+            evidence/
+            charts/
+            site_speed_charts/
+            outputs/
+
+      - name: Remove service account key
+        if: always()
+        run: rm -f gsc-key.json

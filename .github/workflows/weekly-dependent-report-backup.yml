@@ -56,6 +56,11 @@ jobs:
             fi
           }
 
+          if [ "$(run_count weekly-report-backfill.yml)" -gt 0 ]; then
+            echo "Weekly Report Backfill already has a successful or active run today; dependent reports are handled there."
+            exit 0
+          fi
+
           wait_for_completion() {
             run_id="$1"
             label="$2"

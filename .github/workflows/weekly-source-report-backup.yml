@@ -10,11 +10,11 @@ permissions:
   contents: read
 
 jobs:
-  dispatch-missed-source-reports:
+  dispatch-weekly-backfill:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Dispatch missing source reports
+      - name: Dispatch backfill when source reports are missing
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -24,8 +24,9 @@ jobs:
           until="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           range="${since}..${until}"
           branch="${{ github.ref_name }}"
+          missing_reports=""
 
-          dispatch_if_missing() {
+          note_if_missing() {
             workflow="$1"
             label="$2"
             count="$(gh run list \
@@ -37,22 +38,39 @@ jobs:
               --jq '[.[] | select((.event == "schedule" or .event == "workflow_dispatch") and (.status != "completed" or .conclusion == "success"))] | length')"
 
             if [ "$count" -eq 0 ]; then
-              echo "No run found today for ${label}; dispatching ${workflow}."
-              gh workflow run "$workflow" --ref "$branch"
+              echo "No successful or active run found today for ${label}."
+              missing_reports="${missing_reports}${label}; "
             else
               echo "Found ${count} run(s) today for ${label}; no backup dispatch needed."
             fi
           }
 
-          dispatch_if_missing gsc-weekly-report.yml "GSC Weekly Report"
-          dispatch_if_missing keyword-ranking-review.yml "Keyword Ranking Review"
-          dispatch_if_missing critical-landing-pages.yml "Critical Landing Pages"
-          dispatch_if_missing site-speed-monitoring.yml "Site Speed Monitoring"
-          dispatch_if_missing broken-link-check.yml "Broken Link Check"
-          dispatch_if_missing ga4-weekly-report.yml "GA4 Weekly Report"
-          dispatch_if_missing internal-linking-audit.yml "Internal Linking Audit"
-          dispatch_if_missing ga4-event-report.yml "GA4 Event Report"
-          dispatch_if_missing content-audit-schedule.yml "Content Audit"
-          dispatch_if_missing content-category-performance.yml "Content Category Performance"
-          dispatch_if_missing ai-snippet-verification.yml "AI Snippet Verification"
-          dispatch_if_missing mailchimp-weekly-report.yml "Mailchimp Weekly Content Report"
+          note_if_missing gsc-weekly-report.yml "GSC Weekly Report"
+          note_if_missing keyword-ranking-review.yml "Keyword Ranking Review"
+          note_if_missing critical-landing-pages.yml "Critical Landing Pages"
+          note_if_missing site-speed-monitoring.yml "Site Speed Monitoring"
+          note_if_missing broken-link-check.yml "Broken Link Check"
+          note_if_missing ga4-weekly-report.yml "GA4 Weekly Report"
+          note_if_missing internal-linking-audit.yml "Internal Linking Audit"
+          note_if_missing ga4-event-report.yml "GA4 Event Report"
+          note_if_missing content-audit-schedule.yml "Content Audit"
+          note_if_missing content-category-performance.yml "Content Category Performance"
+          note_if_missing ai-snippet-verification.yml "AI Snippet Verification"
+          note_if_missing mailchimp-weekly-report.yml "Mailchimp Weekly Content Report"
+
+          backfill_count="$(gh run list \
+            --workflow weekly-report-backfill.yml \
+            --branch "$branch" \
+            --created "$range" \
+            --limit 20 \
+            --json event,status,conclusion \
+            --jq '[.[] | select((.event == "schedule" or .event == "workflow_dispatch") and (.status != "completed" or .conclusion == "success"))] | length')"
+
+          if [ -n "$missing_reports" ] && [ "$backfill_count" -eq 0 ]; then
+            echo "Dispatching Weekly Report Backfill for missing reports: ${missing_reports}"
+            gh workflow run weekly-report-backfill.yml --ref "$branch"
+          elif [ -n "$missing_reports" ]; then
+            echo "Weekly Report Backfill already has a successful or active run today."
+          else
+            echo "All source reports have successful or active runs today."
+          fi
