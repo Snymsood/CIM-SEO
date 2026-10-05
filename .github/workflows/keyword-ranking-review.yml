@@ -3,7 +3,7 @@ name: Keyword Ranking Review
 on:
   workflow_dispatch:
   schedule:
-    - cron: "15 13 * * 1"
+    - cron: "22 13 * * 1"
 
 jobs:
   keyword-ranking-review:

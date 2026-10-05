@@ -3,7 +3,7 @@ name: Site Speed Monitoring
 on:
   workflow_dispatch:
   schedule:
-    - cron: "45 13 * * 1"
+    - cron: "52 13 * * 1"
 
 permissions:
   contents: read

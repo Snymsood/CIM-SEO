@@ -3,7 +3,7 @@ name: GA4 Event Report
 on:
   workflow_dispatch:
   schedule:
-    - cron: "45 14 * * 1"
+    - cron: "52 14 * * 1"
 
 jobs:
   ga4-event-report:

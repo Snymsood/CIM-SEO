@@ -3,7 +3,7 @@ name: Content Category Performance
 on:
   workflow_dispatch:
   schedule:
-    - cron: "15 15 * * 1"
+    - cron: "22 15 * * 1"
 
 jobs:
   content-category-performance:

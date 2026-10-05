@@ -3,7 +3,7 @@ name: Mailchimp Weekly Content Report
 on:
   workflow_dispatch:
   schedule:
-    - cron: "45 16 * * 1"
+    - cron: "53 16 * * 1"
 
 jobs:
   mailchimp-weekly-report:

@@ -3,7 +3,7 @@ name: GSC Weekly Report
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 13 * * 1"   # Every Monday at 13:00 UTC
+    - cron: "7 13 * * 1"   # Mondays, offset from common cron minutes to reduce scheduler drops
 
 jobs:
   gsc-report:

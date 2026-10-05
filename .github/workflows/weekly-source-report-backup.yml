@@ -1,0 +1,58 @@
+name: Weekly Source Report Schedule Backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "37 20 * * 1"
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch-missed-source-reports:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Dispatch missing source reports
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          since="$(date -u +%Y-%m-%dT00:00:00Z)"
+          until="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          range="${since}..${until}"
+          branch="${{ github.ref_name }}"
+
+          dispatch_if_missing() {
+            workflow="$1"
+            label="$2"
+            count="$(gh run list \
+              --workflow "$workflow" \
+              --branch "$branch" \
+              --created "$range" \
+              --limit 50 \
+              --json event,status,conclusion \
+              --jq '[.[] | select(.event == "schedule" or .event == "workflow_dispatch")] | length')"
+
+            if [ "$count" -eq 0 ]; then
+              echo "No run found today for ${label}; dispatching ${workflow}."
+              gh workflow run "$workflow" --ref "$branch"
+            else
+              echo "Found ${count} run(s) today for ${label}; no backup dispatch needed."
+            fi
+          }
+
+          dispatch_if_missing gsc-weekly-report.yml "GSC Weekly Report"
+          dispatch_if_missing keyword-ranking-review.yml "Keyword Ranking Review"
+          dispatch_if_missing critical-landing-pages.yml "Critical Landing Pages"
+          dispatch_if_missing site-speed-monitoring.yml "Site Speed Monitoring"
+          dispatch_if_missing broken-link-check.yml "Broken Link Check"
+          dispatch_if_missing ga4-weekly-report.yml "GA4 Weekly Report"
+          dispatch_if_missing internal-linking-audit.yml "Internal Linking Audit"
+          dispatch_if_missing ga4-event-report.yml "GA4 Event Report"
+          dispatch_if_missing content-audit-schedule.yml "Content Audit"
+          dispatch_if_missing content-category-performance.yml "Content Category Performance"
+          dispatch_if_missing ai-snippet-verification.yml "AI Snippet Verification"
+          dispatch_if_missing mailchimp-weekly-report.yml "Mailchimp Weekly Content Report"

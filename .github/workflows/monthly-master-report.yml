@@ -3,7 +3,7 @@ name: Monthly SEO Master Dashboard
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 9 1 * *" # Runs at 9:00 AM UTC on the 1st of each month
+    - cron: "17 9 1 * *" # Runs monthly, offset from common cron minutes to reduce scheduler drops
 
 permissions:
   contents: read

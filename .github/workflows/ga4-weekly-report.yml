@@ -3,7 +3,7 @@ name: GA4 Weekly Report
 on:
   workflow_dispatch:
   schedule:
-    - cron: "15 14 * * 1"
+    - cron: "22 14 * * 1"
 
 jobs:
   ga4-weekly-report:

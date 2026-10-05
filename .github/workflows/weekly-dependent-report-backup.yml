@@ -1,0 +1,87 @@
+name: Weekly Dependent Report Schedule Backup
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 22 * * 1"
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  dispatch-missed-dependent-reports:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Dispatch missing dependent reports
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          since="$(date -u +%Y-%m-%dT00:00:00Z)"
+          until="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          range="${since}..${until}"
+          branch="${{ github.ref_name }}"
+
+          run_count() {
+            workflow="$1"
+            gh run list \
+              --workflow "$workflow" \
+              --branch "$branch" \
+              --created "$range" \
+              --limit 50 \
+              --json event,status,conclusion \
+              --jq '[.[] | select(.event == "schedule" or .event == "workflow_dispatch")] | length'
+          }
+
+          latest_run_id() {
+            workflow="$1"
+            gh run list \
+              --workflow "$workflow" \
+              --branch "$branch" \
+              --created "$range" \
+              --limit 1 \
+              --json databaseId \
+              --jq '.[0].databaseId // empty'
+          }
+
+          wait_for_completion() {
+            run_id="$1"
+            label="$2"
+
+            if [ -z "$run_id" ]; then
+              echo "No ${label} run id available to wait for."
+              return 0
+            fi
+
+            for _ in $(seq 1 60); do
+              status="$(gh run view "$run_id" --json status --jq '.status')"
+              if [ "$status" = "completed" ]; then
+                conclusion="$(gh run view "$run_id" --json conclusion --jq '.conclusion')"
+                echo "${label} completed with conclusion: ${conclusion}"
+                return 0
+              fi
+              echo "${label} is ${status}; waiting..."
+              sleep 60
+            done
+
+            echo "${label} did not complete within the backup wait window."
+          }
+
+          if [ "$(run_count content-strategy-report.yml)" -eq 0 ]; then
+            echo "No Content Strategy run found today; dispatching."
+            gh workflow run content-strategy-report.yml --ref "$branch"
+            sleep 30
+            wait_for_completion "$(latest_run_id content-strategy-report.yml)" "Content Strategy Report"
+          else
+            echo "Content Strategy already has a run today."
+          fi
+
+          if [ "$(run_count weekly-seo-intelligence.yml)" -eq 0 ]; then
+            echo "No Weekly SEO Intelligence run found today; dispatching."
+            gh workflow run weekly-seo-intelligence.yml --ref "$branch"
+          else
+            echo "Weekly SEO Intelligence already has a run today."
+          fi

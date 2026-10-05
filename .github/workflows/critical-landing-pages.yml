@@ -3,7 +3,7 @@ name: Critical Landing Pages to Monitor
 on:
   workflow_dispatch:
   schedule:
-    - cron: "30 13 * * 1"
+    - cron: "37 13 * * 1"
 
 jobs:
   critical-landing-pages:
