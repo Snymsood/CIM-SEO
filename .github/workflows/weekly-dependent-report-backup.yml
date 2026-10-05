@@ -33,7 +33,7 @@ jobs:
               --created "$range" \
               --limit 50 \
               --json event,status,conclusion \
-              --jq '[.[] | select(.event == "schedule" or .event == "workflow_dispatch")] | length'
+              --jq '[.[] | select((.event == "schedule" or .event == "workflow_dispatch") and (.status != "completed" or .conclusion == "success"))] | length'
           }
 
           latest_run_id() {

@@ -34,7 +34,7 @@ jobs:
               --created "$range" \
               --limit 50 \
               --json event,status,conclusion \
-              --jq '[.[] | select(.event == "schedule" or .event == "workflow_dispatch")] | length')"
+              --jq '[.[] | select((.event == "schedule" or .event == "workflow_dispatch") and (.status != "completed" or .conclusion == "success"))] | length')"
 
             if [ "$count" -eq 0 ]; then
               echo "No run found today for ${label}; dispatching ${workflow}."
