@@ -3,7 +3,7 @@ name: Weekly Dependent Report Schedule Backup
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 22 * * 1"
+    - cron: "47 23 * * 1"
 
 permissions:
   actions: write
