@@ -47,6 +47,15 @@ jobs:
               --jq '.[0].databaseId // empty'
           }
 
+          require_source() {
+            workflow="$1"
+            label="$2"
+
+            if [ "$(run_count "$workflow")" -eq 0 ]; then
+              missing_sources="${missing_sources}${label}; "
+            fi
+          }
+
           wait_for_completion() {
             run_id="$1"
             label="$2"
@@ -69,6 +78,25 @@ jobs:
 
             echo "${label} did not complete within the backup wait window."
           }
+
+          missing_sources=""
+          require_source gsc-weekly-report.yml "GSC Weekly Report"
+          require_source keyword-ranking-review.yml "Keyword Ranking Review"
+          require_source critical-landing-pages.yml "Critical Landing Pages"
+          require_source site-speed-monitoring.yml "Site Speed Monitoring"
+          require_source broken-link-check.yml "Broken Link Check"
+          require_source ga4-weekly-report.yml "GA4 Weekly Report"
+          require_source internal-linking-audit.yml "Internal Linking Audit"
+          require_source ga4-event-report.yml "GA4 Event Report"
+          require_source content-audit-schedule.yml "Content Audit"
+          require_source content-category-performance.yml "Content Category Performance"
+          require_source ai-snippet-verification.yml "AI Snippet Verification"
+          require_source mailchimp-weekly-report.yml "Mailchimp Weekly Content Report"
+
+          if [ -n "$missing_sources" ]; then
+            echo "Skipping dependent reports because these source reports do not have a successful or active run today: ${missing_sources}"
+            exit 0
+          fi
 
           if [ "$(run_count content-strategy-report.yml)" -eq 0 ]; then
             echo "No Content Strategy run found today; dispatching."
