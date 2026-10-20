@@ -1026,14 +1026,14 @@ def write_markdown_summary(query_df, page_df, exec_bullets, kpis,
 # MONDAY UPLOAD  (post HTML body + attach self-contained HTML file)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def upload_to_monday():
+def _upload_to_monday():
     """Post a text summary update to Monday.com and attach the self-contained HTML."""
     api_token = os.getenv("MONDAY_API_TOKEN")
     item_id   = os.getenv("MONDAY_ITEM_ID")
 
     if not api_token or not item_id:
         print("Monday upload skipped: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.")
-        return
+        return False
 
     import requests as _requests
 
@@ -1068,7 +1068,7 @@ def upload_to_monday():
     html_path = Path("weekly_summary_final.html")
     if not html_path.exists():
         print("Monday file attach skipped: weekly_summary_final.html not found.")
-        return
+        return False
 
     with open(html_path, "rb") as f:
         file_resp = _requests.post(
@@ -1087,6 +1087,17 @@ def upload_to_monday():
     if "errors" in file_data:
         raise RuntimeError(f"Monday file attach failed: {file_data['errors']}")
     print("Uploaded gsc-weekly-report.html to Monday.com successfully.")
+    return True
+
+
+def upload_to_monday():
+    from reporting_ops import record_delivery_status
+    try:
+        sent = _upload_to_monday()
+    except Exception as exc:
+        record_delivery_status("failed", detail=str(exc))
+        raise
+    record_delivery_status("delivered" if sent else "skipped", detail="gsc-weekly-report.html")
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -218,6 +218,9 @@ def build_html(df, chart_paths, exec_bullets):
             f'<td style="white-space:nowrap;font-weight:700;color:{rc};">{_html.escape(risk)}</td>'
             f'<td style="font-size:9px;">{_html.escape(str(row.get("recommendation",""))[:80])}</td></tr>')
     results_tbl = f"<table><thead><tr>{th}</tr></thead><tbody>{''.join(rows_html)}</tbody></table>"
+    movement_path = REPORT_DIR / "ai_snippet_score_movement.csv"
+    movement = pd.read_csv(movement_path) if movement_path.exists() else pd.DataFrame()
+    movement_tbl = movement.reindex(columns=["page_name", "access_score_change", "summary_score_change", "cta_score_change"]).to_html(index=False, escape=True) if not movement.empty else "<p>No prior page-level scores are available yet.</p>"
     today = datetime.now(timezone.utc).strftime("%B %d, %Y at %H:%M UTC")
     doc = (
         "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">"
@@ -256,6 +259,7 @@ def build_html(df, chart_paths, exec_bullets):
         "<h1 class=\"site-header__title\">AI Snippet<br>Verification</h1>"
         f"<div class=\"site-header__meta\">Generated {today}</div></header>"
         "<hr class=\"rule-thick\">"
+        "<div class=\"section\"><div class=\"report-section\"><strong>Measurement scope:</strong> Page-extraction proxy. These checks do not observe live search-engine AI answers.</div></div>"
         "<div class=\"section\"><div class=\"section-title\">Executive Summary</div>"
         f"<ul class=\"exec-bullets\">{bullet_items}</ul></div>"
         "<hr class=\"rule-thick\">"
@@ -270,6 +274,8 @@ def build_html(df, chart_paths, exec_bullets):
         "<hr class=\"rule-thick\">"
         "<div class=\"section\"><div class=\"section-title\">Page-Level Results</div>"
         f"<div class=\"report-section\">{results_tbl}</div></div>"
+        "<div class=\"section\"><div class=\"section-title\">Page-Level Score Movement</div>"
+        f"<div class=\"report-section\">{movement_tbl}</div></div>"
         "<hr class=\"rule-thick\">"
         "<footer style=\"padding:32px 0;display:flex;justify-content:space-between;align-items:center;\">"
         "<span style=\"font-family:'Playfair Display',Georgia,serif;font-size:13px;font-weight:700;\">CIM SEO Intelligence</span>"
@@ -287,10 +293,10 @@ def generate_self_contained():
     print(f"  Saved {FINAL_PATH} ({len(final.encode())//1024} KB)", flush=True)
 
 
-def upload_to_monday():
+def _upload_to_monday():
     api_token = MONDAY_API_TOKEN; item_id = MONDAY_ITEM_ID
     if not api_token or not item_id:
-        print("  Monday upload skipped.", flush=True); return
+        print("  Monday upload skipped.", flush=True); return False
     body_text = "AI Snippet Verification Report attached as self-contained HTML."
     update_query = 'mutation ($item_id: ID!, $body: String!) { create_update(item_id: $item_id, body: $body) { id } }'
     resp = requests.post(MONDAY_API_URL,
@@ -302,7 +308,7 @@ def upload_to_monday():
     update_id = data["data"]["create_update"]["id"]
     file_query = 'mutation ($update_id: ID!, $file: File!) { add_file_to_update(update_id: $update_id, file: $file) { id } }'
     if not FINAL_PATH.exists():
-        print("  Monday file attach skipped.", flush=True); return
+        print("  Monday file attach skipped.", flush=True); return False
     with open(FINAL_PATH, "rb") as f:
         file_resp = requests.post(MONDAY_FILE_API_URL,
             headers={"Authorization":api_token},
@@ -313,6 +319,17 @@ def upload_to_monday():
     file_data = file_resp.json()
     if "errors" in file_data: raise RuntimeError(f"Monday file attach failed: {file_data['errors']}")
     print("  Uploaded ai-snippet-verification-report.html to Monday.com.", flush=True)
+    return True
+
+
+def upload_to_monday():
+    from reporting_ops import record_delivery_status
+    try:
+        sent = _upload_to_monday()
+    except Exception as exc:
+        record_delivery_status("failed", detail=str(exc))
+        raise
+    record_delivery_status("delivered" if sent else "skipped", detail="ai-snippet-verification-report.html")
 
 
 def main():

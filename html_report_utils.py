@@ -437,7 +437,7 @@ def generate_self_contained_html(html_path, output_path):
     print(f"Saved {output_path} ({size_kb} KB, self-contained)")
 
 
-def upload_html_to_monday(html_path, html_filename, body_text=None, api_token=None, item_id=None):
+def _upload_html_to_monday(html_path, html_filename, body_text=None, api_token=None, item_id=None):
     """Post a text update to Monday.com and attach the self-contained HTML file."""
     if api_token is None:
         api_token = os.getenv("MONDAY_API_TOKEN")
@@ -445,7 +445,7 @@ def upload_html_to_monday(html_path, html_filename, body_text=None, api_token=No
         item_id = os.getenv("MONDAY_ITEM_ID")
     if not api_token or not item_id:
         print("Monday upload skipped: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.")
-        return
+        return False
     if body_text is None:
         body_text = f"Report attached as self-contained HTML. Open in any browser — all charts are embedded inline."
 
@@ -474,7 +474,7 @@ def upload_html_to_monday(html_path, html_filename, body_text=None, api_token=No
     html_file = Path(html_path)
     if not html_file.exists():
         print(f"Monday file attach skipped: {html_path} not found.")
-        return
+        return False
 
     try:
         from reporting_ops import finalize_report_artifacts
@@ -501,3 +501,15 @@ def upload_html_to_monday(html_path, html_filename, body_text=None, api_token=No
     if "errors" in file_data:
         raise RuntimeError(f"Monday file attach failed: {file_data['errors']}")
     print(f"Uploaded {html_filename} to Monday.com successfully.")
+    return True
+
+
+def upload_html_to_monday(html_path, html_filename, body_text=None, api_token=None, item_id=None):
+    from reporting_ops import record_delivery_status
+    try:
+        sent = _upload_html_to_monday(html_path, html_filename, body_text, api_token, item_id)
+    except Exception as exc:
+        record_delivery_status("failed", detail=str(exc))
+        raise
+    record_delivery_status("delivered" if sent else "skipped", detail=html_filename)
+    return sent

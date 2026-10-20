@@ -49,6 +49,7 @@ jobs:
             content_category_performance.csv
             content_category_performance_summary.html
             content_category_performance_summary_final.html
+            content_category_unmatched_pages.csv
             charts/content_clicks_by_category.png
             charts/content_ecosystem_map.png
             charts/content_engagement_by_category.png

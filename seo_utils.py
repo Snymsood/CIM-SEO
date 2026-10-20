@@ -1,9 +1,14 @@
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 
-def get_weekly_date_windows():
-    """Returns (current_start, current_end, previous_start, previous_end) for a 7-day WoW report ending yesterday."""
-    current_end = date.today() - timedelta(days=1)
+def get_weekly_date_windows(as_of: date | None = None):
+    """Return the last completed Monday–Sunday week and the week before it.
+
+    A later rerun of a Monday report keeps the same reporting period.
+    """
+    today = as_of or date.today()
+    days_since_sunday = (today.weekday() + 1) % 7 or 7
+    current_end = today - timedelta(days=days_since_sunday)
     current_start = current_end - timedelta(days=6)
     
     previous_end = current_start - timedelta(days=1)

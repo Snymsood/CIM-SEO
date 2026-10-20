@@ -16,6 +16,7 @@ from pathlib import Path
 from seo_utils import short_url
 from pdf_report_formatter import format_num, format_delta, format_pct_change
 from reporting_ops import finalize_report_artifacts
+from weekly_trends import build_weekly_trends, render_weekly_trends
 from html_report_utils import (
     mm_html_shell, mm_kpi_card, mm_kpi_grid, mm_section, mm_report_section,
     mm_col_header, mm_apex_chart, mm_exec_bullets
@@ -173,6 +174,7 @@ def load_all_data():
     kw_comp      = _load("tracked_keywords_comparison.csv")
     content_strategy = _load("content_strategy_scorecard.csv")
     mailchimp_summary = _load("mailchimp_weekly_summary.csv")
+    conv_summary = _load("ga4_conversion_summary.csv")
 
     if not content_cat.empty and "sessions" in content_cat.columns:
         content_cat = content_cat.sort_values("sessions", ascending=False)
@@ -187,6 +189,7 @@ def load_all_data():
         "kw_comp":      kw_comp,
         "content_strategy": content_strategy,
         "mailchimp_summary": mailchimp_summary,
+        "conv_summary": conv_summary,
     }
 
 
@@ -224,7 +227,16 @@ def aggregate_kpis(data):
     if not speed.empty and "strategy" in speed.columns and "performance_score" in speed.columns:
         mob = speed[speed["strategy"] == "mobile"]
         if not mob.empty:
-            kpis["mobile_score"] = {"curr": round(mob["performance_score"].mean(), 1), "prev": 0}
+            paired = mob[["performance_score", "performance_score_previous"]].apply(
+                pd.to_numeric, errors="coerce").dropna() if "performance_score_previous" in mob.columns else pd.DataFrame()
+            if not paired.empty:
+                kpis["mobile_score"] = {
+                    "curr": round(paired["performance_score"].mean(), 1),
+                    "prev": round(paired["performance_score_previous"].mean(), 1),
+                }
+            else:
+                kpis["mobile_score"]["curr"] = round(pd.to_numeric(
+                    mob["performance_score"], errors="coerce").mean(), 1)
 
     return kpis
 
@@ -494,20 +506,20 @@ def build_deterministic_bullets(data, kpis):
         chg  = c_curr - c_prev
         sign = "+" if chg >= 0 else ""
         pct  = f" ({chg / c_prev:.1%})" if c_prev > 0 else ""
-        bullets.append(f"GSC clicks: {c_curr:,.0f} ({sign}{chg:,.0f} WoW{pct}).")
+        bullets.append(f"Exported GSC query clicks: {c_curr:,.0f} ({sign}{chg:,.0f} WoW{pct}).")
 
     # Impressions
     i_curr, i_prev = kpis["impressions"]["curr"], kpis["impressions"]["prev"]
     if i_curr > 0:
         chg  = i_curr - i_prev
         sign = "+" if chg >= 0 else ""
-        bullets.append(f"GSC impressions: {i_curr:,.0f} ({sign}{chg:,.0f} WoW).")
+        bullets.append(f"Exported GSC query impressions: {i_curr:,.0f} ({sign}{chg:,.0f} WoW).")
 
     # Avg position
     p_curr, p_prev = kpis["avg_position"]["curr"], kpis["avg_position"]["prev"]
     if p_curr > 0:
         direction = "improved" if p_curr < p_prev else "declined" if p_curr > p_prev else "unchanged"
-        bullets.append(f"Average search position: {p_curr:.1f} ({direction} from {p_prev:.1f} previous week).")
+        bullets.append(f"Average exported-query position: {p_curr:.1f} ({direction} from {p_prev:.1f} previous week).")
 
     # Mobile speed
     ms = kpis["mobile_score"]["curr"]
@@ -658,14 +670,22 @@ def _build_html_table(df, cols, headers):
 def generate_html_dashboard(bullets, chart_paths, data, kpis):
     """Build the full index.html dashboard in the MM design system."""
     today = date.today().strftime("%B %d, %Y")
+    trends, trend_insights = build_weekly_trends({
+        "ga4_summary": data["ga4_summary"],
+        "gsc_comparison": data["gsc_comp"],
+        "conv_summary": data["conv_summary"],
+        "speed": data["speed"],
+        "kw_comparison": data["kw_comp"],
+    })
+    trends.to_csv("weekly_trends.csv", index=False)
 
     # ── KPI grid (6 cards) ────────────────────────────────────────────────────
     kpi_cards = (
         mm_kpi_card("Weekly Sessions",    kpis["sessions"]["curr"],    kpis["sessions"]["prev"]) +
         mm_kpi_card("Active Users",       kpis["users"]["curr"],       kpis["users"]["prev"]) +
-        mm_kpi_card("GSC Clicks",         kpis["clicks"]["curr"],      kpis["clicks"]["prev"]) +
-        mm_kpi_card("GSC Impressions",    kpis["impressions"]["curr"], kpis["impressions"]["prev"]) +
-        mm_kpi_card("Avg Position",       kpis["avg_position"]["curr"],kpis["avg_position"]["prev"], lower_better=True, decimals=1) +
+        mm_kpi_card("Query Clicks",       kpis["clicks"]["curr"],      kpis["clicks"]["prev"]) +
+        mm_kpi_card("Query Impressions",  kpis["impressions"]["curr"], kpis["impressions"]["prev"]) +
+        mm_kpi_card("Avg Query Position", kpis["avg_position"]["curr"],kpis["avg_position"]["prev"], lower_better=True, decimals=1) +
         mm_kpi_card("Mobile Speed Score", kpis["mobile_score"]["curr"],kpis["mobile_score"]["prev"], decimals=0)
     )
     kpi_grid = mm_kpi_grid(kpi_cards)
@@ -758,6 +778,7 @@ def generate_html_dashboard(bullets, chart_paths, data, kpis):
         ) +
         '<div class="section" style="padding-top:0;">' + kpi_grid + '</div>' +
         '<hr class="rule-thick">' +
+        mm_section("Weekly Trends", mm_report_section(render_weekly_trends(trends, trend_insights))) +
         mm_section("Performance Overview",
             mm_report_section(
                 '<p style="font-family:\'JetBrains Mono\',monospace;font-size:10px;color:#64748B;margin-bottom:16px;">\u24d8 <b>How to read:</b> Compares this week against last week. Impressions are scaled down (÷10) for visibility. Interactive: Hover for details.</p>' +
@@ -809,8 +830,10 @@ def generate_html_dashboard(bullets, chart_paths, data, kpis):
 
 def post_to_monday(bullets):
     """Post the unified bullet summary to Monday.com. Non-fatal."""
+    from reporting_ops import record_delivery_status
     if not MONDAY_API_TOKEN or not MONDAY_MASTER_ITEM_ID:
         print("Monday master update skipped: MONDAY_API_TOKEN or MONDAY_MASTER_ITEM_ID not set.")
+        record_delivery_status("skipped", detail="credentials not configured")
         return
 
     bullet_html = "".join(f"<li>{_html.escape(b)}</li>" for b in bullets)
@@ -836,10 +859,13 @@ def post_to_monday(bullets):
         data = resp.json()
         if "errors" in data:
             print(f"Monday update error: {data['errors']}")
+            record_delivery_status("failed", detail=str(data["errors"]))
         else:
             print("Posted master summary to Monday.com.")
+            record_delivery_status("delivered", detail="master summary update")
     except Exception as e:
         print(f"Monday master post failed: {e}")
+        record_delivery_status("failed", detail=str(e))
 
 
 # ══════════════════════════════════════════════════════════════════════════════

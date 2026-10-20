@@ -1,5 +1,9 @@
 name: Internal Linking Audit
 
+permissions:
+  contents: read
+  actions: read
+
 on:
   workflow_dispatch:
   schedule:
@@ -20,6 +24,18 @@ jobs:
 
       - name: Install dependencies
         run: pip install -r requirements.txt
+
+      - name: Load previous priority history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          previous_run="$(gh run list --workflow internal-linking-audit.yml --branch "${{ github.ref_name }}" --status completed --limit 10 --json databaseId,conclusion --jq '.[] | select(.conclusion == "success") | .databaseId' | head -n 1)"
+          if [ -n "$previous_run" ]; then
+            mkdir -p previous-internal
+            if gh run download "$previous_run" --name internal-linking-audit --dir previous-internal; then
+              cp previous-internal/internal_linking_priority_history.csv . 2>/dev/null || true
+            fi
+          fi
 
       - name: Write service account key
         run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
@@ -53,6 +69,7 @@ jobs:
             internal_linking_page_summary.csv
             internal_linking_flagged_pages.csv
             internal_linking_priority_targets.csv
+            internal_linking_priority_history.csv
             internal_linking_generic_anchor_examples.csv
             internal_linking_opportunities.csv
             internal_linking_low_outlinks.png

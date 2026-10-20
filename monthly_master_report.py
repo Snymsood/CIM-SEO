@@ -252,8 +252,10 @@ def aggregate_monthly_kpis(data):
 
 def upload_to_monday(html_path, bullets, date_range, run_id=None):
     """Post executive summary update and attach the self-contained HTML to Monday.com."""
+    from reporting_ops import record_delivery_status
     if not MONDAY_API_TOKEN or not MONDAY_MONTHLY_ITEM_ID:
         print("⚠ Monday.com upload skipped: MONDAY_API_TOKEN or MONDAY_MONTHLY_ITEM_ID not set")
+        record_delivery_status("skipped", detail="credentials not configured")
         return
 
     print("=" * 80)
@@ -303,6 +305,7 @@ def upload_to_monday(html_path, bullets, date_range, run_id=None):
         html_file = Path(html_path)
         if not html_file.exists():
             print(f"⚠ HTML file not found at {html_path}, skipping attachment")
+            record_delivery_status("failed", detail=f"missing attachment: {html_path}")
             return
 
         with open(html_file, "rb") as f:
@@ -322,9 +325,11 @@ def upload_to_monday(html_path, bullets, date_range, run_id=None):
         if "errors" in file_data:
             raise RuntimeError(f"Monday file attach failed: {file_data['errors']}")
         print("✓ Attached monthly-seo-dashboard.html to Monday.com update")
+        record_delivery_status("delivered", detail="monthly-seo-dashboard.html")
 
     except Exception as e:
         print(f"✗ Monday.com upload failed: {e}")
+        record_delivery_status("failed", detail=str(e))
 
     print("\n" + "=" * 80)
     print("MONDAY.COM UPLOAD - COMPLETE")

@@ -51,6 +51,7 @@ def get_ga4_client():
 
 def categorize_url(url):
     url = str(url).lower().split('?')[0].rstrip('/')
+    if url in {"(not set)", "", "nan"}: return "Unassigned GA4 page"
     
     # Subdomains first
     if "magazine.cim.org" in url: return "Magazine"
@@ -60,14 +61,20 @@ def categorize_url(url):
     if "com.metsoc.org" in url: return "Societies"
     
     # Path patterns
-    if "/events" in url or "/calendar" in url: return "Events"
+    if "/cmp" in url: return "CMP"
+    if "/events" in url or "/calendar" in url or "/featured-events" in url: return "Events"
     if "/professional-development" in url or "/short-courses" in url: return "Education"
-    if "/library" in url or "/technical-resources" in url or "/cim-journal" in url: return "Technical Library"
-    if "/membership" in url: return "Membership"
+    if "/library" in url or "/technical-resources" in url or "/cim-journal" in url or "/resources" in url: return "Technical Library"
+    if "/membership" in url or "/corporate-members" in url: return "Membership"
+    if "/job-postings" in url or "/careers" in url: return "Careers"
+    if "/subscribe" in url: return "Subscriptions"
+    if "/subsites/branches" in url: return "Branches"
+    if "/subsites/societies" in url: return "Societies"
     if "/scholarships" in url or "/student" in url: return "Student/Scholarships"
     if "/news" in url or "/press-releases" in url: return "News/Press"
     if "/awards" in url: return "Awards"
-    if "/about-us" in url: return "Institute Info"
+    if "/about-us" in url or "/contact-us" in url: return "Institute Info"
+    if url.endswith("/404"): return "Error Pages"
     if url == "https://www.cim.org": return "Homepage"
     
     return "Other"
@@ -455,6 +462,8 @@ def main():
             content_perf[col] = 0
 
     content_perf.to_csv("content_category_performance.csv", index=False)
+    unmatched = ga4_data.loc[ga4_data["category"] == "Other", ["page", "sessions"]] if not ga4_data.empty else pd.DataFrame(columns=["page", "sessions"])
+    unmatched.sort_values("sessions", ascending=False).head(100).to_csv("content_category_unmatched_pages.csv", index=False)
     print(f"  Saved content_category_performance.csv ({len(content_perf)} categories)", flush=True)
 
     chart_paths = build_all_charts(content_perf)

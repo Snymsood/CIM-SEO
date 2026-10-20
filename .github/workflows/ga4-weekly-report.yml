@@ -50,10 +50,13 @@ jobs:
             normalized/
             ga4_summary_comparison.csv
             ga4_top_landing_pages.csv
+            ga4_pages_comparison.csv
             ga4_top_channels.csv
+            ga4_channel_comparison.csv
             ga4_device_split.csv
             ga4_country_split.csv
             ga4_conversion_summary.csv
+            ga4_event_name_coverage.csv
             ga4_conversion_pages.csv
             ga4_conversion_channels.csv
             ga4_conversions_current.csv

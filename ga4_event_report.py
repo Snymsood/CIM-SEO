@@ -8,6 +8,7 @@ import os
 import html as _html
 import math
 import logging
+import json
 from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -21,6 +22,7 @@ from google.analytics.data_v1beta.types import (
     Filter, FilterExpressionList,
 )
 from html_report_utils import upload_html_to_monday
+from seo_utils import get_weekly_date_windows
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -59,11 +61,10 @@ METRIC_HELP = {
 def get_28day_windows():
     """
     Returns (curr_start, curr_end, prev_start, prev_end) as YYYY-MM-DD strings.
-    Current period = the 28 days ending yesterday.
+    Current period = the 28 days ending on the last completed Sunday.
     Previous period = the 28 days before that.
     """
-    today      = date.today()
-    curr_end   = today - timedelta(days=1)
+    curr_end   = get_weekly_date_windows()[1]
     curr_start = curr_end - timedelta(days=27)
     prev_end   = curr_start - timedelta(days=1)
     prev_start = prev_end - timedelta(days=27)
@@ -197,7 +198,7 @@ def fetch_event_by_page(client, event_names: list, start: str, end: str,
     Fetch eventCount per landingPage per eventName. Returns top N pages per event.
     """
     dims = ["eventName", "landingPage"]
-    mets = ["eventCount", "sessions"]
+    mets = ["eventCount", "sessions", "totalUsers"]
     df   = _run_report(client, dims, mets, start, end, event_names=event_names, limit=2000)
     if df.empty:
         return df
@@ -899,6 +900,17 @@ def main():
     # 3. Fetch data
     print("\n[3/4] Fetching GA4 data…", flush=True)
     data = fetch_all_data(all_event_names, curr_start, curr_end, prev_start, prev_end)
+    Path("report_period.json").write_text(json.dumps({"start": curr_start, "end": curr_end}), encoding="utf-8")
+    for key, filename, columns in (
+        ("curr_summary", "ga4_event_summary.csv", ["eventName", "eventCount", "eventCountPerUser", "totalUsers", "sessions"]),
+        ("curr_pages", "ga4_event_landing_pages.csv", ["eventName", "landingPage", "eventCount", "sessions", "totalUsers"]),
+    ):
+        extract = data.get(key, pd.DataFrame()).reindex(columns=columns).copy()
+        extract.insert(0, "period_end", curr_end)
+        extract.insert(0, "period_start", curr_start)
+        if key == "curr_pages":
+            extract["coverage_note"] = "Top 10 landing pages per event from up to 2,000 returned GA4 rows"
+        extract.to_csv(filename, index=False)
 
     # 4. Build report
     print("\n[4/4] Building HTML report…", flush=True)

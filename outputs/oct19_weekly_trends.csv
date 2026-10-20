@@ -1,0 +1,8 @@
+metric,source,current,previous,change,change_pct,unit,scope
+GA4 sessions,GA4,7041.0,14789.0,-7748.0,-0.5239029008046521,count,Comparable weekly periods
+GA4 active users,GA4,5679.0,13321.0,-7642.0,-0.5736806546055101,count,Comparable weekly periods
+GSC query clicks,GSC,459.0,576.0,-117.0,-0.203125,count,"Exported query set (5,380 rows); not whole-site GSC totals"
+GSC query impressions,GSC,27841.0,32780.0,-4939.0,-0.15067114093959733,count,"Exported query set (5,380 rows); not whole-site GSC totals"
+GSC query CTR,GSC,0.016486476778851334,0.01757169005491153,-0.001085213276060197,-0.06175918609245358,rate,"Exported query set (5,380 rows); not whole-site GSC totals"
+Tracked conversion events,GA4 events,525.0,505.0,20.0,0.039603960396039604,count,Configured event counts; not unique conversions
+Mobile performance score,PageSpeed,60.333333333333336,59.46666666666667,0.8666666666666671,0.014573991031390142,score,Matched mobile pages (15); lab score

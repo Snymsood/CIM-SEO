@@ -49,6 +49,8 @@ from seo_intelligence_utils import (
 )
 from seo_utils import get_weekly_date_windows, short_url
 from pdf_report_formatter import format_pct_change
+from weekly_trends import build_weekly_trends, render_weekly_trends, update_trend_history
+from search_opportunities import rank_query_page_losses
 
 # ══════════════════════════════════════════════════════════════════════════════
 # CONFIG
@@ -138,6 +140,7 @@ def load_all_report_data() -> dict:
         "conv_current":       _load("ga4_conversions_current.csv"),
         # GSC
         "gsc_comparison":     _load("weekly_comparison.csv"),
+        "query_page_mapping": _load("keyword_page_mapping.csv"),
         "gsc_queries":        _load("top_queries.csv"),
         "gsc_pages":          _load_first("tracked_pages_comparison.csv", "gsc_landing_pages_comparison.csv"),
         # Keywords
@@ -162,6 +165,7 @@ def load_all_report_data() -> dict:
         "mailchimp_clicks":   _load("mailchimp_link_clicks.csv"),
         # AI snippet
         "ai_snippet":         _load("reports/ai_snippet_verification.csv"),
+        "ai_snippet_movement": _load("reports/ai_snippet_score_movement.csv"),
         # Config
         "conv_config":        _load("tracked_conversions.csv"),
         "tracked_pages":      _load("tracked_pages.csv"),
@@ -237,7 +241,9 @@ def extract_kpis(data: dict) -> dict:
     # Broken links
     bl = data["broken_links"]
     if not bl.empty and "issue_type" in bl.columns:
-        kpis["broken_links_curr"] = int((bl["issue_type"] == "broken").sum())
+        broken = bl[bl["issue_type"] == "broken"]
+        kpis["broken_link_occurrences_curr"] = len(broken)
+        kpis["broken_links_curr"] = int(broken["target_url"].nunique()) if "target_url" in broken.columns else len(broken)
 
     return kpis
 
@@ -434,6 +440,7 @@ def build_action_queue(data: dict, kpis: dict, anomalies: list[dict],
         ].copy()
         if not gap.empty:
             gap["click_potential"] = (gap[impr_col] * 0.05 - gap[click_col]).clip(lower=0)
+            gap = gap[gap["click_potential"] >= 1]
             top_gap = gap.nlargest(3, "click_potential")
             for _, row in top_gap.iterrows():
                 q = str(row.get("query", row.iloc[0]))[:60]
@@ -446,7 +453,7 @@ def build_action_queue(data: dict, kpis: dict, anomalies: list[dict],
                     category="Organic Visibility",
                     source="GSC CTR Gap Analysis",
                     evidence=f"Position {pos:.1f}, CTR {ctr:.1%}, {impr:,.0f} impressions, ~{pot:.0f} additional clicks available",
-                    why_it_matters="Page-1 query with low CTR — title/meta optimisation can double clicks without ranking change",
+                    why_it_matters="At current impressions, a higher CTR could recover clicks; verify query intent and the search snippet",
                     estimated_impact="high",
                     effort="low",
                     confidence="high",
@@ -504,7 +511,8 @@ def build_action_queue(data: dict, kpis: dict, anomalies: list[dict],
     # ── 4. Broken Links ───────────────────────────────────────────────────────
     bl = data.get("broken_links", pd.DataFrame())
     if not bl.empty and "issue_type" in bl.columns:
-        broken_count = int((bl["issue_type"] == "broken").sum())
+        broken_rows = bl[bl["issue_type"] == "broken"]
+        broken_count = int(broken_rows["target_url"].nunique()) if "target_url" in broken_rows.columns else len(broken_rows)
         if broken_count > 0:
             # Find broken links on priority pages
             tracked_pages = data.get("tracked_pages", pd.DataFrame())
@@ -520,10 +528,10 @@ def build_action_queue(data: dict, kpis: dict, anomalies: list[dict],
             ] if priority_urls else pd.DataFrame()
             urgency = "high" if not priority_broken.empty else "medium"
             actions.append(make_action(
-                action=f"Fix {broken_count} broken links (404/410) across CIM domains",
+                action=f"Fix {broken_count} unique broken targets (404/410) across CIM domains",
                 category="Technical Health",
                 source="Broken Link Report",
-                evidence=f"{broken_count} broken links found" + (
+                evidence=f"{broken_count} unique targets across {len(broken_rows)} source-link occurrences" + (
                     f", including {len(priority_broken)} on high-priority pages" if not priority_broken.empty else ""
                 ),
                 why_it_matters="Broken links damage user experience, waste crawl budget, and dilute link equity",
@@ -671,11 +679,12 @@ def build_action_queue(data: dict, kpis: dict, anomalies: list[dict],
     content_strategy = data.get("content_strategy", pd.DataFrame())
     if not content_strategy.empty and "strategy_status" in content_strategy.columns:
         cs = content_strategy.copy()
-        for col in ["strategy_score", "email_unique_clicks", "gsc_impressions", "ga4_engagement_rate"]:
+        for col in ["strategy_score", "email_unique_clicks", "gsc_impressions", "ga4_engagement_rate", "ga4_sessions"]:
             if col in cs.columns:
                 cs[col] = pd.to_numeric(cs[col], errors="coerce").fillna(0)
 
-        email_interest = cs[cs["strategy_status"] == "Email interest, weak on-site engagement"].sort_values(
+        email_interest = cs[(cs["strategy_status"] == "Email interest, weak on-site engagement") &
+                            (cs["ga4_sessions"] > 0)].sort_values(
             ["email_unique_clicks", "strategy_score"], ascending=False
         ).head(2)
         for _, row in email_interest.iterrows():
@@ -686,6 +695,25 @@ def build_action_queue(data: dict, kpis: dict, anomalies: list[dict],
                 source="Content Strategy + Mailchimp",
                 evidence=f"{safe_float(row.get('email_unique_clicks', 0)):,.0f} email clicks, {safe_float(row.get('ga4_engagement_rate', 0)):.1%} engagement rate",
                 why_it_matters="Email promotion is generating interest, but the landing page may not be satisfying visitor intent",
+                estimated_impact="medium",
+                effort="medium",
+                confidence="medium",
+                urgency="medium",
+                business_value=65,
+            ))
+
+        coverage_gap = cs[(cs["strategy_status"] == "Email clicks, no matched GA4 data") &
+                          (cs["email_unique_clicks"] > 0)].sort_values(
+            "email_unique_clicks", ascending=False
+        ).head(1)
+        for _, row in coverage_gap.iterrows():
+            page = short_url(str(row.get("page_canonical", "")), 55)
+            actions.append(make_action(
+                action=f"Verify tracking for email-clicked destination: {page}",
+                category="Data Quality",
+                source="Content Strategy + Mailchimp",
+                evidence=f"{safe_float(row.get('email_unique_clicks', 0)):,.0f} email clicks, no matched GA4 sessions",
+                why_it_matters="Cross-domain tracking or URL matching may be missing; engagement cannot be assessed yet",
                 estimated_impact="medium",
                 effort="medium",
                 confidence="medium",
@@ -755,7 +783,7 @@ def generate_ai_action_plan(action_queue: list[dict], anomalies: list[dict],
         "GA4 Sessions":              f"{kpis.get('ga4_sessions_curr', 0):,.0f} vs {kpis.get('ga4_sessions_prev', 0):,.0f}",
         "Conversions":               f"{kpis.get('conv_total_curr', 0):,.0f} vs {kpis.get('conv_total_prev', 0):,.0f}",
         "Mobile PageSpeed":          f"{kpis.get('mobile_score_curr', 0):.0f}/100",
-        "Broken Links":              f"{kpis.get('broken_links_curr', 0):,}",
+        "Broken Targets":            f"{kpis.get('broken_links_curr', 0):,}",
     }
 
     prompt = build_action_plan_prompt(action_queue, anomalies, kpi_summary, date_range)
@@ -822,6 +850,19 @@ def collect_data_warnings(data: dict, hist: dict) -> list[dict]:
         w = check_csv_available(path, source, effect)
         if w:
             warnings.append(w)
+
+    speed = data.get("speed", pd.DataFrame())
+    if not speed.empty and {"strategy", "performance_score"}.issubset(speed.columns):
+        mobile = speed[speed["strategy"] == "mobile"]
+        missing = pd.to_numeric(mobile["performance_score"], errors="coerce").isna().sum()
+        if missing:
+            warnings.append(make_warning(
+                "Site Speed",
+                f"{missing} of {len(mobile)} mobile pages lack a current performance score",
+                "medium",
+                "Mobile trend excludes these pages and may overstate site-wide improvement",
+                "Review PageSpeed API errors and retry missing pages with rate limiting",
+            ))
 
     # Conversion config check
     conv_config = data.get("conv_config", pd.DataFrame())
@@ -1143,16 +1184,28 @@ def generate_html_report(
 ) -> str:
     today = date.today().strftime("%B %d, %Y")
     date_range = f"{current_start} to {current_end}"
+    trends, trend_insights = build_weekly_trends(data)
+    proxy_movement = data.get("ai_snippet_movement", pd.DataFrame())
+    proxy_scores = data.get("ai_snippet", pd.DataFrame())
+    proxy_table = (
+        proxy_movement.reindex(columns=["page_name", "access_score_current", "access_score_change",
+                                                "summary_score_current", "summary_score_change",
+                                                "cta_score_current", "cta_score_change"]).head(10).to_html(index=False, escape=True)
+        if not proxy_movement.empty else
+        proxy_scores.reindex(columns=["page_name", "access_score", "summary_score", "cta_score"]).head(10).to_html(index=False, escape=True)
+        if not proxy_scores.empty else "<p>No page-extraction proxy results are available.</p>"
+    )
+    proxy_content = "<p>These scores measure a page-extraction proxy, not live search-engine AI answers. Score changes are page-level comparisons when a prior scan is available.</p>" + proxy_table
 
     # KPI grid
     kpi_cards = "".join([
-        _kpi_card("GSC Clicks",      kpis.get("gsc_clicks_curr", 0),      kpis.get("gsc_clicks_prev", 0)),
-        _kpi_card("GSC Impressions", kpis.get("gsc_impressions_curr", 0),  kpis.get("gsc_impressions_prev", 0)),
-        _kpi_card("Avg Position",    kpis.get("gsc_avg_position_curr", 0), kpis.get("gsc_avg_position_prev", 0), lower_better=True, decimals=1),
+        _kpi_card("Query Clicks",    kpis.get("gsc_clicks_curr", 0),      kpis.get("gsc_clicks_prev", 0)),
+        _kpi_card("Query Impressions", kpis.get("gsc_impressions_curr", 0), kpis.get("gsc_impressions_prev", 0)),
+        _kpi_card("Avg Query Position", kpis.get("gsc_avg_position_curr", 0), kpis.get("gsc_avg_position_prev", 0), lower_better=True, decimals=1),
         _kpi_card("GA4 Sessions",    kpis.get("ga4_sessions_curr", 0),     kpis.get("ga4_sessions_prev", 0)),
         _kpi_card("Conversions",     kpis.get("conv_total_curr", 0),       kpis.get("conv_total_prev", 0)),
         _kpi_card("Mobile Score",    kpis.get("mobile_score_curr", 0),     None),
-        _kpi_card("Broken Links",    kpis.get("broken_links_curr", 0),     None, lower_better=True),
+        _kpi_card("Broken Targets",  kpis.get("broken_links_curr", 0),     None, lower_better=True),
     ])
     kpi_grid = (
         f'<div style="display:grid;grid-template-columns:repeat(7,1fr);border:2px solid #000;margin-bottom:2px;">'
@@ -1166,7 +1219,7 @@ def generate_html_report(
     if clicks_curr > 0:
         pct = safe_pct_change(clicks_curr, clicks_prev)
         pct_str = f" ({pct:+.1%})" if pct is not None else ""
-        exec_bullets.append(f"GSC clicks: {clicks_curr:,.0f} this week{pct_str} vs {clicks_prev:,.0f} previous week.")
+        exec_bullets.append(f"Exported GSC query clicks: {clicks_curr:,.0f} this week{pct_str} vs {clicks_prev:,.0f} previous week.")
     sessions_curr = kpis.get("ga4_sessions_curr", 0)
     sessions_prev = kpis.get("ga4_sessions_prev", 0)
     if sessions_curr > 0:
@@ -1248,11 +1301,19 @@ def generate_html_report(
         f'<div style="padding:32px 0;">{kpi_grid}</div>'
         f'<hr style="border:none;border-top:4px solid #000;margin:0;">'
         + _section("Executive Summary",                _bullets(exec_bullets),       "executive-summary")
+        + _section("Weekly Trends",                    render_weekly_trends(trends, trend_insights, pd.read_csv("weekly_trend_history.csv") if os.path.exists("weekly_trend_history.csv") else None), "weekly-trends")
+        + _section("Search Opportunity", (
+            "<p>Top exported query/page pairs ranked by lost query clicks allocated by current page impressions. This is an estimate; prior page-level clicks are unavailable.</p>"
+            + rank_query_page_losses(data["gsc_comparison"], data["query_page_mapping"])
+              .head(10)[["query", "page", "demand_type", "allocated_lost_clicks"]]
+              .to_html(index=False, escape=True, float_format=lambda value: f"{value:,.1f}")
+        ) if not rank_query_page_losses(data["gsc_comparison"], data["query_page_mapping"]).empty else "<p>No comparable query/page mapping is available.</p>", "search-opportunity")
         + _section("Business Impact \u2014 Conversions", conv_content,               "business-impact")
         + _section("Performance Visuals",              _charts_section(),            "performance-visuals")
         + _section("Anomalies Detected",               _anomaly_table(anomalies),    "anomalies")
         + _section("Content Decay Candidates",         _decay_table(decay_df),       "content-decay")
         + _section("This Week\u2019s SEO Action Queue", _action_table(action_queue), "action-queue")
+        + _section("AI Extraction Readiness", proxy_content, "ai-extraction-readiness")
         + _section("AI Analyst Notes",                 ai_plan_html,                 "ai-notes")
         + _section("Data Quality / Missing Inputs",    _warnings_table(warnings),    "data-quality")
         + f'<hr style="border:none;border-top:4px solid #000;margin:0;">'
@@ -1279,11 +1340,14 @@ def generate_html_report(
 
 def post_to_monday(action_queue: list[dict], kpis: dict, html_path: str,
                    dry_run: bool = False) -> None:
+    from reporting_ops import record_delivery_status
     if dry_run:
         print("  [dry-run] Skipping Monday.com post.")
+        record_delivery_status("skipped", detail="dry run")
         return
     if not MONDAY_API_TOKEN or not MONDAY_INTEL_ITEM_ID:
         print("  Monday intelligence post skipped: MONDAY_API_TOKEN or MONDAY_INTELLIGENCE_ITEM_ID not set.")
+        record_delivery_status("skipped", detail="credentials not configured")
         return
 
     import requests as _req
@@ -1342,8 +1406,14 @@ def post_to_monday(action_queue: list[dict], kpis: dict, html_path: str,
                     timeout=120,
                 )
             file_resp.raise_for_status()
+            if "errors" in file_resp.json():
+                raise RuntimeError(file_resp.json()["errors"])
             print("  ✓ Attached weekly-seo-intelligence.html to Monday.com")
+            record_delivery_status("delivered", detail="weekly-seo-intelligence.html")
+        else:
+            record_delivery_status("failed", detail=f"missing attachment: {html_path}")
     except Exception as e:
+        record_delivery_status("failed", detail=str(e))
         print(f"  ✗ Monday intelligence post failed: {e}")
 
 
@@ -1472,6 +1542,11 @@ def main(dry_run: bool = False) -> None:
 
     # Save outputs
     print("[7/7] Saving outputs...")
+    trends, _ = build_weekly_trends(data)
+    trends.to_csv("weekly_trends.csv", index=False)
+    rank_query_page_losses(data["gsc_comparison"], data["query_page_mapping"]).to_csv("search_query_page_opportunities.csv", index=False)
+    previous_history = pd.read_csv("weekly_trend_history.csv") if os.path.exists("weekly_trend_history.csv") else pd.DataFrame()
+    update_trend_history(previous_history, trends, current_start, current_end).to_csv("weekly_trend_history.csv", index=False)
 
     # Action queue CSV + JSON. Always write stable outputs, even when empty.
     aq_df = pd.DataFrame(action_queue)

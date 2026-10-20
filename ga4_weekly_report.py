@@ -418,6 +418,22 @@ def prepare_pages_comparison(curr_df, prev_df):
     return merged.sort_values("sessions_current", ascending=False)
 
 
+def prepare_channel_comparison(current, previous):
+    """Quantify each acquisition channel's contribution to the weekly session change."""
+    key = "sessionDefaultChannelGroup"
+    if current.empty or previous.empty or key not in current or key not in previous:
+        return pd.DataFrame(columns=[key, "sessions_current", "sessions_previous", "sessions_change", "share_of_net_change"])
+    def summarize(frame, suffix):
+        part = frame[[key, "sessions"]].copy()
+        part["sessions"] = pd.to_numeric(part["sessions"], errors="coerce").fillna(0)
+        return part.groupby(key, as_index=False)["sessions"].sum().rename(columns={"sessions": f"sessions_{suffix}"})
+    joined = summarize(current, "current").merge(summarize(previous, "previous"), on=key, how="outer").fillna(0)
+    joined["sessions_change"] = joined["sessions_current"] - joined["sessions_previous"]
+    net = joined["sessions_change"].sum()
+    joined["share_of_net_change"] = joined["sessions_change"] / net if net else 0
+    return joined.sort_values("sessions_change")
+
+
 def calculate_kpis(curr_summary, prev_summary):
     def _f(key):
         return float(curr_summary.get(key, 0)), float(prev_summary.get(key, 0))
@@ -758,7 +774,8 @@ def _kpi_card(label, curr_val, prev_val=None, lower_better=False):
 
 def write_html_summary(kpis, exec_bullets, chart_paths, pages_df, channels_df,
                        device_df, country_df, current_start, current_end,
-                       previous_start, previous_end, trend_curr, trend_prev):
+                       previous_start, previous_end, trend_curr, trend_prev,
+                       channel_comparison=None):
     """Build the final GA4 report with ApexCharts integration."""
     today = date.today().strftime("%B %d, %Y")
 
@@ -819,6 +836,30 @@ def write_html_summary(kpis, exec_bullets, chart_paths, pages_df, channels_df,
     # 3. Tables
     pages_tbl    = build_pages_table(pages_df)
     channels_tbl = build_channels_table(channels_df)
+    channel_comparison = channel_comparison if channel_comparison is not None else pd.DataFrame()
+    channel_rows = "".join(
+        f"<tr><td>{html.escape(str(row['sessionDefaultChannelGroup']))}</td>"
+        f"<td>{row['sessions_current']:,.0f}</td><td>{row['sessions_previous']:,.0f}</td>"
+        f"<td>{row['sessions_change']:+,.0f}</td><td>{row['share_of_net_change']:+.1%}</td></tr>"
+        for row in channel_comparison.to_dict("records")
+    ) if not channel_comparison.empty else ""
+    channel_waterfall = (
+        "<p>Each row contributes to the change in summed channel sessions. Shares can exceed 100% when other channels offset a decline. GA4 channel totals may not reconcile exactly with the headline sessions metric.</p>"
+        "<table><thead><tr><th>Channel</th><th>Current</th><th>Previous</th><th>Change</th><th>Share of net change</th></tr></thead>"
+        f"<tbody>{channel_rows}</tbody></table>"
+    ) if channel_rows else "<p>Channel comparison is unavailable for one of the two weeks.</p>"
+    engagement = kpis["engagement_rate"]["curr"]
+    channel_total_current = channel_comparison["sessions_current"].sum() if not channel_comparison.empty else 0
+    channel_total_previous = channel_comparison["sessions_previous"].sum() if not channel_comparison.empty else 0
+    channel_reconciliation = (
+        f"Channel rows total {channel_total_current:,.0f} current and {channel_total_previous:,.0f} previous sessions; "
+        f"headline sessions are {kpis['sessions']['curr']:,.0f} and {kpis['sessions']['prev']:,.0f}. "
+        "Check GA4 report scope and attribution if this gap persists."
+    ) if not channel_comparison.empty else ""
+    measurement_note = (
+        "GA4 engagement rate is at least 98%; verify enhanced measurement, session definitions, and event tagging before interpreting traffic changes."
+        if engagement >= 0.98 else "Review campaign tagging and GA4 collection when a channel changes sharply."
+    )
 
     # 4. Assemble
     body_content = (
@@ -840,7 +881,7 @@ def write_html_summary(kpis, exec_bullets, chart_paths, pages_df, channels_df,
             )
         ) +
         mm_section("Acquisition Breakdown",
-            mm_report_section(channels_tbl)
+            mm_report_section(channel_waterfall + f"<p>{channel_reconciliation} {measurement_note}</p>" + channels_tbl)
         )
     )
 
@@ -869,12 +910,12 @@ def generate_self_contained():
 # MONDAY UPLOAD
 # ══════════════════════════════════════════════════════════════════════════════
 
-def upload_to_monday():
+def _upload_to_monday():
     api_token = MONDAY_API_TOKEN
     item_id   = MONDAY_ITEM_ID
     if not api_token or not item_id:
         print("  Monday upload skipped: credentials not configured.", flush=True)
-        return
+        return False
     body_text = ("GA4 Weekly Performance Report attached as a self-contained HTML file. "
                  "Open in any browser — all charts are embedded inline.")
     update_query = """
@@ -901,7 +942,7 @@ def upload_to_monday():
     html_path = Path("ga4_weekly_summary_final.html")
     if not html_path.exists():
         print("  Monday file attach skipped: file not found.", flush=True)
-        return
+        return False
     with open(html_path, "rb") as f:
         file_resp = requests.post(
             MONDAY_FILE_API_URL,
@@ -919,6 +960,17 @@ def upload_to_monday():
     if "errors" in file_data:
         raise RuntimeError(f"Monday file attach failed: {file_data['errors']}")
     print("  Uploaded ga4-weekly-report.html to Monday.com successfully.", flush=True)
+    return True
+
+
+def upload_to_monday():
+    from reporting_ops import record_delivery_status
+    try:
+        sent = _upload_to_monday()
+    except Exception as exc:
+        record_delivery_status("failed", detail=str(exc))
+        raise
+    record_delivery_status("delivered" if sent else "skipped", detail="ga4-weekly-report.html")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -950,6 +1002,7 @@ def main():
 
     summary_df    = prepare_summary_comparison(curr_summary, prev_summary)
     pages_df      = prepare_pages_comparison(curr_pages, prev_pages)
+    channel_comparison = prepare_channel_comparison(curr_channels, prev_channels)
     kpis          = calculate_kpis(curr_summary, prev_summary)
 
     # Conversion data
@@ -964,6 +1017,10 @@ def main():
 
     # Save conversion CSVs
     conv_summary_df.to_csv("ga4_conversion_summary.csv", index=False)
+    if not conv_summary_df.empty:
+        coverage = conv_summary_df[["conversion_event", "current_count", "previous_count"]].copy()
+        coverage["verification_status"] = coverage["current_count"].map(lambda count: "observed" if count > 0 else "verify exact GA4 event name and tag firing")
+        coverage.to_csv("ga4_event_name_coverage.csv", index=False)
     conv_pages_df.to_csv("ga4_conversion_pages.csv", index=False)
     conv_channels_df.to_csv("ga4_conversion_channels.csv", index=False)
     if not conv_data.get("curr_events", pd.DataFrame()).empty:
@@ -987,6 +1044,7 @@ def main():
     curr_pages.to_csv("ga4_top_landing_pages.csv", index=False)
     pages_df.to_csv("ga4_pages_comparison.csv", index=False)
     curr_channels.to_csv("ga4_top_channels.csv", index=False)
+    channel_comparison.to_csv("ga4_channel_comparison.csv", index=False)
     curr_devices.to_csv("ga4_device_split.csv", index=False)
     curr_countries.to_csv("ga4_country_split.csv", index=False)
 
@@ -1014,7 +1072,7 @@ def main():
     write_html_summary(kpis, exec_bullets, chart_paths, pages_df, curr_channels,
                        curr_devices, curr_countries,
                        current_start, current_end, previous_start, previous_end,
-                       trend_curr, trend_prev)
+                       trend_curr, trend_prev, channel_comparison)
     generate_self_contained()
 
     try:

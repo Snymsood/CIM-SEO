@@ -606,29 +606,6 @@ def get_extra_css():
 # ═══════════════════
 # MARKDOWN REPORT
 # ═══════════════════
-    work = df[columns].copy()
-    if rename_map:
-        work = work.rename(columns=rename_map)
-
-    for col in work.columns:
-        lower_col = col.lower()
-        if "ctr" in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: f"{x:.2%}" if pd.notnull(x) else "")
-        elif "position" in lower_col and "change" not in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: f"{x:.2f}" if pd.notnull(x) and x != 0 else "")
-        elif "position" in lower_col and "change" in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: format_delta(x, decimals=2) if pd.notnull(x) else "")
-        elif "change" in lower_col:
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: format_delta(x, decimals=0) if pd.notnull(x) else "")
-        elif any(token in lower_col for token in ["click", "impression"]):
-            work[col] = pd.to_numeric(work[col], errors="coerce").map(lambda x: f"{x:.0f}" if pd.notnull(x) else "")
-        else:
-            work[col] = work[col].fillna("").astype(str)
-    return work.to_markdown(index=False)
-
-
-
-
 def create_kpi_comparison_chart(comparison_df):
     """Create KPI comparison chart with current vs previous week."""
     if comparison_df.empty:
@@ -1402,14 +1379,14 @@ def generate_self_contained_html():
 
 
 
-def upload_to_monday():
+def _upload_to_monday():
     """Upload self-contained HTML to Monday.com."""
     api_token = os.getenv("MONDAY_API_TOKEN")
     item_id   = os.getenv("MONDAY_ITEM_ID")
 
     if not api_token or not item_id:
         print("Monday upload skipped: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.")
-        return
+        return False
 
     # Step 1 — create a text update on the item
     body_text = (
@@ -1442,7 +1419,7 @@ def upload_to_monday():
     html_path = Path("landing_pages_summary_final.html")
     if not html_path.exists():
         print("Monday file attach skipped: landing_pages_summary_final.html not found.")
-        return
+        return False
 
     with open(html_path, "rb") as f:
         file_resp = requests.post(
@@ -1461,6 +1438,17 @@ def upload_to_monday():
     if "errors" in file_data:
         raise RuntimeError(f"Monday file attach failed: {file_data['errors']}")
     print("Uploaded critical-landing-pages.html to Monday.com successfully.")
+    return True
+
+
+def upload_to_monday():
+    from reporting_ops import record_delivery_status
+    try:
+        sent = _upload_to_monday()
+    except Exception as exc:
+        record_delivery_status("failed", detail=str(exc))
+        raise
+    record_delivery_status("delivered" if sent else "skipped", detail="critical-landing-pages.html")
 
 
 # ═══════════════════

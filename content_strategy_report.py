@@ -263,6 +263,8 @@ def build_strategy_scorecard() -> pd.DataFrame:
     scorecard["strategy_score"] = (visibility + engagement + distribution - risk_penalty).clip(0, 100).round(1)
 
     def classify(row):
+        if row["email_unique_clicks"] > 0 and row["ga4_sessions"] <= 0:
+            return "Email clicks, no matched GA4 data"
         if row["email_unique_clicks"] > 0 and row["ga4_engagement_rate"] < 0.35:
             return "Email interest, weak on-site engagement"
         if row["gsc_impressions"] >= 100 and row["gsc_ctr"] < 0.025:
@@ -293,6 +295,8 @@ def build_opportunities(scorecard: pd.DataFrame) -> pd.DataFrame:
             action = "Rewrite title/meta and align intro copy with the query promise."
         elif status == "Email interest, weak on-site engagement":
             action = "Review landing-page layout, CTA clarity, and above-the-fold relevance for email visitors."
+        elif status == "Email clicks, no matched GA4 data":
+            action = "Verify destination URL mapping and GA4 tracking before assessing landing-page engagement."
         elif status == "Distribution gap":
             action = "Add this page to newsletter, homepage module, or related-content placements."
         elif status == "Refresh candidate":

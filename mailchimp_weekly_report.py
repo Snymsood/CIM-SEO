@@ -272,11 +272,15 @@ def flatten_reports(campaigns_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFr
         report = fetch_campaign_report(campaign_id)
         opens = report.get("opens", {})
         clicks = report.get("clicks", {})
+        bounces = report.get("bounces", {})
         ecommerce = report.get("ecommerce", {})
+        emails_sent = report.get("emails_sent", campaign.get("emails_sent", 0))
+        delivered_estimate = max(0, float(emails_sent or 0) - float(bounces.get("hard_bounces", 0) or 0) - float(bounces.get("soft_bounces", 0) or 0))
         report_rows.append({
             "campaign_id": campaign_id,
             "newsletter_segment": segment,
-            "emails_sent": report.get("emails_sent", campaign.get("emails_sent", 0)),
+            "emails_sent": emails_sent,
+            "emails_delivered_estimate": delivered_estimate,
             "abuse_reports": report.get("abuse_reports", 0),
             "unsubscribed": report.get("unsubscribed", 0),
             "open_rate": opens.get("open_rate", 0),
@@ -314,23 +318,42 @@ def flatten_reports(campaigns_df: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFr
     return report_df, click_df, content_links_df
 
 
+MIN_EXECUTIVE_SEND = 100
+
+
+def _weighted_rate(reports: pd.DataFrame, column: str) -> float:
+    if reports.empty or column not in reports:
+        return 0.0
+    weight_column = "emails_delivered_estimate" if "emails_delivered_estimate" in reports else "emails_sent"
+    weights = pd.to_numeric(reports[weight_column], errors="coerce").fillna(0)
+    rates = pd.to_numeric(reports[column], errors="coerce")
+    valid = (weights > 0) & rates.notna()
+    return float((weights[valid] * rates[valid]).sum() / weights[valid].sum()) if valid.any() else 0.0
+
+
 def build_summary(campaigns_df: pd.DataFrame, reports_df: pd.DataFrame, clicks_df: pd.DataFrame) -> pd.DataFrame:
     if campaigns_df.empty:
         return pd.DataFrame([{
             "campaigns_sent": 0,
             "emails_sent": 0,
+            "emails_delivered_estimate": 0,
             "avg_open_rate": 0,
             "avg_click_rate": 0,
             "total_clicks": 0,
             "unique_clicked_links": 0,
+            "test_sends_excluded": 0,
         }])
+    eligible = reports_df[pd.to_numeric(reports_df["emails_sent"], errors="coerce").fillna(0) >= MIN_EXECUTIVE_SEND] if not reports_df.empty else reports_df
+    eligible_clicks = clicks_df[clicks_df["campaign_id"].isin(eligible["campaign_id"])] if not clicks_df.empty and "campaign_id" in clicks_df and "campaign_id" in eligible else clicks_df.iloc[0:0]
     return pd.DataFrame([{
-        "campaigns_sent": len(campaigns_df),
-        "emails_sent": pd.to_numeric(reports_df.get("emails_sent", pd.Series(dtype=float)), errors="coerce").fillna(0).sum(),
-        "avg_open_rate": pd.to_numeric(reports_df.get("open_rate", pd.Series(dtype=float)), errors="coerce").fillna(0).mean() if not reports_df.empty else 0,
-        "avg_click_rate": pd.to_numeric(reports_df.get("click_rate", pd.Series(dtype=float)), errors="coerce").fillna(0).mean() if not reports_df.empty else 0,
-        "total_clicks": pd.to_numeric(clicks_df.get("total_clicks", pd.Series(dtype=float)), errors="coerce").fillna(0).sum() if not clicks_df.empty else 0,
-        "unique_clicked_links": clicks_df["url_canonical"].nunique() if not clicks_df.empty and "url_canonical" in clicks_df.columns else 0,
+        "campaigns_sent": len(eligible),
+        "emails_sent": pd.to_numeric(eligible.get("emails_sent", pd.Series(dtype=float)), errors="coerce").fillna(0).sum(),
+        "emails_delivered_estimate": pd.to_numeric(eligible.get("emails_delivered_estimate", eligible.get("emails_sent", pd.Series(dtype=float))), errors="coerce").fillna(0).sum(),
+        "avg_open_rate": _weighted_rate(eligible, "open_rate"),
+        "avg_click_rate": _weighted_rate(eligible, "click_rate"),
+        "total_clicks": pd.to_numeric(eligible_clicks.get("total_clicks", pd.Series(dtype=float)), errors="coerce").fillna(0).sum() if not eligible_clicks.empty else 0,
+        "unique_clicked_links": eligible_clicks["url_canonical"].nunique() if not eligible_clicks.empty and "url_canonical" in eligible_clicks.columns else 0,
+        "test_sends_excluded": len(reports_df) - len(eligible),
     }])
 
 
@@ -358,8 +381,10 @@ def build_segment_summary(campaigns_df: pd.DataFrame, reports_df: pd.DataFrame, 
     rows = []
     for segment in NEWSLETTER_SEGMENTS:
         seg_campaigns = campaigns[campaigns["newsletter_segment"] == segment]
-        seg_reports = report[report["newsletter_segment"] == segment] if not report.empty else pd.DataFrame()
+        seg_reports = report[(report["newsletter_segment"] == segment) & (pd.to_numeric(report["emails_sent"], errors="coerce").fillna(0) >= MIN_EXECUTIVE_SEND)] if not report.empty else pd.DataFrame()
         seg_clicks = clicks[clicks["newsletter_segment"] == segment] if not clicks.empty else pd.DataFrame()
+        if not seg_clicks.empty:
+            seg_clicks = seg_clicks[seg_clicks["campaign_id"].isin(seg_reports["campaign_id"])] if "campaign_id" in seg_reports else seg_clicks.iloc[0:0]
         if seg_campaigns.empty and seg_reports.empty and seg_clicks.empty:
             continue
 
@@ -403,10 +428,10 @@ def build_segment_summary(campaigns_df: pd.DataFrame, reports_df: pd.DataFrame, 
         rows.append({
             "newsletter_segment": segment,
             "primary_metric": primary,
-            "campaigns_sent": len(seg_campaigns),
+            "campaigns_sent": len(seg_reports),
             "emails_sent": emails_sent,
-            "avg_open_rate": pd.to_numeric(seg_reports.get("open_rate", pd.Series(dtype=float)), errors="coerce").fillna(0).mean() if not seg_reports.empty else 0,
-            "avg_click_rate": pd.to_numeric(seg_reports.get("click_rate", pd.Series(dtype=float)), errors="coerce").fillna(0).mean() if not seg_reports.empty else 0,
+            "avg_open_rate": _weighted_rate(seg_reports, "open_rate"),
+            "avg_click_rate": _weighted_rate(seg_reports, "click_rate"),
             "avg_click_to_open_rate": (unique_clicks / unique_opens) if unique_opens else 0,
             "total_clicks": total_clicks,
             "unique_clicks": unique_clicks,
@@ -645,7 +670,7 @@ def write_html(campaigns_df, reports_df, clicks_df, content_links_df, summary_df
             "<ul class=\"exec-bullets\">"
             f"<li>{_fmt_num(summary['total_clicks'])} total link clicks across {_fmt_num(summary['unique_clicked_links'])} unique clicked links.</li>"
             "<li>Use the linked-content table to identify which articles, resources, events, and landing pages deserve follow-up distribution.</li>"
-            "<li>Subscriber-level activity is intentionally excluded; this report is aggregate and content-focused.</li>"
+            f"<li>Open and click rates are weighted by estimated delivered emails; {int(summary.get('test_sends_excluded', 0))} sends under {MIN_EXECUTIVE_SEND} recipients are excluded from executive rates. Subscriber-level activity is excluded.</li>"
             "</ul>"
         ))
         + mm_section("Newsletter-Specific Readout", mm_report_section(
@@ -736,7 +761,7 @@ def main():
             "subject_line", "title", "from_name", "archive_url",
         ])
         reports_df = pd.DataFrame(columns=[
-            "campaign_id", "emails_sent", "open_rate", "opens_total",
+            "campaign_id", "emails_sent", "emails_delivered_estimate", "open_rate", "opens_total",
             "unique_opens", "click_rate", "clicks_total", "unique_clicks",
         ])
         clicks_df = pd.DataFrame(columns=[

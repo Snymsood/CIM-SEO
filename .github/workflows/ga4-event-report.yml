@@ -48,3 +48,6 @@ jobs:
             normalized/
             event_tracking_config.csv
             ga4_event_report_output.html
+            ga4_event_summary.csv
+            ga4_event_landing_pages.csv
+            report_period.json

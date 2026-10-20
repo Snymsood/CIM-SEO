@@ -77,6 +77,12 @@ def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
+def record_delivery_status(status: str, channel: str = "monday", detail: str = "", root: Path | str = ".") -> None:
+    Path(root, "report_delivery_status.json").write_text(json.dumps({
+        "status": status, "channel": channel, "detail": detail, "checked_at": utc_now_iso()
+    }, indent=2), encoding="utf-8")
+
+
 def canonicalize_url(value: Any, default_scheme: str = "https") -> str:
     """Normalize a URL enough for cross-report joins without changing meaning."""
     if value is None or (isinstance(value, float) and pd.isna(value)):
@@ -425,6 +431,7 @@ a{{color:#111;text-decoration:underline;text-underline-offset:2px}}
 <body>
 <h1>{html.escape(report_name)} Artifact Index</h1>
 <p>Generated {html.escape(manifest['generated_at'])}.</p>
+<p>Period: {html.escape(manifest['period_start'])} to {html.escape(manifest['period_end'])} · Source run: {html.escape(str(manifest['run_id']) or 'local')} · Delivery: {html.escape(str(manifest['delivery'].get('status', 'unreported')))}</p>
 <div class="panel">
 <h2>Quality Signals</h2>
 <ul>{warning_items}</ul>
@@ -510,13 +517,33 @@ def finalize_report_artifacts(report_name: str, root: Path | str = ".") -> dict[
             "size_bytes": p.stat().st_size,
         })
 
+    from seo_utils import get_monthly_date_windows, get_weekly_date_windows
+
+    period_file = root / "report_period.json"
+    if period_file.exists():
+        period = json.loads(period_file.read_text(encoding="utf-8"))
+        period_start, period_end = period["start"], period["end"]
+    else:
+        windows = get_monthly_date_windows() if "monthly" in report_name.lower() else get_weekly_date_windows()
+        period_start, period_end = (day.isoformat() for day in windows[:2])
+    source_runs_file = root / "source_report_runs.json"
+    source_runs = json.loads(source_runs_file.read_text(encoding="utf-8")) if source_runs_file.exists() else []
+    delivery_file = root / "report_delivery_status.json"
+    delivery = json.loads(delivery_file.read_text(encoding="utf-8")) if delivery_file.exists() else {"status": "unreported"}
+
     manifest = {
         "report_name": report_name,
         "generated_at": utc_now_iso(),
+        "period_start": period_start,
+        "period_end": period_end,
+        "period_id": f"{period_start}_{period_end}",
         "run_id": os.getenv("GITHUB_RUN_ID", ""),
         "run_attempt": os.getenv("GITHUB_RUN_ATTEMPT", ""),
         "workflow": os.getenv("GITHUB_WORKFLOW", ""),
         "sha": os.getenv("GITHUB_SHA", ""),
+        "source_runs": source_runs,
+        "generation_status": "artifacts_written",
+        "delivery": delivery,
         "artifacts": artifacts,
         "warnings": warnings,
     }

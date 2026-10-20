@@ -150,14 +150,24 @@ async def fetch_pagespeed_async(session, url, strategy="mobile"):
         "category": ["performance", "accessibility"],
         "key": PAGESPEED_API_KEY,
     }
-    async with session.get(
-        PAGESPEED_API_URL, params=params, timeout=aiohttp.ClientTimeout(total=180)
-    ) as response:
-        if not response.ok:
-            text = await response.text()
-            print(f"PSI error for {strategy} {url}: {response.status} {text}", flush=True)
-            response.raise_for_status()
-        return await response.json()
+    for attempt in range(3):
+        async with session.get(
+            PAGESPEED_API_URL, params=params, timeout=aiohttp.ClientTimeout(total=180)
+        ) as response:
+            if response.ok:
+                return await response.json()
+            retryable = response.status in {429, 500, 502, 503, 504}
+            if retryable and attempt < 2:
+                try:
+                    delay = min(max(float(response.headers.get("Retry-After", "")), 0), 30)
+                except ValueError:
+                    delay = 2 ** (attempt + 1)
+                print(f"PSI {response.status} for {strategy} {url}; retrying in {delay:g}s", flush=True)
+            else:
+                detail = (await response.text())[:200]
+                print(f"PSI error for {strategy} {url}: {response.status} {detail}", flush=True)
+                response.raise_for_status()
+        await asyncio.sleep(delay)
 
 
 def _null_record(page_meta, strategy):
@@ -256,7 +266,7 @@ async def process_page_strategy(session, page_meta, strategy):
 
 
 async def collect_snapshot_async(tracked_df):
-    conn = aiohttp.TCPConnector(limit=10)  # respect API rate limits
+    conn = aiohttp.TCPConnector(limit=4)  # reduce burst pressure on the PSI API
     async with aiohttp.ClientSession(connector=conn) as session:
         tasks = [
             process_page_strategy(session, row.to_dict(), strategy)

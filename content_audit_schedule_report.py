@@ -9,6 +9,8 @@ import os
 import html
 import json
 import math
+from pathlib import Path
+from seo_utils import get_weekly_date_windows
 
 from pdf_report_formatter import html_table_from_df, safe_pct_change
 from html_report_utils import (
@@ -492,6 +494,15 @@ def write_html_summary(selected_df, scored_df, commentary_text, current_start, c
         {"page":"Page","recommended_action":"Recommendation","low_performance_score":"Score","clicks_current":"Clicks",
          "impressions_current":"Impressions","ctr_current":"CTR","position_current":"Position"}
     )
+    followup_path = Path("content_audit_selection_followup.csv")
+    followup_df = pd.read_csv(followup_path) if followup_path.exists() else pd.DataFrame()
+    if not followup_df.empty:
+        followup_df = followup_df[followup_df["selected_period_end"].astype(str) < current_end.isoformat()].head(10)
+    followup_tbl = tbl(followup_df,
+        ["page", "selected_period_end", "baseline_clicks", "clicks_current", "observed_click_change", "observed_impression_change"],
+        {"page": "Selected Page", "selected_period_end": "Selected Period", "baseline_clicks": "Baseline Clicks",
+         "clicks_current": "Current Clicks", "observed_click_change": "Observed Click Change",
+         "observed_impression_change": "Observed Impression Change"})
 
     body = (
         mm_section("Executive Commentary",
@@ -514,6 +525,9 @@ def write_html_summary(selected_df, scored_df, commentary_text, current_start, c
         ) +
         mm_section("Candidate Comparison",
             mm_report_section(candidate_tbl)
+        ) +
+        mm_section("Earlier Selection Follow-up",
+            mm_report_section("<p>Search movement is observed after selection; this does not establish that a refresh was completed or caused the change.</p>" + followup_tbl)
         )
     )
 
@@ -545,11 +559,15 @@ def main():
     service = get_service()
     config_df = load_config()
 
-    current_end = date.today() - timedelta(days=1)
+    current_end = get_weekly_date_windows()[1]
     current_start = current_end - timedelta(days=27)
 
     previous_end = current_start - timedelta(days=1)
     previous_start = previous_end - timedelta(days=27)
+    Path("report_period.json").write_text(
+        json.dumps({"start": current_start.isoformat(), "end": current_end.isoformat()}),
+        encoding="utf-8",
+    )
 
     current_df = fetch_page_data(service, current_start, current_end, row_limit=25000)
     previous_df = fetch_page_data(service, previous_start, previous_end, row_limit=25000)
@@ -573,6 +591,22 @@ def main():
     comparison_df.to_csv("content_audit_page_comparison.csv", index=False)
     scored_df.to_csv("content_audit_candidates.csv", index=False)
     selected_df.to_csv("content_audit_selection.csv", index=False)
+    history_path = Path("content_audit_selection_history.csv")
+    previous_history = pd.read_csv(history_path) if history_path.exists() else pd.DataFrame(
+        columns=["selected_period_end", "page", "baseline_clicks", "baseline_impressions"])
+    if not selected_df.empty:
+        selected_history = selected_df[["page", "clicks_current", "impressions_current"]].rename(
+            columns={"clicks_current": "baseline_clicks", "impressions_current": "baseline_impressions"})
+        selected_history.insert(0, "selected_period_end", current_end.isoformat())
+        previous_history = pd.concat([previous_history, selected_history], ignore_index=True).drop_duplicates(
+            ["selected_period_end", "page"], keep="last")
+    previous_history.to_csv(history_path, index=False)
+    followup = previous_history.merge(
+        comparison_df[["page", "clicks_current", "impressions_current"]], on="page", how="left")
+    followup["observed_click_change"] = pd.to_numeric(followup["clicks_current"], errors="coerce") - pd.to_numeric(followup["baseline_clicks"], errors="coerce")
+    followup["observed_impression_change"] = pd.to_numeric(followup["impressions_current"], errors="coerce") - pd.to_numeric(followup["baseline_impressions"], errors="coerce")
+    followup["note"] = "Observed search movement after selection; refresh completion and causality unverified"
+    followup.to_csv("content_audit_selection_followup.csv", index=False)
 
     generate_charts(selected_df, candidate_df)
 

@@ -521,8 +521,8 @@ def write_html_summary(commentary_text, page_summary_df, flagged_pages_df, prior
         ) +
         mm_section("Priority Target Review",
             mm_report_section(tbl(priority_target_df,
-                ["priority_target","inlinks","flag_low_inlinks"],
-                {"priority_target":"Priority Target","inlinks":"Inlinks","flag_low_inlinks":"Low Support Flag"}
+                ["priority_target","inlinks","flag_low_inlinks","first_seen","last_seen","status","source_examples"],
+                {"priority_target":"Priority Target","inlinks":"Inlinks","flag_low_inlinks":"Low Support Flag","first_seen":"First Seen","last_seen":"Last Seen","status":"Issue Status","source_examples":"Example Linking Pages"}
             ))
         ) +
         mm_section("Generic Anchor Text Examples",
@@ -575,6 +575,19 @@ def main():
         links_df,
         config_df,
     )
+    if not priority_target_df.empty:
+        source_examples = (links_df.groupby("target_url")["source_url"]
+                           .apply(lambda values: " | ".join(values.dropna().astype(str).drop_duplicates().head(3)))) if not links_df.empty else pd.Series(dtype=str)
+        priority_target_df["source_examples"] = priority_target_df["priority_target"].map(source_examples).fillna("")
+        from issue_history import update_issue_history
+        previous_path = Path("internal_linking_priority_history.csv")
+        previous = pd.read_csv(previous_path) if previous_path.exists() else pd.DataFrame()
+        current = priority_target_df[priority_target_df["flag_low_inlinks"]].copy()
+        history = update_issue_history(previous, current, "priority_target", date.today())
+        history.to_csv(previous_path, index=False)
+        priority_target_df = priority_target_df.merge(
+            history[["priority_target", "first_seen", "last_seen", "status"]],
+            on="priority_target", how="left")
     opportunities_df = build_link_opportunities(page_summary_df, priority_target_df, config_df)
     commentary_text = build_executive_analysis(flagged_pages_df, priority_target_df, opportunities_df)
 

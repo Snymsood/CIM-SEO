@@ -373,8 +373,24 @@ def main() -> None:
     md_path = REPORT_DIR / "ai_snippet_verification.md"
 
     df.to_csv(csv_path, index=False)
+    previous_path = Path("previous_ai_snippet.csv")
+    movement_columns = ["target_url", "page_name", "access_score", "summary_score", "cta_score"]
+    movement = df[movement_columns].copy()
+    if previous_path.exists():
+        prior = pd.read_csv(previous_path).reindex(columns=["target_url", "access_score", "summary_score", "cta_score"])
+        movement = movement.merge(prior, on="target_url", how="left", suffixes=("_current", "_previous"))
+        for metric in ("access_score", "summary_score", "cta_score"):
+            movement[f"{metric}_change"] = pd.to_numeric(movement[f"{metric}_current"], errors="coerce") - pd.to_numeric(movement[f"{metric}_previous"], errors="coerce")
+    else:
+        movement = movement.rename(columns={metric: f"{metric}_current" for metric in ("access_score", "summary_score", "cta_score")})
+        for metric in ("access_score", "summary_score", "cta_score"):
+            movement[f"{metric}_previous"] = pd.NA
+            movement[f"{metric}_change"] = pd.NA
+    movement["measurement_scope"] = "Page extraction proxy; not a live AI search answer"
+    movement.to_csv(REPORT_DIR / "ai_snippet_score_movement.csv", index=False)
 
     report = build_markdown_report(df)
+    report += "\n## Page-level score movement\n\nThese scores measure a page-extraction proxy, not live AI search answers. See ai_snippet_score_movement.csv for paired scores and changes.\n"
     md_path.write_text(report, encoding="utf-8")
 
     update_monday(report)

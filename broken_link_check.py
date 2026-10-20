@@ -5,7 +5,7 @@
 # ══════════════════════════════════════════════════════════════════════════════
 
 from collections import deque
-from datetime import date
+from datetime import date, datetime, timezone
 from openai import OpenAI
 from urllib.parse import urljoin, urlparse, urldefrag
 from bs4 import BeautifulSoup
@@ -29,6 +29,7 @@ import numpy as np
 from pdf_report_formatter import format_pct_change, format_num
 from google_sheets_db import append_to_sheet
 from seo_utils import short_url
+from issue_history import update_issue_history
 
 # ══════════════════════════════════════════════════════════════════════════════
 # CONSTANTS
@@ -189,7 +190,8 @@ def crawl_site(seed_df):
 
         try:
             response = fetch_page(current_url)
-            print(f"  Crawled {current_url} → {response.status_code}", flush=True)
+            if os.getenv("VERBOSE_CRAWL_LOGS") == "1" or (len(visited_pages) + 1) % 50 == 0:
+                print(f"  Crawled {len(visited_pages) + 1:,} pages; {len(discovered_links):,} links found", flush=True)
         except Exception as e:
             print(f"  ✗ Failed {current_url}: {e}", flush=True)
             visited_pages.add(current_url)
@@ -260,13 +262,32 @@ async def _evaluate_links_async(links_df):
         ])
 
     unique_targets = links_df["target_url"].dropna().unique().tolist()
+    cache_path = Path("link_target_status_cache.csv")
+    cached = {}
+    if cache_path.exists():
+        try:
+            prior = pd.read_csv(cache_path)
+            cutoff = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=8)
+            prior["checked_at"] = pd.to_datetime(prior["checked_at"], errors="coerce", utc=True)
+            prior["status_code"] = pd.to_numeric(prior["status_code"], errors="coerce")
+            reusable = prior[(prior["checked_at"] >= cutoff) & prior["status_code"].between(200, 399)]
+            cached = {row["target_url"]: {**row, "error": None,
+                                        "redirect_count": 0 if pd.isna(row.get("redirect_count")) else row["redirect_count"]}
+                      for row in reusable.to_dict("records")}
+        except (ValueError, KeyError, pd.errors.ParserError) as exc:
+            print(f"  Ignoring unreadable link cache: {exc}", flush=True)
+    uncached = [url for url in unique_targets if url not in cached]
     semaphore  = asyncio.Semaphore(15)
     connector  = aiohttp.TCPConnector(limit=20)
     headers    = {"User-Agent": "CIM-SEO-LinkChecker/1.0"}
 
     async with aiohttp.ClientSession(connector=connector, headers=headers) as session:
-        tasks       = [_check_one_link(session, semaphore, url) for url in unique_targets]
+        tasks       = [_check_one_link(session, semaphore, url) for url in uncached]
         raw_results = await asyncio.gather(*tasks)
+
+    now = datetime.now(timezone.utc).isoformat()
+    raw_results = list(cached.values()) + [{**result, "checked_at": now} for result in raw_results]
+    print(f"  Link targets: {len(unique_targets):,} distinct; {len(cached):,} reused; {len(uncached):,} checked", flush=True)
 
     status_rows = []
     for result in raw_results:
@@ -274,9 +295,12 @@ async def _evaluate_links_async(links_df):
             result["status_code"], result["error"], result["redirect_count"]
         )
         status_rows.append(result)
-        print(f"  Checked {result['target_url']} → {result['issue_type']}", flush=True)
+        if os.getenv("VERBOSE_CRAWL_LOGS") == "1":
+            print(f"  Checked {result['target_url']} → {result['issue_type']}", flush=True)
 
     status_df = pd.DataFrame(status_rows)
+    status_df.to_csv(cache_path, index=False)
+    print(f"  Target results: {status_df['issue_type'].value_counts().to_dict()}", flush=True)
     return pd.merge(links_df, status_df, on="target_url", how="left")
 
 
@@ -1219,7 +1243,8 @@ def write_html_summary(results_df, kpis, exec_bullets, chart_paths):
 
     kpi_grid = "".join([
         _kpi_card("Source Pages",     kpis["source_pages"]),
-        _kpi_card("Broken (404/410)", kpis["broken"],       lower_better=True),
+        _kpi_card("Broken Targets",   broken_df["target_url"].nunique(), lower_better=True),
+        _kpi_card("Broken Occurrences", kpis["broken"], lower_better=True),
         _kpi_card("4xx Other",        kpis["client_error"], lower_better=True),
         _kpi_card("5xx Errors",       kpis["server_error"], lower_better=True),
         _kpi_card("Redirects",        kpis["redirect"],     lower_better=True),
@@ -1228,6 +1253,13 @@ def write_html_summary(results_df, kpis, exec_bullets, chart_paths):
 
     domain_tbl   = build_domain_summary_table(results_df)
     broken_tbl   = build_issues_table(broken_df)
+    top_fixes = build_unique_issue_summary(results_df)
+    top_fixes = top_fixes[top_fixes["issue_type"] == "broken"].sort_values("source_page_count", ascending=False).head(10)
+    history_path = Path("broken_link_issue_history.csv")
+    if history_path.exists() and not top_fixes.empty:
+        history = pd.read_csv(history_path)
+        top_fixes = top_fixes.merge(history[["target_url", "first_seen", "last_seen", "status"]], on="target_url", how="left")
+    top_fixes_table = top_fixes.reindex(columns=["target_url", "source_page_count", "first_seen", "last_seen", "status", "sample_source_pages"]).to_html(index=False, escape=True) if not top_fixes.empty else "<p>No broken targets found.</p>"
     client_tbl   = build_issues_table(client_df)
     server_tbl   = build_issues_table(server_df)
     redirect_tbl = build_redirect_table(redirect_df)
@@ -1458,7 +1490,15 @@ body {{
 
 <!-- ══ BROKEN LINKS TABLE ════════════════════════════════════════ -->
 <div class="section">
-  <div class="section-title">Broken Links (404 / 410)</div>
+  <div class="section-title">Top Distinct Broken Targets</div>
+  <div class="report-section">
+    <p>Source page count shows how many pages link to the same broken target. Full occurrences remain in the raw CSV.</p>
+    {top_fixes_table}
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Broken Link Occurrences (404 / 410)</div>
   <div class="report-section">
     {broken_tbl}
   </div>
@@ -1518,14 +1558,14 @@ def generate_self_contained():
 # MONDAY UPLOAD  (HTML file, matching GSC weekly pattern)
 # ══════════════════════════════════════════════════════════════════════════════
 
-def upload_to_monday():
+def _upload_to_monday():
     """Post a text update and attach the self-contained HTML to Monday.com."""
     api_token = MONDAY_API_TOKEN
     item_id   = MONDAY_ITEM_ID
 
     if not api_token or not item_id:
         print("  Monday upload skipped: MONDAY_API_TOKEN or MONDAY_ITEM_ID not configured.", flush=True)
-        return
+        return False
 
     body_text = (
         "Broken Link & Technical Audit attached as a self-contained HTML file. "
@@ -1559,7 +1599,7 @@ def upload_to_monday():
     html_path = Path("broken_link_summary_final.html")
     if not html_path.exists():
         print("  Monday file attach skipped: broken_link_summary_final.html not found.", flush=True)
-        return
+        return False
 
     with open(html_path, "rb") as f:
         file_resp = requests.post(
@@ -1578,6 +1618,17 @@ def upload_to_monday():
     if "errors" in file_data:
         raise RuntimeError(f"Monday file attach failed: {file_data['errors']}")
     print("  Uploaded broken-link-audit.html to Monday.com successfully.", flush=True)
+    return True
+
+
+def upload_to_monday():
+    from reporting_ops import record_delivery_status
+    try:
+        sent = _upload_to_monday()
+    except Exception as exc:
+        record_delivery_status("failed", detail=str(exc))
+        raise
+    record_delivery_status("delivered" if sent else "skipped", detail="broken-link-audit.html")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1636,6 +1687,9 @@ def main():
     issue_df.to_csv("broken_link_issues_only.csv", index=False)
     unique_issue_df = build_unique_issue_summary(results_df)
     unique_issue_df.to_csv("broken_link_unique_issues.csv", index=False)
+    prior_path = Path("broken_link_issue_history.csv")
+    previous = pd.read_csv(prior_path) if prior_path.exists() else pd.DataFrame()
+    update_issue_history(previous, unique_issue_df, "target_url", date.today()).to_csv(prior_path, index=False)
     print("  ✓ Saved discovered_internal_links.csv")
     print("  ✓ Saved broken_link_results.csv")
     print("  ✓ Saved broken_link_issues_only.csv\n")

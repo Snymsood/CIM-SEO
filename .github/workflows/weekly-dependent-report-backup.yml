@@ -17,8 +17,10 @@ jobs:
       - name: Dispatch missing dependent reports
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          gh api "repos/$GH_REPO" --jq .full_name >/dev/null
 
           since="$(date -u +%Y-%m-%dT00:00:00Z)"
           until="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -67,7 +69,7 @@ jobs:
 
             if [ -z "$run_id" ]; then
               echo "No ${label} run id available to wait for."
-              return 0
+              return 1
             fi
 
             for _ in $(seq 1 60); do
@@ -75,13 +77,15 @@ jobs:
               if [ "$status" = "completed" ]; then
                 conclusion="$(gh run view "$run_id" --json conclusion --jq '.conclusion')"
                 echo "${label} completed with conclusion: ${conclusion}"
-                return 0
+                [ "$conclusion" = "success" ]
+                return
               fi
               echo "${label} is ${status}; waiting..."
               sleep 60
             done
 
             echo "${label} did not complete within the backup wait window."
+            return 1
           }
 
           missing_sources=""
@@ -100,7 +104,7 @@ jobs:
 
           if [ -n "$missing_sources" ]; then
             echo "Skipping dependent reports because these source reports do not have a successful or active run today: ${missing_sources}"
-            exit 0
+            exit 1
           fi
 
           if [ "$(run_count content-strategy-report.yml)" -eq 0 ]; then

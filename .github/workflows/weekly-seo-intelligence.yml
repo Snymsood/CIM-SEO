@@ -25,6 +25,18 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Load previous KPI history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          previous_run="$(gh run list --workflow weekly-seo-intelligence.yml --branch "${{ github.ref_name }}" --status completed --limit 10 --json databaseId,conclusion --jq '.[] | select(.conclusion == "success") | .databaseId' | head -n 1)"
+          if [ -n "$previous_run" ]; then
+            mkdir -p previous-intelligence
+            if gh run download "$previous_run" --name weekly-seo-intelligence --dir previous-intelligence; then
+              cp previous-intelligence/weekly_trend_history.csv weekly_trend_history.csv 2>/dev/null || true
+            fi
+          fi
+
       - name: Download weekly report artifacts
         env:
           GH_TOKEN: ${{ github.token }}
@@ -37,10 +49,11 @@ jobs:
               tmp_dir="downloaded-${artifact}"
               rm -rf "$tmp_dir"
               mkdir -p "$tmp_dir"
-              if gh run download "$run_id" --name "$artifact" --dir "$tmp_dir"; then
+              if gh run download "$run_id" --name "$artifact" --dir "$tmp_dir" && python validate_source_artifact.py "$tmp_dir" "$artifact" "$run_id"; then
+                rm -f "$tmp_dir"/report_manifest.json "$tmp_dir"/report_period.json "$tmp_dir"/report_delivery_status.json "$tmp_dir"/reporting_quality_warnings.csv "$tmp_dir"/reporting_artifact_index.html
                 cp -Rf "$tmp_dir"/. .
               else
-                echo "Artifact $artifact not available from $workflow."
+                echo "Artifact $artifact missing or stale from $workflow."
               fi
             else
               echo "No successful run found for $workflow."
@@ -93,6 +106,10 @@ jobs:
             weekly_seo_anomalies.csv
             weekly_content_decay_candidates.csv
             weekly_seo_intelligence_report.html
+            weekly_trends.csv
+            search_query_page_opportunities.csv
+            weekly_trend_history.csv
+            source_report_runs.json
             weekly_seo_intelligence_summary.json
             weekly_seo_intelligence_ai_recommendations.md
             outputs/weekly_intelligence.json

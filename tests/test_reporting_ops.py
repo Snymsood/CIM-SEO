@@ -6,7 +6,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from reporting_ops import canonicalize_url, finalize_report_artifacts
+from reporting_ops import canonicalize_url, finalize_report_artifacts, record_delivery_status
 
 
 def test_canonicalize_url_removes_tracking_and_normalizes_host():
@@ -28,6 +28,7 @@ def test_finalize_report_artifacts_creates_manifest_and_enhances_html(tmp_path):
         "<html><head><title>Sample</title></head><body><table><tr><td>https://www.cim.org/page/</td></tr></table></body></html>",
         encoding="utf-8",
     )
+    record_delivery_status("skipped", detail="test", root=tmp_path)
 
     manifest = finalize_report_artifacts("Sample Report", tmp_path)
 
@@ -38,6 +39,8 @@ def test_finalize_report_artifacts_creates_manifest_and_enhances_html(tmp_path):
 
     saved_manifest = json.loads((tmp_path / "report_manifest.json").read_text(encoding="utf-8"))
     assert saved_manifest["report_name"] == "Sample Report"
+    assert saved_manifest["period_id"] == f"{saved_manifest['period_start']}_{saved_manifest['period_end']}"
+    assert saved_manifest["delivery"]["status"] == "skipped"
     assert manifest["report_name"] == "Sample Report"
 
     html = (tmp_path / "sample.html").read_text(encoding="utf-8")

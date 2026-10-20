@@ -37,17 +37,17 @@ jobs:
               tmp_dir="downloaded-${artifact}"
               rm -rf "$tmp_dir"
               mkdir -p "$tmp_dir"
-              if gh run download "$run_id" --name "$artifact" --dir "$tmp_dir"; then
+              if gh run download "$run_id" --name "$artifact" --dir "$tmp_dir" && python validate_source_artifact.py "$tmp_dir" "$artifact" "$run_id"; then
+                rm -f "$tmp_dir"/report_manifest.json "$tmp_dir"/report_period.json "$tmp_dir"/report_delivery_status.json "$tmp_dir"/reporting_quality_warnings.csv "$tmp_dir"/reporting_artifact_index.html
                 cp -Rf "$tmp_dir"/. .
               else
-                echo "Artifact $artifact not available from $workflow."
+                echo "Artifact $artifact missing or stale from $workflow."
               fi
             else
               echo "No successful run found for $workflow."
             fi
           }
 
-          download_latest_artifact master-orchestrator.yml master-orchestrator-artifacts
           download_latest_artifact gsc-weekly-report.yml gsc-weekly-report
           download_latest_artifact ga4-weekly-report.yml ga4-weekly-report
           download_latest_artifact critical-landing-pages.yml critical-landing-pages
