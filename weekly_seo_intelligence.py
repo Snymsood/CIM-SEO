@@ -173,6 +173,18 @@ def load_all_report_data() -> dict:
     }
 
 
+def require_core_sources(data: dict) -> None:
+    """Stop delivery when the main-site GA4 or GSC inputs did not load."""
+    missing_core = []
+    if data["ga4_summary"].empty or not {"metric", "current", "previous"}.issubset(data["ga4_summary"].columns):
+        missing_core.append("GA4 summary")
+    if data["gsc_comparison"].empty or not {"clicks_current", "impressions_current"}.issubset(data["gsc_comparison"].columns):
+        missing_core.append("GSC comparison")
+    if missing_core:
+        raise RuntimeError("Cannot publish weekly intelligence without current main-site sources: "
+                           + ", ".join(missing_core))
+
+
 def load_historical_data() -> dict:
     """
     Attempt to read historical data from Google Sheets.
@@ -1518,6 +1530,7 @@ def main(dry_run: bool = False) -> None:
     # Phase 1: Load data
     print("[1/7] Loading report data...")
     data = load_all_report_data()
+    require_core_sources(data)
     data["portfolio_trends"] = build_portfolio_trends(
         Path("portfolio_sources"), (str(current_start), str(current_end)))
     if not data["portfolio_trends"].empty:

@@ -12,6 +12,7 @@ from issue_history import update_issue_history
 from search_opportunities import rank_query_page_losses
 from validate_source_artifact import validate_artifact
 from weekly_trends import update_trend_history, history_signals
+from weekly_seo_intelligence import require_core_sources
 
 
 def test_source_artifact_rejects_stale_week_and_records_run(tmp_path, monkeypatch):
@@ -31,6 +32,31 @@ def test_source_artifact_rejects_stale_week_and_records_run(tmp_path, monkeypatc
     manifest.update(period_start="2026-09-21", period_id="2026-09-21_2026-10-18")
     (folder / "report_manifest.json").write_text(json.dumps(manifest))
     validate_artifact(folder, "content-audit-schedule", "22", tmp_path / "runs.json")
+
+
+def test_legacy_source_artifact_accepts_only_current_generation_week(tmp_path, monkeypatch):
+    from seo_utils import get_weekly_date_windows
+    monkeypatch.setattr("validate_source_artifact.get_weekly_date_windows",
+                        lambda as_of=None: get_weekly_date_windows(as_of or date(2026, 10, 20)))
+    folder = tmp_path / "legacy"
+    folder.mkdir()
+    manifest = {"report_name": "GSC Weekly", "generated_at": "2026-10-19T19:14:20+00:00", "run_id": "22"}
+    (folder / "report_manifest.json").write_text(json.dumps(manifest))
+    record = validate_artifact(folder, "gsc-weekly-report", "22", tmp_path / "runs.json")
+    assert record["period_id"] == "2026-10-12_2026-10-18"
+    manifest["generated_at"] = "2026-10-12T19:14:20+00:00"
+    (folder / "report_manifest.json").write_text(json.dumps(manifest))
+    with pytest.raises(ValueError, match="generation week"):
+        validate_artifact(folder, "gsc-weekly-report", "22", tmp_path / "runs.json")
+
+
+def test_intelligence_requires_core_source_data():
+    with pytest.raises(RuntimeError, match="GA4 summary, GSC comparison"):
+        require_core_sources({"ga4_summary": pd.DataFrame(), "gsc_comparison": pd.DataFrame()})
+    require_core_sources({
+        "ga4_summary": pd.DataFrame([{"metric": "sessions", "current": 10, "previous": 12}]),
+        "gsc_comparison": pd.DataFrame([{"clicks_current": 2, "impressions_current": 10}]),
+    })
 
 
 def test_history_deduplicates_rerun_and_requires_distinct_weeks():
