@@ -265,6 +265,15 @@ def collect_crux(site: Site, api_key: str) -> tuple[list[dict], dict]:
         params={"key": api_key},
         json={"origin": site.origin, "formFactor": "PHONE", "metrics": list(CRUX_METRICS),
               "collectionPeriodCount": 40}, timeout=30)
+    form_factor = "PHONE"
+    if response.status_code == 404:
+        # Smaller sites may meet CrUX's threshold only when devices are combined.
+        response = requests.post(
+            "https://chromeuxreport.googleapis.com/v1/records:queryHistoryRecord",
+            params={"key": api_key},
+            json={"origin": site.origin, "metrics": list(CRUX_METRICS),
+                  "collectionPeriodCount": 40}, timeout=30)
+        form_factor = "ALL"
     if not response.ok:
         # Never include the request URL: it contains the API key.
         detail = _crux_error_detail(response)
@@ -279,19 +288,19 @@ def collect_crux(site: Site, api_key: str) -> tuple[list[dict], dict]:
             start = period.get("firstDate", {})
             end = period.get("lastDate", {})
             rows.append({
-                "site_id": site.site_id, "origin": site.origin, "form_factor": "PHONE",
+                "site_id": site.site_id, "origin": site.origin, "form_factor": form_factor,
                 "metric": metric,
                 "period_start": f"{start.get('year', 0):04d}-{start.get('month', 0):02d}-{start.get('day', 0):02d}",
                 "period_end": f"{end.get('year', 0):04d}-{end.get('month', 0):02d}-{end.get('day', 0):02d}",
                 "p75_raw": p75s[index] if index < len(p75s) else "",
             })
     return rows, _status(site, "crux_history", "ok" if rows else "empty", len(rows),
-                         "Origin-level phone data; each weekly point covers an overlapping 28-day window")
+                         f"Origin-level {form_factor.lower()} device data; each weekly point covers an overlapping 28-day window")
 
 
 def _crux_error_detail(response) -> str:
     if response.status_code == 404:
-        return "No origin-level phone field data"
+        return "No origin-level field data for phone or combined devices"
     project = ""
     try:
         error = response.json().get("error", {})

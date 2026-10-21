@@ -1,8 +1,9 @@
 """Tests for site boundaries and nested sitemap collection."""
 
 import unittest
+from unittest.mock import patch
 
-from site_source_portfolio import Site, _crux_error_detail, _normalize_url, collect_sitemaps, read_sites
+from site_source_portfolio import Site, _crux_error_detail, _normalize_url, collect_crux, collect_sitemaps, read_sites
 
 
 class SiteSourcePortfolioTests(unittest.TestCase):
@@ -61,6 +62,30 @@ class SiteSourcePortfolioTests(unittest.TestCase):
         self.assertIn("Enable Chrome UX Report API", detail)
         self.assertIn("project number 123456789", detail)
         self.assertNotIn("secret key", detail)
+
+    def test_crux_retries_combined_devices_when_phone_data_is_missing(self):
+        class Response:
+            def __init__(self, status_code, payload):
+                self.status_code = status_code
+                self.ok = status_code == 200
+                self.payload = payload
+
+            def json(self):
+                return self.payload
+
+        site = Site("event", "Event", "https://event.example/", "", "", "", "", 0)
+        record = {"record": {"collectionPeriods": [{"firstDate": {"year": 2026, "month": 9, "day": 1},
+                                                    "lastDate": {"year": 2026, "month": 9, "day": 28}}],
+                             "metrics": {"largest_contentful_paint": {
+                                 "percentilesTimeseries": {"p75s": [2400]}}}}}
+        with patch("requests.post", side_effect=[Response(404, {}), Response(200, record)]) as post:
+            rows, status = collect_crux(site, "test-key")
+
+        self.assertEqual(post.call_count, 2)
+        self.assertEqual(post.call_args_list[0].kwargs["json"]["formFactor"], "PHONE")
+        self.assertNotIn("formFactor", post.call_args_list[1].kwargs["json"])
+        self.assertEqual(rows[0]["form_factor"], "ALL")
+        self.assertEqual(status["status"], "ok")
 
 
 if __name__ == "__main__":

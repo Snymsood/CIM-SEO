@@ -42,7 +42,9 @@ mini-site hosts. It is a useful comparison list, not a current source of truth.
   Cloud project and allow it in any API restrictions. It requests phone,
   origin-level history. Missing field data and API access appear in
   `site_source_status.csv`. Keep a dedicated CrUX key in GitHub Secrets if
-  the PageSpeed key should retain narrower API restrictions.
+  the PageSpeed key should retain narrower API restrictions. The collector
+  requests phone data first and retries with combined-device data when a site
+  has no phone record. The `form_factor` column identifies which was returned.
 
   The October 20, 2026 verification returned `SERVICE_DISABLED` for Google
   Cloud project number `634239599076`. The reporting service account lacks
