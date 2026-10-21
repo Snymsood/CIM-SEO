@@ -1,5 +1,5 @@
 site_id,site_name,base_url,sitemap_url,gsc_property,ga4_property_id,ga4_measurement_id,inspection_limit
 main,CIM main site,https://www.cim.org/,https://www.cim.org/sitemap.xml,https://www.cim.org/,341629008,G-NP57YVGQ72,5
-magazine,CIM Magazine,https://magazine.cim.org/en/,https://magazine.cim.org/sitemap.xml,sc-domain:cim.org,16046659386,G-79P1XKTVYE,5
-mrmr2026,MRMR 2026,https://mrmr2026.cim.org/,https://mrmr2026.cim.org/sitemap_index.xml,sc-domain:cim.org,13366380742,G-RTQW03EZ7W,5
-cimconnect,CIM CONNECT,https://cimconnect.ca/,https://cimconnect.ca/sitemap_index.xml,,12230023781,G-ZWFH8RHTGT,5
+magazine,CIM Magazine,https://magazine.cim.org/en/,https://magazine.cim.org/sitemap.xml,sc-domain:cim.org,376202812,G-79P1XKTVYE,5
+mrmr2026,MRMR 2026,https://mrmr2026.cim.org/,https://mrmr2026.cim.org/sitemap_index.xml,sc-domain:cim.org,521567844,G-RTQW03EZ7W,5
+cimconnect,CIM CONNECT,https://cimconnect.ca/,https://cimconnect.ca/sitemap_index.xml,,506934026,G-ZWFH8RHTGT,5

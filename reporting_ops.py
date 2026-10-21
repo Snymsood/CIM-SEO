@@ -279,6 +279,32 @@ def _write_warnings_csv(warnings: list[dict[str, Any]], path: Path) -> None:
         writer.writerows(warnings)
 
 
+def _source_status_warnings(path: Path) -> list[dict[str, str]]:
+    if not path.is_file():
+        return []
+    warnings: list[dict[str, str]] = []
+    with path.open(newline="", encoding="utf-8") as source_file:
+        for row in csv.DictReader(source_file):
+            state = row.get("status", "").strip().lower()
+            if state in {"ok", "disabled"}:
+                continue
+            if state in {"failed", "partial"} or state.startswith("http_"):
+                severity = "high" if state == "failed" or state.startswith("http_") else "medium"
+            elif state in {"not_configured", "empty"}:
+                severity = "medium"
+            else:
+                severity = "info"
+            site = row.get("site_id", "unknown site")
+            source = row.get("source", "unknown source")
+            warnings.append({
+                "severity": severity,
+                "artifact": path.name,
+                "issue": f"{site} {source}: {state or 'unknown'}",
+                "recommendation": row.get("detail", "") or "Review the source status and upstream access.",
+            })
+    return warnings
+
+
 def _append_css(soup: BeautifulSoup) -> None:
     style = soup.new_tag("style")
     style.string = """
@@ -491,6 +517,11 @@ def finalize_report_artifacts(report_name: str, root: Path | str = ".") -> dict[
             normalized_paths.append(normalized)
 
     warnings = quality_warnings(report_name, profiles)
+    source_warnings = _source_status_warnings(root / "site_source_status.csv")
+    if source_warnings:
+        warnings = [warning for warning in warnings
+                    if warning["issue"] != "No obvious artifact quality issues detected"]
+        warnings.extend(source_warnings)
     _write_warnings_csv(warnings, root / "reporting_quality_warnings.csv")
 
     artifacts: list[dict[str, Any]] = []

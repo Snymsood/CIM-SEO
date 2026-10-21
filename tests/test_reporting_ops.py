@@ -46,3 +46,20 @@ def test_finalize_report_artifacts_creates_manifest_and_enhances_html(tmp_path):
     html = (tmp_path / "sample.html").read_text(encoding="utf-8")
     assert "Run Quality And Downloads" in html
     assert "href=\"https://www.cim.org/page/\"" in html
+
+
+def test_source_failures_appear_in_quality_warnings(tmp_path):
+    (tmp_path / "site_source_status.csv").write_text(
+        "site_id,source,status,record_count,detail\n"
+        "main,sitemap,ok,126,Parsed\n"
+        "magazine,ga4,failed,0,Check service account Viewer access\n"
+        "cimconnect,gsc_url_inspection,not_configured,0,GSC property missing\n",
+        encoding="utf-8",
+    )
+
+    finalize_report_artifacts("Site Source Portfolio", tmp_path)
+
+    warnings = pd.read_csv(tmp_path / "reporting_quality_warnings.csv")
+    assert "magazine ga4: failed" in warnings["issue"].values
+    assert "cimconnect gsc_url_inspection: not_configured" in warnings["issue"].values
+    assert "No obvious artifact quality issues detected" not in warnings["issue"].values

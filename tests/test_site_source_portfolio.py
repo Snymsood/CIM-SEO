@@ -10,7 +10,9 @@ class SiteSourcePortfolioTests(unittest.TestCase):
         sites = {site.site_id: site for site in read_sites(__import__("pathlib").Path("site_sources.csv"))}
         self.assertEqual(sites["main"].ga4_property_id, "341629008")
         self.assertEqual(sites["main"].ga4_measurement_id, "G-NP57YVGQ72")
-        self.assertEqual(sites["magazine"].ga4_property_id, "16046659386")
+        self.assertEqual(sites["magazine"].ga4_property_id, "376202812")
+        self.assertEqual(sites["mrmr2026"].ga4_property_id, "521567844")
+        self.assertEqual(sites["cimconnect"].ga4_property_id, "506934026")
         self.assertEqual(sites["magazine"].host, "magazine.cim.org")
 
     def test_main_apex_alias_and_external_site_boundary(self):

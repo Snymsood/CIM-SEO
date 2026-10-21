@@ -10,16 +10,15 @@ the collector never combines GA4 users or events across properties.
 | Site | Reporting URL | Sitemap | GSC inspection property | GA4 |
 |---|---|---|---|---|
 | Main | `https://www.cim.org/` | `https://www.cim.org/sitemap.xml` | `https://www.cim.org/` | Numeric property `341629008` |
-| Magazine | `https://magazine.cim.org/en/` | `https://magazine.cim.org/sitemap.xml` | `sc-domain:cim.org`, with magazine URLs only | Numeric property `16046659386` |
-| MRMR 2026 | `https://mrmr2026.cim.org/` | `https://mrmr2026.cim.org/sitemap_index.xml` | `sc-domain:cim.org`, with MRMR 2026 URLs only | Numeric property `13366380742` |
-| CIM CONNECT | `https://cimconnect.ca/` | `https://cimconnect.ca/sitemap_index.xml` | Property pending | Numeric property `12230023781` |
+| Magazine | `https://magazine.cim.org/en/` | `https://magazine.cim.org/sitemap.xml` | `sc-domain:cim.org`, with magazine URLs only | Numeric property `376202812` |
+| MRMR 2026 | `https://mrmr2026.cim.org/` | `https://mrmr2026.cim.org/sitemap_index.xml` | `sc-domain:cim.org`, with MRMR 2026 URLs only | Numeric property `521567844` |
+| CIM CONNECT | `https://cimconnect.ca/` | `https://cimconnect.ca/sitemap_index.xml` | Property pending | Numeric property `506934026` |
 
 The supplied `G-...` values are GA4 **web-stream measurement IDs**. They are
 recorded in the registry for identification. The GA4 Data API requires numeric
 **property IDs** and the existing service account must have Viewer access to
-each property. The user also supplied `13563392586` for the main site, while
-existing working workflows use `341629008`; the existing ID stays in the
-registry pending confirmation of that mismatch. Event names are
+each property. These IDs are the corrected GA4 Property IDs supplied for all
+four sites. Event names are
 exported as observed; site-specific conversion definitions will be configured
 separately after they are supplied.
 
