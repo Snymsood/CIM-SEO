@@ -5,6 +5,31 @@ workflow runs `site_source_portfolio.py`, finalizes the report in its own output
 directory, and uploads a single artifact. Each row represents a separate site;
 the collector never combines GA4 users or events across properties.
 
+## Weekly schedule and delivery
+
+- The report is scheduled Mondays at **15:41 UTC**. The source-report backup checks at
+  **20:37 UTC** and dispatches the portfolio workflow if no successful or
+  active run exists that Monday.
+- The output is a standalone `site-source-portfolio` GitHub Actions artifact
+  retained for 90 days. It contains the HTML report, source CSVs, status and
+  quality warnings, and a manifest. No Monday.com item is configured for this
+  report.
+- It runs before Weekly SEO Intelligence at **18:11 UTC**, but that report's
+  current main-site trends do not ingest the four-site portfolio. The portfolio
+  keeps mini-site metrics separate from `www.cim.org` totals.
+
+## Content coverage
+
+The HTML report shows per-site sitemap URL counts, latest published sitemap
+`lastmod`, GA4 sessions for the last complete Monday–Sunday week, up to five
+successful GSC URL inspections, and source status. The CSVs retain all sitemap
+URLs, the inspection verdicts and canonicals for sampled URLs, GA4 active users
+and observed event names, and CrUX p75 history by metric and device grouping.
+CrUX points are overlapping 28-day windows, not independent weekly samples.
+When a phone-only CrUX record is unavailable, the collector tries a combined
+device record and labels it `ALL`; the October 20 test used that path for
+CIM CONNECT.
+
 ## Initial scope
 
 | Site | Reporting URL | Sitemap | GSC inspection property | GA4 |
@@ -18,13 +43,14 @@ The supplied `G-...` values are GA4 **web-stream measurement IDs**. They are
 recorded in the registry for identification. The GA4 Data API requires numeric
 **property IDs** and the existing service account must have Viewer access to
 each property. These IDs are the corrected GA4 Property IDs supplied for all
-four sites. Event names are
-exported as observed; site-specific conversion definitions will be configured
-separately after they are supplied.
+four sites. Event names are exported as observed; site-specific conversion
+definitions will be configured separately after they are supplied.
 
 The main sitemap publishes apex `cim.org` URLs, which currently redirect to
 `www.cim.org`. The collector records the original URL and maps the report URL
 to the agreed `www` standard. This mapping applies only to the main site.
+Magazine's reporting link starts at `/en/`, while its sitemap and GA4 hostname
+filter cover all paths on `magazine.cim.org`.
 The provided `sitemap.txt` contains 456 distinct main-domain URLs and no
 mini-site hosts. It is a useful comparison list, not a current source of truth.
 
@@ -46,14 +72,10 @@ mini-site hosts. It is a useful comparison list, not a current source of truth.
   requests phone data first and retries with combined-device data when a site
   has no phone record. The `form_factor` column identifies which was returned.
 
-  The October 20, 2026 verification returned `SERVICE_DISABLED` for Google
-  Cloud project number `634239599076`. The reporting service account lacks
-  permission to enable APIs in that project. A project administrator must
-  select that project in [Google Cloud API Library](https://console.cloud.google.com/apis/library),
-  search for **Chrome UX Report API**, and click **Enable**. Then rerun the
-  Site Source Portfolio workflow. If the next run reports an API-key
-  restriction, allow Chrome UX Report API on the existing key or save a
-  dedicated key as the `CRUX_API_KEY` GitHub secret.
+  The October 20, 2026 verification confirmed that Chrome UX Report API is
+  enabled for the existing key's Google Cloud project `634239599076`. All four
+  sites returned history: phone records for the main site, Magazine, and MRMR;
+  combined-device records for CIM CONNECT.
 - **GA4:** Uses the existing service account and a configured numeric property
   ID. Every query filters to the site's `hostName`. Only observed event names
   and counts are exported; the collector does not infer business outcomes.

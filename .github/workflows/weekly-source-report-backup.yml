@@ -76,3 +76,18 @@ jobs:
           else
             echo "All source reports have successful or active runs today."
           fi
+
+          # The four-site portfolio has its own workflow and is not part of weekly_report_backfill.py.
+          portfolio_count="$(gh run list \
+            --workflow site-source-portfolio.yml \
+            --branch "$branch" \
+            --created "$range" \
+            --limit 50 \
+            --json event,status,conclusion \
+            --jq '[.[] | select((.event == "schedule" or .event == "workflow_dispatch") and (.status != "completed" or .conclusion == "success"))] | length')"
+          if [ "$portfolio_count" -eq 0 ]; then
+            echo "No successful or active Site Source Portfolio run found today; dispatching."
+            gh workflow run site-source-portfolio.yml --ref "$branch"
+          else
+            echo "Site Source Portfolio already has a successful or active run today."
+          fi

@@ -69,7 +69,7 @@ An enterprise-grade SEO automation platform that orchestrates multiple monitorin
 - **Google Sheets Database**: Historical data persistence and trend analysis
 - **Interactive Dashboards**: HTML dashboards with charts and KPIs
 - **Run Quality Layer**: Each report emits a manifest, quality-warning CSV, artifact index, and normalized URL exports. See [`docs/reporting-experience-improvements.md`](docs/reporting-experience-improvements.md).
-- **Site Source Portfolio**: A weekly, site-scoped sitemap, GSC inspection, CrUX, and GA4 collector for the initial four sites. See [`docs/site-source-portfolio.md`](docs/site-source-portfolio.md).
+- **Site Source Portfolio**: A separate Monday HTML/CSV report covering sitemap, sampled GSC inspection, CrUX history, and GA4 for the initial four sites. GitHub Actions retains the artifact for 90 days. See [`docs/site-source-portfolio.md`](docs/site-source-portfolio.md).
 
 ## 📦 Installation
 
