@@ -267,8 +267,7 @@ def collect_crux(site: Site, api_key: str) -> tuple[list[dict], dict]:
               "collectionPeriodCount": 40}, timeout=30)
     if not response.ok:
         # Never include the request URL: it contains the API key.
-        detail = ("No origin-level field data" if response.status_code == 404 else
-                  "Check Chrome UX Report API enablement and key restrictions")
+        detail = _crux_error_detail(response)
         return [], _status(site, "crux_history", f"http_{response.status_code}",
                            detail=detail)
     record = response.json().get("record", {})
@@ -288,6 +287,29 @@ def collect_crux(site: Site, api_key: str) -> tuple[list[dict], dict]:
             })
     return rows, _status(site, "crux_history", "ok" if rows else "empty", len(rows),
                          "Origin-level phone data; each weekly point covers an overlapping 28-day window")
+
+
+def _crux_error_detail(response) -> str:
+    if response.status_code == 404:
+        return "No origin-level phone field data"
+    try:
+        error = response.json().get("error", {})
+        reasons = [item.get("reason", "") for item in error.get("details", [])
+                   if item.get("@type", "").endswith("google.rpc.ErrorInfo")]
+        reason = next((value for value in reasons if re.fullmatch(r"[A-Z_]+", value)), "")
+    except (AttributeError, TypeError, ValueError):
+        reason = ""
+    guidance = {
+        "API_KEY_SERVICE_BLOCKED": "Enable Chrome UX Report API and allow it in the API key restrictions",
+        "SERVICE_DISABLED": "Enable Chrome UX Report API in the API key's Google Cloud project",
+        "API_KEY_HTTP_REFERRER_BLOCKED": "Use an API key permitted for GitHub Actions server requests",
+        "API_KEY_IP_ADDRESS_BLOCKED": "Use an API key permitted for GitHub Actions server requests",
+        "API_KEY_INVALID": "Replace the invalid API key in GitHub Secrets",
+        "QUOTA_EXCEEDED": "Check Chrome UX Report API quota",
+    }
+    return f"{reason}: {guidance[reason]}" if reason in guidance else (
+        f"Google API reason {reason}" if reason else
+        "Check Chrome UX Report API enablement and key restrictions")
 
 
 def collect_ga4(site: Site, key_file: Path) -> tuple[list[dict], list[dict], dict]:

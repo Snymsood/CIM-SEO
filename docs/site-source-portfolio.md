@@ -12,7 +12,7 @@ the collector never combines GA4 users or events across properties.
 | Main | `https://www.cim.org/` | `https://www.cim.org/sitemap.xml` | `https://www.cim.org/` | Numeric property `341629008` |
 | Magazine | `https://magazine.cim.org/en/` | `https://magazine.cim.org/sitemap.xml` | `sc-domain:cim.org`, with magazine URLs only | Numeric property `376202812` |
 | MRMR 2026 | `https://mrmr2026.cim.org/` | `https://mrmr2026.cim.org/sitemap_index.xml` | `sc-domain:cim.org`, with MRMR 2026 URLs only | Numeric property `521567844` |
-| CIM CONNECT | `https://cimconnect.ca/` | `https://cimconnect.ca/sitemap_index.xml` | Property pending | Numeric property `506934026` |
+| CIM CONNECT | `https://cimconnect.ca/` | `https://cimconnect.ca/sitemap_index.xml` | `sc-domain:cimconnect.ca` | Numeric property `506934026` |
 
 The supplied `G-...` values are GA4 **web-stream measurement IDs**. They are
 recorded in the registry for identification. The GA4 Data API requires numeric
@@ -35,8 +35,8 @@ mini-site hosts. It is a useful comparison list, not a current source of truth.
 - **GSC URL Inspection:** Uses the existing `GSC_SERVICE_ACCOUNT_KEY` and
   read-only access. The main URL-prefix property is used for `www`; the
   existing domain property is used only for selected URLs on the two CIM
-  subdomains. CIM CONNECT needs its own verified property and access before
-  inspection can run. Up to five URLs per site are checked weekly.
+  subdomains. CIM CONNECT uses its own domain property, shared with the
+  existing service account. Up to five URLs per site are checked weekly.
 - **CrUX history:** Uses `PAGESPEED_API_KEY` if the Chrome UX Report API is
   enabled for that key's project. It requests phone, origin-level history.
   Missing field data and API access appear in `site_source_status.csv`.

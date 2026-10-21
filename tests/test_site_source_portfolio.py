@@ -2,7 +2,7 @@
 
 import unittest
 
-from site_source_portfolio import Site, _normalize_url, collect_sitemaps, read_sites
+from site_source_portfolio import Site, _crux_error_detail, _normalize_url, collect_sitemaps, read_sites
 
 
 class SiteSourcePortfolioTests(unittest.TestCase):
@@ -13,6 +13,7 @@ class SiteSourcePortfolioTests(unittest.TestCase):
         self.assertEqual(sites["magazine"].ga4_property_id, "376202812")
         self.assertEqual(sites["mrmr2026"].ga4_property_id, "521567844")
         self.assertEqual(sites["cimconnect"].ga4_property_id, "506934026")
+        self.assertEqual(sites["cimconnect"].gsc_property, "sc-domain:cimconnect.ca")
         self.assertEqual(sites["magazine"].host, "magazine.cim.org")
 
     def test_main_apex_alias_and_external_site_boundary(self):
@@ -45,6 +46,19 @@ class SiteSourcePortfolioTests(unittest.TestCase):
         self.assertEqual(len(urls), 1)
         self.assertEqual(urls[0]["lastmod"], "2026-10-20")
         self.assertEqual(len(warnings), 2)
+
+    def test_crux_error_explains_access_without_exposing_response_message(self):
+        class Response:
+            status_code = 403
+
+            def json(self):
+                return {"error": {"message": "secret key in request URL",
+                                  "details": [{"@type": "type.googleapis.com/google.rpc.ErrorInfo",
+                                               "reason": "API_KEY_SERVICE_BLOCKED"}]}}
+
+        detail = _crux_error_detail(Response())
+        self.assertIn("Enable Chrome UX Report API", detail)
+        self.assertNotIn("secret key", detail)
 
 
 if __name__ == "__main__":
