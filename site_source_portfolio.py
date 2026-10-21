@@ -292,11 +292,16 @@ def collect_crux(site: Site, api_key: str) -> tuple[list[dict], dict]:
 def _crux_error_detail(response) -> str:
     if response.status_code == 404:
         return "No origin-level phone field data"
+    project = ""
     try:
         error = response.json().get("error", {})
-        reasons = [item.get("reason", "") for item in error.get("details", [])
-                   if item.get("@type", "").endswith("google.rpc.ErrorInfo")]
+        error_info = [item for item in error.get("details", [])
+                      if item.get("@type", "").endswith("google.rpc.ErrorInfo")]
+        reasons = [item.get("reason", "") for item in error_info]
         reason = next((value for value in reasons if re.fullmatch(r"[A-Z_]+", value)), "")
+        consumers = [item.get("metadata", {}).get("consumer", "") for item in error_info]
+        project = next((value.removeprefix("projects/") for value in consumers
+                        if re.fullmatch(r"projects/[0-9]+", value)), "")
     except (AttributeError, TypeError, ValueError):
         reason = ""
     guidance = {
@@ -307,9 +312,10 @@ def _crux_error_detail(response) -> str:
         "API_KEY_INVALID": "Replace the invalid API key in GitHub Secrets",
         "QUOTA_EXCEEDED": "Check Chrome UX Report API quota",
     }
-    return f"{reason}: {guidance[reason]}" if reason in guidance else (
+    detail = f"{reason}: {guidance[reason]}" if reason in guidance else (
         f"Google API reason {reason}" if reason else
         "Check Chrome UX Report API enablement and key restrictions")
+    return f"{detail}; Google Cloud project number {project}" if project else detail
 
 
 def collect_ga4(site: Site, key_file: Path) -> tuple[list[dict], list[dict], dict]:
@@ -443,7 +449,7 @@ def main() -> int:
                                         detail=f"{type(exc).__name__}; check property access and URL Inspection API"))
         if "crux" in selected:
             try:
-                rows, status = collect_crux(site, os.getenv("PAGESPEED_API_KEY", ""))
+                rows, status = collect_crux(site, os.getenv("CRUX_API_KEY") or os.getenv("PAGESPEED_API_KEY", ""))
                 crux_rows.extend(rows); statuses.append(status)
             except Exception as exc:
                 statuses.append(_status(site, "crux_history", "failed", detail=type(exc).__name__))

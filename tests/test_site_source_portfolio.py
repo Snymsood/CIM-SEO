@@ -54,10 +54,12 @@ class SiteSourcePortfolioTests(unittest.TestCase):
             def json(self):
                 return {"error": {"message": "secret key in request URL",
                                   "details": [{"@type": "type.googleapis.com/google.rpc.ErrorInfo",
-                                               "reason": "API_KEY_SERVICE_BLOCKED"}]}}
+                                               "reason": "API_KEY_SERVICE_BLOCKED",
+                                               "metadata": {"consumer": "projects/123456789"}}]}}
 
         detail = _crux_error_detail(Response())
         self.assertIn("Enable Chrome UX Report API", detail)
+        self.assertIn("project number 123456789", detail)
         self.assertNotIn("secret key", detail)
 
 

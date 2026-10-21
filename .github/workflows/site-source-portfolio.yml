@@ -33,6 +33,7 @@ jobs:
 
       - name: Collect site sources
         env:
+          CRUX_API_KEY: ${{ secrets.CRUX_API_KEY }}
           PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
         run: python -u site_source_portfolio.py --output-dir portfolio_output
 

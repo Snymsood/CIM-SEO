@@ -37,9 +37,12 @@ mini-site hosts. It is a useful comparison list, not a current source of truth.
   existing domain property is used only for selected URLs on the two CIM
   subdomains. CIM CONNECT uses its own domain property, shared with the
   existing service account. Up to five URLs per site are checked weekly.
-- **CrUX history:** Uses `PAGESPEED_API_KEY` if the Chrome UX Report API is
-  enabled for that key's project. It requests phone, origin-level history.
-  Missing field data and API access appear in `site_source_status.csv`.
+- **CrUX history:** Uses `CRUX_API_KEY` when set, otherwise the existing
+  `PAGESPEED_API_KEY`. Enable the Chrome UX Report API in that key's Google
+  Cloud project and allow it in any API restrictions. It requests phone,
+  origin-level history. Missing field data and API access appear in
+  `site_source_status.csv`. Keep a dedicated CrUX key in GitHub Secrets if
+  the PageSpeed key should retain narrower API restrictions.
 - **GA4:** Uses the existing service account and a configured numeric property
   ID. Every query filters to the site's `hostName`. Only observed event names
   and counts are exported; the collector does not infer business outcomes.
@@ -59,6 +62,7 @@ After migration, a CMS metadata export can be added as another adapter.
 python3 site_source_portfolio.py --sources sitemap --output-dir /tmp/cim-site-portfolio
 ```
 
-With repository dependencies, `gsc-key.json`, and `PAGESPEED_API_KEY` present,
+With repository dependencies, `gsc-key.json`, and either `CRUX_API_KEY` or
+`PAGESPEED_API_KEY` present,
 omit `--sources` to run all configured sources. Keep credentials in GitHub
 Secrets; do not commit the key file.
