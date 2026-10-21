@@ -43,6 +43,15 @@ mini-site hosts. It is a useful comparison list, not a current source of truth.
   origin-level history. Missing field data and API access appear in
   `site_source_status.csv`. Keep a dedicated CrUX key in GitHub Secrets if
   the PageSpeed key should retain narrower API restrictions.
+
+  The October 20, 2026 verification returned `SERVICE_DISABLED` for Google
+  Cloud project number `634239599076`. The reporting service account lacks
+  permission to enable APIs in that project. A project administrator must
+  select that project in [Google Cloud API Library](https://console.cloud.google.com/apis/library),
+  search for **Chrome UX Report API**, and click **Enable**. Then rerun the
+  Site Source Portfolio workflow. If the next run reports an API-key
+  restriction, allow Chrome UX Report API on the existing key or save a
+  dedicated key as the `CRUX_API_KEY` GitHub secret.
 - **GA4:** Uses the existing service account and a configured numeric property
   ID. Every query filters to the site's `hostName`. Only observed event names
   and counts are exported; the collector does not infer business outcomes.
