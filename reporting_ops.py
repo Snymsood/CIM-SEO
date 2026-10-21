@@ -50,6 +50,14 @@ FINDING_TABLE_HINTS = (
 
 def infer_artifact_lineage(name: str) -> dict[str, str]:
     lower = name.lower()
+    if lower.startswith("site_sitemap"):
+        return {"source_system": "public_sitemap", "data_stage": "collected"}
+    if lower == "site_url_inspection.csv":
+        return {"source_system": "google_search_console", "data_stage": "collected"}
+    if lower == "site_crux_history.csv":
+        return {"source_system": "chrome_ux_report", "data_stage": "collected"}
+    if lower in {"site_overview.csv", "site_source_status.csv", "site_source_warnings.csv"}:
+        return {"source_system": "site_source_portfolio", "data_stage": "derived"}
     if lower.endswith("_config.csv") or lower in {"tracked_keywords.csv", "tracked_pages.csv", "tracked_conversions.csv"}:
         return {"source_system": "configuration", "data_stage": "input"}
     if "gsc" in lower or "keyword" in lower or "landing" in lower or "query" in lower:

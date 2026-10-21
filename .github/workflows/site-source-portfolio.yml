@@ -1,0 +1,53 @@
+name: Site Source Portfolio
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 15 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Write service account key
+        env:
+          GSC_SERVICE_ACCOUNT_KEY: ${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}
+        run: |
+          if [ -n "$GSC_SERVICE_ACCOUNT_KEY" ]; then
+            printf '%s' "$GSC_SERVICE_ACCOUNT_KEY" > gsc-key.json
+          fi
+
+      - name: Collect site sources
+        env:
+          PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
+        run: python -u site_source_portfolio.py --output-dir portfolio_output
+
+      - name: Finalize reporting artifacts
+        if: always()
+        run: python -u finalize_report.py --report-name "Site Source Portfolio" --root portfolio_output
+
+      - name: Upload report artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-source-portfolio
+          path: portfolio_output/
+          retention-days: 90
+
+      - name: Remove service account key
+        if: always()
+        run: rm -f gsc-key.json
