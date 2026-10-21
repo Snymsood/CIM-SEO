@@ -1,0 +1,63 @@
+name: Enable CrUX API Once
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  enable:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Google auth
+        run: pip install google-auth requests
+
+      - name: Enable Chrome UX Report API
+        env:
+          GSC_SERVICE_ACCOUNT_KEY: ${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import sys
+          import time
+
+          from google.oauth2 import service_account
+          from google.auth.transport.requests import AuthorizedSession
+
+          key = json.loads(os.environ["GSC_SERVICE_ACCOUNT_KEY"])
+          credentials = service_account.Credentials.from_service_account_info(
+              key, scopes=["https://www.googleapis.com/auth/cloud-platform"])
+          session = AuthorizedSession(credentials)
+          service = "projects/634239599076/services/chromeuxreport.googleapis.com"
+          response = session.post(
+              f"https://serviceusage.googleapis.com/v1/{service}:enable", timeout=30)
+          if not response.ok:
+              error = response.json().get("error", {})
+              reasons = [entry.get("reason", "") for entry in error.get("details", [])
+                         if entry.get("@type", "").endswith("google.rpc.ErrorInfo")]
+              print(f"Enable request failed: HTTP {response.status_code}; status={error.get('status', '')}; reasons={reasons}")
+              sys.exit(1)
+          operation = response.json().get("name", "")
+          print(f"Enable request accepted: {operation}")
+          for _ in range(12):
+              result = session.get(f"https://serviceusage.googleapis.com/v1/{operation}", timeout=30)
+              result.raise_for_status()
+              payload = result.json()
+              if payload.get("done"):
+                  if "error" in payload:
+                      print(f"Enable operation failed: {payload['error'].get('code', '')}")
+                      sys.exit(1)
+                  print("Chrome UX Report API enabled")
+                  break
+              time.sleep(5)
+          else:
+              print("Enable operation still pending")
+              sys.exit(1)
+          PY
