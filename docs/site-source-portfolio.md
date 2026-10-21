@@ -10,18 +10,20 @@ the collector never combines GA4 users or events across properties.
 - The report is scheduled Mondays at **15:41 UTC**. The source-report backup checks at
   **20:37 UTC** and dispatches the portfolio workflow if no successful or
   active run exists that Monday.
-- The output is a standalone `site-source-portfolio` GitHub Actions artifact
-  retained for 90 days. It contains the HTML report, source CSVs, status and
-  quality warnings, and a manifest. No Monday.com item is configured for this
-  report.
-- It runs before Weekly SEO Intelligence at **18:11 UTC**, but that report's
-  current main-site trends do not ingest the four-site portfolio. The portfolio
-  keeps mini-site metrics separate from `www.cim.org` totals.
+- Every run that produces an HTML report posts a summary and attaches it to
+  Monday item `13342351698`. The `site-source-portfolio` GitHub Actions artifact
+  is retained for 90 days and includes source CSVs, delivery status, quality
+  warnings, and a manifest. A delivery failure fails the workflow after
+  preserving the report artifact.
+- It runs before Weekly SEO Intelligence at **18:11 UTC**. That report validates
+  and ingests the portfolio artifact for a separate four-site trends subsection.
+  Mini-site metrics stay separate from `www.cim.org` headline totals.
 
 ## Content coverage
 
 The HTML report shows per-site sitemap URL counts, latest published sitemap
-`lastmod`, GA4 sessions for the last complete Monday–Sunday week, up to five
+`lastmod`, GA4 sessions for the last complete Monday–Sunday week and the prior
+week, up to five
 successful GSC URL inspections, and source status. The CSVs retain all sitemap
 URLs, the inspection verdicts and canonicals for sampled URLs, GA4 active users
 and observed event names, and CrUX p75 history by metric and device grouping.
@@ -29,6 +31,10 @@ CrUX points are overlapping 28-day windows, not independent weekly samples.
 When a phone-only CrUX record is unavailable, the collector tries a combined
 device record and labels it `ALL`; the October 20 test used that path for
 CIM CONNECT.
+Weekly SEO Intelligence compares each site's GA4 sessions and active users
+across distinct weeks, plus CrUX p75 values from 28-day windows four weeks
+apart. These comparisons are exported as `site_portfolio_trends.csv` and are
+shown under Weekly Trends without being added to main-site KPIs.
 
 ## Initial scope
 

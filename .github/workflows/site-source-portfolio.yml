@@ -37,6 +37,13 @@ jobs:
           PAGESPEED_API_KEY: ${{ secrets.PAGESPEED_API_KEY }}
         run: python -u site_source_portfolio.py --output-dir portfolio_output
 
+      - name: Publish report to Monday
+        if: always()
+        env:
+          MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+          MONDAY_SITE_SOURCE_PORTFOLIO_ITEM_ID: "13342351698"
+        run: python -u publish_site_source_portfolio.py --root portfolio_output
+
       - name: Finalize reporting artifacts
         if: always()
         run: python -u finalize_report.py --report-name "Site Source Portfolio" --root portfolio_output

@@ -437,7 +437,8 @@ def generate_self_contained_html(html_path, output_path):
     print(f"Saved {output_path} ({size_kb} KB, self-contained)")
 
 
-def _upload_html_to_monday(html_path, html_filename, body_text=None, api_token=None, item_id=None):
+def _upload_html_to_monday(html_path, html_filename, body_text=None, api_token=None, item_id=None,
+                           finalize_before_upload=True):
     """Post a text update to Monday.com and attach the self-contained HTML file."""
     if api_token is None:
         api_token = os.getenv("MONDAY_API_TOKEN")
@@ -476,13 +477,14 @@ def _upload_html_to_monday(html_path, html_filename, body_text=None, api_token=N
         print(f"Monday file attach skipped: {html_path} not found.")
         return False
 
-    try:
-        from reporting_ops import finalize_report_artifacts
+    if finalize_before_upload:
+        try:
+            from reporting_ops import finalize_report_artifacts
 
-        report_name = Path(html_filename).stem.replace("-", " ").replace("_", " ").title()
-        finalize_report_artifacts(report_name)
-    except Exception as e:
-        print(f"Reporting finalizer skipped before Monday upload: {e}")
+            report_name = Path(html_filename).stem.replace("-", " ").replace("_", " ").title()
+            finalize_report_artifacts(report_name, html_file.parent)
+        except Exception as e:
+            print(f"Reporting finalizer skipped before Monday upload: {e}")
 
     with open(html_file, "rb") as f:
         file_resp = requests.post(
@@ -504,12 +506,14 @@ def _upload_html_to_monday(html_path, html_filename, body_text=None, api_token=N
     return True
 
 
-def upload_html_to_monday(html_path, html_filename, body_text=None, api_token=None, item_id=None):
+def upload_html_to_monday(html_path, html_filename, body_text=None, api_token=None, item_id=None,
+                          delivery_root=".", finalize_before_upload=True):
     from reporting_ops import record_delivery_status
     try:
-        sent = _upload_html_to_monday(html_path, html_filename, body_text, api_token, item_id)
+        sent = _upload_html_to_monday(html_path, html_filename, body_text, api_token,
+                                      item_id, finalize_before_upload)
     except Exception as exc:
-        record_delivery_status("failed", detail=str(exc))
+        record_delivery_status("failed", detail=str(exc), root=delivery_root)
         raise
-    record_delivery_status("delivered" if sent else "skipped", detail=html_filename)
+    record_delivery_status("delivered" if sent else "skipped", detail=html_filename, root=delivery_root)
     return sent

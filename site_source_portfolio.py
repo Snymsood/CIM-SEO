@@ -350,11 +350,20 @@ def collect_ga4(site: Site, key_file: Path) -> tuple[list[dict], list[dict], dic
         property=property_name, date_ranges=[DateRange(start_date=start, end_date=end)],
         metrics=[Metric(name="sessions"), Metric(name="activeUsers")],
         dimension_filter=host_filter, limit=1))
+    previous_start = (date.fromisoformat(start) - timedelta(days=7)).isoformat()
+    previous_end = (date.fromisoformat(end) - timedelta(days=7)).isoformat()
+    previous = client.run_report(RunReportRequest(
+        property=property_name, date_ranges=[DateRange(start_date=previous_start, end_date=previous_end)],
+        metrics=[Metric(name="sessions"), Metric(name="activeUsers")],
+        dimension_filter=host_filter, limit=1))
     summary = [{"site_id": site.site_id, "host": site.host,
                 "ga4_property_id": site.ga4_property_id,
                 "period_start": start, "period_end": end,
                 "sessions": total.rows[0].metric_values[0].value if total.rows else "",
-                "active_users": total.rows[0].metric_values[1].value if total.rows else ""}]
+                "active_users": total.rows[0].metric_values[1].value if total.rows else "",
+                "previous_period_start": previous_start, "previous_period_end": previous_end,
+                "previous_sessions": previous.rows[0].metric_values[0].value if previous.rows else "",
+                "previous_active_users": previous.rows[0].metric_values[1].value if previous.rows else ""}]
     events = client.run_report(RunReportRequest(
         property=property_name, date_ranges=[DateRange(start_date=start, end_date=end)],
         dimensions=[Dimension(name="eventName")], metrics=[Metric(name="eventCount")],
@@ -389,7 +398,8 @@ def render_html(sites: list[Site], overview: list[dict], statuses: list[dict], o
         site_rows.append(
             f"<tr><th><a href='{cell(site.base_url)}'>{cell(site.site_name)}</a><small>{cell(site.host)}</small></th>"
             f"<td>{cell(row['sitemap_urls'])}</td><td>{cell(row['latest_sitemap_lastmod'])}</td>"
-            f"<td>{cell(row['ga4_sessions'])}</td><td>{cell(row['inspected_ok'])}</td>"
+            f"<td>{cell(row['ga4_sessions'])}</td><td>{cell(row['ga4_previous_sessions'])}</td>"
+            f"<td>{cell(row['inspected_ok'])}</td>"
             + "".join(source_cells) + "</tr>")
     status_rows = [f"<tr><td>{cell(s['site_id'])}</td><td>{cell(s['source'])}</td>"
                    f"<td>{cell(s['status'])}</td><td>{cell(s['record_count'])}</td>"
@@ -406,7 +416,7 @@ snapshots collected during this run; GA4 uses the last completed Monday–Sunday
 28-day windows. A missing property, key, or API response is shown as unavailable or failed,
 never as zero traffic or zero indexed pages.</p>
 <section><h2>Site coverage</h2><div class="scroll"><table><thead><tr><th>Site</th><th>Sitemap URLs</th>
-<th>Latest sitemap lastmod</th><th>GA4 sessions</th><th>URLs inspected successfully</th>
+<th>Latest sitemap lastmod</th><th>GA4 sessions</th><th>Previous week sessions</th><th>URLs inspected successfully</th>
 <th>Sitemap</th><th>GSC inspection</th><th>CrUX</th><th>GA4</th></tr></thead><tbody>"""
         + "".join(site_rows) + """</tbody></table></div></section>
 <section><h2>Source status</h2><div class="scroll"><table><thead><tr><th>Site</th><th>Source</th>
@@ -474,12 +484,13 @@ def main() -> int:
                          "base_url": site.base_url, "sitemap_urls": len(urls),
                          "latest_sitemap_lastmod": max((row["lastmod"][:10] for row in urls), default=""),
                          "ga4_sessions": site_ga4[0]["sessions"] if site_ga4 else "",
+                         "ga4_previous_sessions": site_ga4[0]["previous_sessions"] if site_ga4 else "",
                          "inspected_ok": sum(row["status"] == "ok" for row in site_inspections) if site_inspections else "",
                          "gsc_property": site.gsc_property, "ga4_property_id": site.ga4_property_id,
                          "ga4_measurement_id": site.ga4_measurement_id, "collected_at_utc": now})
     out = args.output_dir
     write_csv(out / "site_overview.csv", ["site_id", "site_name", "base_url", "sitemap_urls",
-              "latest_sitemap_lastmod", "ga4_sessions", "inspected_ok", "gsc_property",
+              "latest_sitemap_lastmod", "ga4_sessions", "ga4_previous_sessions", "inspected_ok", "gsc_property",
               "ga4_property_id", "ga4_measurement_id", "collected_at_utc"], overview)
     write_csv(out / "site_source_status.csv", ["site_id", "source", "status", "record_count", "detail"], statuses)
     write_csv(out / "site_sitemaps.csv", ["site_id", "sitemap_url", "final_url", "kind", "entry_count", "status"], sitemap_rows)
@@ -494,7 +505,8 @@ def main() -> int:
                   "period_end", "p75_raw"], crux_rows)
     if ga4_rows:
         write_csv(out / "site_ga4_weekly.csv", ["site_id", "host", "ga4_property_id", "period_start", "period_end",
-                  "sessions", "active_users"], ga4_rows)
+                  "sessions", "active_users", "previous_period_start", "previous_period_end",
+                  "previous_sessions", "previous_active_users"], ga4_rows)
     if event_rows:
         write_csv(out / "site_ga4_events.csv", ["site_id", "host", "ga4_property_id", "period_start", "period_end",
                   "event_name", "event_count"], event_rows)

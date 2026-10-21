@@ -73,6 +73,23 @@ jobs:
           download_latest_artifact mailchimp-weekly-report.yml mailchimp-weekly-report
           download_latest_artifact content-strategy-report.yml content-strategy-report
 
+      - name: Download validated four-site portfolio
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id="$(gh run list --workflow site-source-portfolio.yml --branch "${{ github.ref_name }}" --status completed --limit 10 --json databaseId,conclusion --jq '.[] | select(.conclusion == "success") | .databaseId' | head -n 1)"
+          if [ -n "$run_id" ]; then
+            mkdir -p portfolio_sources
+            if gh run download "$run_id" --name site-source-portfolio --dir portfolio_sources && python validate_source_artifact.py portfolio_sources site-source-portfolio "$run_id"; then
+              echo "Validated site-source-portfolio run $run_id."
+            else
+              echo "Site portfolio artifact is missing or from another week."
+              rm -rf portfolio_sources
+            fi
+          else
+            echo "No successful site portfolio run found."
+          fi
+
       - name: Write service account key
         run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
 
@@ -107,6 +124,7 @@ jobs:
             weekly_content_decay_candidates.csv
             weekly_seo_intelligence_report.html
             weekly_trends.csv
+            site_portfolio_trends.csv
             search_query_page_opportunities.csv
             weekly_trend_history.csv
             source_report_runs.json

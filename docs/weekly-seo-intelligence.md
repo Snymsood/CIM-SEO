@@ -38,6 +38,7 @@ It does **not** replace any existing reports. The source pipelines still publish
 | `weekly_content_decay_candidates.csv` | Pages losing organic traffic, scored |
 | `weekly_seo_intelligence_report.html` | Full stakeholder-ready HTML report |
 | `weekly_trends.csv` | Paired weekly metrics with source and measurement scope |
+| `site_portfolio_trends.csv` | Separate per-site GA4 week-over-week and CrUX nonoverlapping-window comparisons from the validated four-site portfolio |
 | `weekly_trend_history.csv` | One KPI snapshot per distinct reporting week; supports four-week slopes and eight-week baselines once enough weeks exist |
 | `search_query_page_opportunities.csv` | Exported query losses allocated across current pages by impression share; estimated, not prior page clicks |
 | `source_report_runs.json` | Validated upstream artifact run IDs and periods |
@@ -84,6 +85,15 @@ Zero conversions are never silently treated as "no config". The data quality sec
 Each manifest carries `period_id`, `period_start`, `period_end`, the GitHub run ID, accepted source run IDs, generation state, and a separate Monday delivery state. The dependent workflows reject downloaded artifacts that lack matching period and run metadata. The content audit uses a rolling 28-day window ending on the same Sunday; the validator allows that declared scope. A missing input remains visible as missing coverage rather than entering a cross-period join.
 
 The history file deduplicates reruns of the same week. Four distinct weeks are needed for a slope. An eight-week anomaly baseline needs eight earlier weeks plus the current one; no baseline is inferred from the October 12 and October 19 samples alone.
+
+The four-site portfolio runs earlier on Monday and is accepted only when its
+artifact manifest matches the intelligence report's completed week. Its GA4
+sessions and active users compare each property with its own prior week. CrUX
+LCP, INP, and CLS p75 values compare nonoverlapping 28-day windows four weeks
+apart, preserving the recorded phone or combined-device scope. These site
+trends appear in a separate subsection of Weekly Trends; they do not enter the
+main-site KPI grid or main-site trend history. A missing or stale portfolio
+artifact appears as unavailable rather than a zero.
 
 ---
 

@@ -50,6 +50,7 @@ from seo_intelligence_utils import (
 from seo_utils import get_weekly_date_windows, short_url
 from pdf_report_formatter import format_pct_change
 from weekly_trends import build_weekly_trends, render_weekly_trends, update_trend_history
+from site_portfolio_trends import build_portfolio_trends, render_portfolio_trends
 from search_opportunities import rank_query_page_losses
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -1289,6 +1290,13 @@ def generate_html_report(
         f'{_esc(ai_plan)}</pre>'
     )
 
+    trend_history = (pd.read_csv("weekly_trend_history.csv")
+                     if os.path.exists("weekly_trend_history.csv") else None)
+    weekly_trends_html = (
+        render_weekly_trends(trends, trend_insights, trend_history)
+        + render_portfolio_trends(data.get("portfolio_trends", pd.DataFrame()))
+    )
+
     body = (
         f'<header style="background:#000;color:#fff;padding:40px 48px;margin:0 -40px 0;">'
         f'<div style="{_MONO};font-size:10px;text-transform:uppercase;letter-spacing:0.2em;color:#999;margin-bottom:12px;">CIM SEO Intelligence</div>'
@@ -1301,7 +1309,7 @@ def generate_html_report(
         f'<div style="padding:32px 0;">{kpi_grid}</div>'
         f'<hr style="border:none;border-top:4px solid #000;margin:0;">'
         + _section("Executive Summary",                _bullets(exec_bullets),       "executive-summary")
-        + _section("Weekly Trends",                    render_weekly_trends(trends, trend_insights, pd.read_csv("weekly_trend_history.csv") if os.path.exists("weekly_trend_history.csv") else None), "weekly-trends")
+        + _section("Weekly Trends",                    weekly_trends_html,           "weekly-trends")
         + _section("Search Opportunity", (
             "<p>Top exported query/page pairs ranked by lost query clicks allocated by current page impressions. This is an estimate; prior page-level clicks are unavailable.</p>"
             + rank_query_page_losses(data["gsc_comparison"], data["query_page_mapping"])
@@ -1510,6 +1518,10 @@ def main(dry_run: bool = False) -> None:
     # Phase 1: Load data
     print("[1/7] Loading report data...")
     data = load_all_report_data()
+    data["portfolio_trends"] = build_portfolio_trends(
+        Path("portfolio_sources"), (str(current_start), str(current_end)))
+    if not data["portfolio_trends"].empty:
+        data["portfolio_trends"].to_csv("site_portfolio_trends.csv", index=False)
     hist = load_historical_data()
 
     # Phase 2: Extract KPIs
