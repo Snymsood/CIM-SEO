@@ -8,11 +8,15 @@ on:
         type: boolean
         default: false
       delivery_only:
-        description: "Retry email from a prior run without rebuilding reports"
+        description: "Send email from a prior run without rebuilding reports"
+        type: boolean
+        default: false
+      send_preview_email:
+        description: "With delivery_only, send a completed AI preview report"
         type: boolean
         default: false
       source_run_id:
-        description: "Prior intelligence run ID for delivery_only"
+        description: "Saved intelligence run ID for delivery_only"
         type: string
         default: ""
   schedule:
@@ -248,6 +252,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+          SEND_PREVIEW_EMAIL: ${{ inputs.send_preview_email || false }}
         run: |
           if [ -z "$SOURCE_RUN_ID" ]; then
             echo "source_run_id is required for delivery_only"
@@ -257,6 +262,7 @@ jobs:
           gh run download "$SOURCE_RUN_ID" --name weekly-seo-intelligence --dir saved-report
           python - "$SOURCE_RUN_ID" <<'PY'
           import json
+          import os
           import sys
           from datetime import datetime, timedelta, timezone
           from pathlib import Path
@@ -272,7 +278,13 @@ jobs:
           expected = f"{end - timedelta(days=6)}_{end}"
           if str(manifest.get("run_id")) != source_run_id or report.get("period_id") != expected:
               raise SystemExit("Prior report run or reporting period does not match this week")
-          if delivery.get("status") != "failed":
+          if os.environ.get("SEND_PREVIEW_EMAIL") == "true":
+              ai = report.get("ai_analysis") or {}
+              if (delivery.get("status") != "skipped" or
+                  ai.get("status") not in {"complete", "partial"} or
+                  not ai.get("patterns")):
+                  raise SystemExit("Preview email requires an unsent report with cited AI patterns")
+          elif delivery.get("status") != "failed":
               raise SystemExit("Only a failed email delivery can be retried")
           PY
 

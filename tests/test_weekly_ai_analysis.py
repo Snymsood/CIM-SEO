@@ -36,11 +36,20 @@ class WeeklyAIAnalysisTests(unittest.TestCase):
                 {"landingPage": "/a", "sessions_current": "12"},
                 {"landingPage": "/b", "sessions_current": "8"},
             ])
+            _csv(root / "weekly_gsc_report.csv", [
+                {"query": "mining", "clicks": "3"},
+            ])
+            _csv(root / "tracked_keywords.csv", [
+                {"keyword": "static configuration"},
+            ])
             with patch.dict(os.environ, {"GROQ_API_KEY": ""}):
                 result = analyze(root, dry_run=True)
             evidence = json.loads((root / "weekly_ai_evidence.json").read_text())
-            self.assertEqual(result["coverage"]["rows"], 5)
-            self.assertEqual(result["coverage"]["files"], 2)
+            self.assertEqual(result["coverage"]["rows"], 6)
+            self.assertEqual(result["coverage"]["files"], 3)
+            self.assertEqual(evidence["unclassified_files"], [])
+            self.assertEqual(evidence["categories"]["search"]["files"][0]["id"],
+                             "file:source/weekly_gsc_report.csv")
             technical = evidence["categories"]["technical"]["files"][0]
             self.assertEqual(technical["breakdown"]["status_code"], [["404", 2], ["200", 1]])
             self.assertEqual(technical["examples"], [])

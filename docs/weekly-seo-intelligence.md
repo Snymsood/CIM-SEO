@@ -153,11 +153,15 @@ the [Google Apps Script delivery setup](personal-action-mailer.md). When its
 two GitHub secrets are present and `SEO_ACTION_DELIVERY_MODE=google_apps_script`,
 the workflow sends over HTTPS through Google's MailApp instead of SMTP.
 
-For a safe workflow smoke test before adding the mailbox credential, dispatch
-`weekly-seo-intelligence.yml` with `preview_only=true`. It builds and uploads
-the reports while skipping both Monday and SMTP delivery.
+For a safe workflow smoke test, dispatch `weekly-seo-intelligence.yml` with
+`preview_only=true`. It builds and uploads the reports while skipping Monday
+and email delivery. To send that saved preview to the personal recipient after
+reviewing its cited AI patterns, dispatch with `delivery_only=true`,
+`send_preview_email=true`, and `source_run_id` set to the preview run. The
+delivery job requires a current-week preview with complete or partial AI
+analysis and at least one cited pattern; it does not rebuild or repost reports.
 
-If SMTP delivery fails after the report was generated, dispatch the same
+If email delivery fails after the report was generated, dispatch the same
 workflow with `delivery_only=true` and `source_run_id` set to that failed run.
 The retry checks the report week and original run ID, then sends only the saved
 personal email; it does not rebuild reports or post to Monday again. Gmail app
