@@ -111,9 +111,19 @@ content changes are recommended. A missing core GSC or GA4 source stops the
 report instead of sending five invented or zero-data actions. A four-site GA4
 session watchlist adds context without mixing the mini-sites into main-site KPIs.
 
-The email is sent as plain text and HTML through an existing SMTP mailbox.
-There is no paid reporting or email API dependency. Configure these repository
-**Actions secrets**:
+The personal report can be sent through the Mailchimp Marketing account already
+used for weekly content reporting. With `SEO_ACTION_DELIVERY_MODE=mailchimp_test`,
+the workflow creates a draft campaign and sends one **test email** to
+`SEO_ACTION_REPORT_TO`. It never sends that campaign to the marketing audience,
+and the recipient does not have to be an audience contact. Mailchimp accepts the
+request without confirming inbox delivery; the artifact records `submitted`
+and the draft campaign ID. One test send counts toward the account's existing
+send allowance or Pay As You Go credits. This route uses the existing
+`MAILCHIMP_API_KEY` and `MAILCHIMP_AUDIENCE_ID` secrets and reuses the sender
+identity of a previously sent campaign in that audience.
+
+SMTP remains available when `SEO_ACTION_DELIVERY_MODE=smtp`. Configure these
+repository **Actions secrets**:
 
 | Secret | Meaning |
 |---|---|
@@ -132,9 +142,8 @@ intelligence publication remains separate.
 
 For Gmail accounts where hosted-runner SMTP authentication is rejected, use
 the [Google Apps Script delivery setup](personal-action-mailer.md). When its
-two GitHub secrets are present, the workflow sends over HTTPS through Google's
-MailApp instead of SMTP. This remains within Google services and needs no paid
-provider.
+two GitHub secrets are present and `SEO_ACTION_DELIVERY_MODE=google_apps_script`,
+the workflow sends over HTTPS through Google's MailApp instead of SMTP.
 
 For a safe workflow smoke test before adding the mailbox credential, dispatch
 `weekly-seo-intelligence.yml` with `preview_only=true`. It builds and uploads

@@ -134,12 +134,16 @@ jobs:
           SEO_ACTION_APPS_SCRIPT_URL: ${{ secrets.SEO_ACTION_APPS_SCRIPT_URL }}
           SEO_ACTION_APPS_SCRIPT_TOKEN: ${{ secrets.SEO_ACTION_APPS_SCRIPT_TOKEN }}
           SEO_ACTION_REPORT_TO: ${{ secrets.SEO_ACTION_REPORT_TO }}
+          MAILCHIMP_API_KEY: ${{ secrets.MAILCHIMP_API_KEY }}
+          MAILCHIMP_AUDIENCE_ID: ${{ secrets.MAILCHIMP_AUDIENCE_ID }}
           SEO_REPORT_SMTP_USER: ${{ secrets.SEO_REPORT_SMTP_USER || secrets.SEO_ACTION_REPORT_TO }}
           SEO_REPORT_SMTP_PASSWORD: ${{ secrets.SEO_REPORT_SMTP_PASSWORD }}
           SEO_REPORT_SMTP_HOST: ${{ vars.SEO_REPORT_SMTP_HOST || 'smtp.gmail.com' }}
           SEO_REPORT_SMTP_PORT: ${{ vars.SEO_REPORT_SMTP_PORT || '465' }}
         run: |
-          if [ "$SEO_ACTION_DELIVERY_MODE" = "google_apps_script" ] || [ -n "$SEO_ACTION_APPS_SCRIPT_URL" ] || [ -n "$SEO_ACTION_APPS_SCRIPT_TOKEN" ]; then
+          if [ "$SEO_ACTION_DELIVERY_MODE" = "mailchimp_test" ]; then
+            python -u send_weekly_action_mailchimp.py
+          elif [ "$SEO_ACTION_DELIVERY_MODE" = "google_apps_script" ]; then
             python -u send_weekly_action_webhook.py
           else
             python -u send_weekly_action_email.py
@@ -232,12 +236,16 @@ jobs:
           SEO_ACTION_APPS_SCRIPT_URL: ${{ secrets.SEO_ACTION_APPS_SCRIPT_URL }}
           SEO_ACTION_APPS_SCRIPT_TOKEN: ${{ secrets.SEO_ACTION_APPS_SCRIPT_TOKEN }}
           SEO_ACTION_REPORT_TO: ${{ secrets.SEO_ACTION_REPORT_TO }}
+          MAILCHIMP_API_KEY: ${{ secrets.MAILCHIMP_API_KEY }}
+          MAILCHIMP_AUDIENCE_ID: ${{ secrets.MAILCHIMP_AUDIENCE_ID }}
           SEO_REPORT_SMTP_USER: ${{ secrets.SEO_REPORT_SMTP_USER || secrets.SEO_ACTION_REPORT_TO }}
           SEO_REPORT_SMTP_PASSWORD: ${{ secrets.SEO_REPORT_SMTP_PASSWORD }}
           SEO_REPORT_SMTP_HOST: ${{ vars.SEO_REPORT_SMTP_HOST || 'smtp.gmail.com' }}
           SEO_REPORT_SMTP_PORT: ${{ vars.SEO_REPORT_SMTP_PORT || '465' }}
         run: |
-          if [ "$SEO_ACTION_DELIVERY_MODE" = "google_apps_script" ] || [ -n "$SEO_ACTION_APPS_SCRIPT_URL" ] || [ -n "$SEO_ACTION_APPS_SCRIPT_TOKEN" ]; then
+          if [ "$SEO_ACTION_DELIVERY_MODE" = "mailchimp_test" ]; then
+            python -u send_weekly_action_mailchimp.py --root saved-report
+          elif [ "$SEO_ACTION_DELIVERY_MODE" = "google_apps_script" ]; then
             python -u send_weekly_action_webhook.py --root saved-report
           else
             python -u send_weekly_action_email.py --root saved-report
