@@ -54,13 +54,13 @@ def send(root: Path, *, smtp_factory=None) -> dict:
     if port == 465:
         factory = smtp_factory or smtplib.SMTP_SSL
         with factory(host, port, timeout=30, context=context) as server:
-            server.login(username, password)
+            server.login(username, password, initial_response_ok=False)
             server.send_message(message)
     else:
         factory = smtp_factory or smtplib.SMTP
         with factory(host, port, timeout=30) as server:
             server.starttls(context=context)
-            server.login(username, password)
+            server.login(username, password, initial_response_ok=False)
             server.send_message(message)
     return {"status": "delivered", "channel": "smtp", "period_id": report["period_id"],
             "action_count": len(report["actions"])}

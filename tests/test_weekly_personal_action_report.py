@@ -84,8 +84,9 @@ def test_smtp_delivery_has_plain_text_and_html_without_exposing_password(tmp_pat
         def __exit__(self, *_):
             return False
 
-        def login(self, user, password):
+        def login(self, user, password, *, initial_response_ok):
             assert (user, password) == ("sender@example.com", "test-password")
+            assert initial_response_ok is False
 
         def send_message(self, message):
             captured["message"] = message
