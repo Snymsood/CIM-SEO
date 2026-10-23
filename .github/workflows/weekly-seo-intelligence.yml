@@ -195,7 +195,8 @@ jobs:
             echo "source_run_id is required for delivery_only"
             exit 1
           fi
-          gh run download "$SOURCE_RUN_ID" --name weekly-seo-intelligence --dir .
+          mkdir -p saved-report
+          gh run download "$SOURCE_RUN_ID" --name weekly-seo-intelligence --dir saved-report
           python - "$SOURCE_RUN_ID" <<'PY'
           import json
           import sys
@@ -203,9 +204,10 @@ jobs:
           from pathlib import Path
 
           source_run_id = sys.argv[1]
-          manifest = json.loads(Path("report_manifest.json").read_text())
-          report = json.loads(Path("weekly_personal_action_report.json").read_text())
-          delivery = json.loads(Path("personal_email_delivery_status.json").read_text())
+          root = Path("saved-report")
+          manifest = json.loads((root / "report_manifest.json").read_text())
+          report = json.loads((root / "weekly_personal_action_report.json").read_text())
+          delivery = json.loads((root / "personal_email_delivery_status.json").read_text())
           today = datetime.now(timezone.utc).date()
           days_since_sunday = (today.weekday() + 1) % 7 or 7
           end = today - timedelta(days=days_since_sunday)
@@ -223,12 +225,12 @@ jobs:
           SEO_REPORT_SMTP_PASSWORD: ${{ secrets.SEO_REPORT_SMTP_PASSWORD }}
           SEO_REPORT_SMTP_HOST: ${{ vars.SEO_REPORT_SMTP_HOST || 'smtp.gmail.com' }}
           SEO_REPORT_SMTP_PORT: ${{ vars.SEO_REPORT_SMTP_PORT || '465' }}
-        run: python -u send_weekly_action_email.py
+        run: python -u send_weekly_action_email.py --root saved-report
 
       - name: Upload retry status
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: personal-email-delivery-retry
-          path: personal_email_delivery_status.json
+          path: saved-report/personal_email_delivery_status.json
           retention-days: 90
