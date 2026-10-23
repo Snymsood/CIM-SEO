@@ -8,6 +8,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from send_weekly_action_email import send
+from send_weekly_action_webhook import send as send_webhook
 from weekly_personal_action_report import build_report, render_html, render_text
 
 
@@ -97,3 +98,34 @@ def test_smtp_delivery_has_plain_text_and_html_without_exposing_password(tmp_pat
     assert "Check a page" in message.get_body(preferencelist=("plain",)).get_content()
     assert "<h1>Check a page</h1>" in message.get_body(preferencelist=("html",)).get_content()
     assert "test-password" not in message.as_string()
+
+
+def test_google_native_delivery_confirms_period_without_choosing_recipient(tmp_path, monkeypatch):
+    report = {"period_start": "2026-10-12", "period_end": "2026-10-18", "period_id": "2026-10-12_2026-10-18",
+              "actions": [{"title": "Check a page", "evidence": "One affected URL", "steps": [],
+                           "verify": "Recheck next week", "links": []}]}
+    (tmp_path / "weekly_personal_action_report.json").write_text(json.dumps(report))
+    (tmp_path / "weekly_personal_action_report.txt").write_text(render_text(report))
+    (tmp_path / "weekly_personal_action_report.html").write_text("<h1>Check a page</h1>")
+    monkeypatch.setenv("SEO_ACTION_APPS_SCRIPT_URL", "https://script.google.com/macros/s/example/exec")
+    monkeypatch.setenv("SEO_ACTION_APPS_SCRIPT_TOKEN", "x" * 64)
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def read(self):
+            return b'{"ok":true,"period_id":"2026-10-12_2026-10-18"}'
+
+    def open_request(request, timeout):
+        payload = json.loads(request.data)
+        assert timeout == 45
+        assert payload["period_id"] == report["period_id"]
+        assert payload["token"] == "x" * 64
+        assert "recipient" not in payload
+        return Response()
+
+    assert send_webhook(tmp_path, opener=open_request)["status"] == "delivered"

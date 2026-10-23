@@ -130,6 +130,12 @@ missing or delivery fails, the workflow fails visibly and retains the generated
 HTML/JSON/text files and delivery status in the 90-day artifact. Existing Monday
 intelligence publication remains separate.
 
+For Gmail accounts where hosted-runner SMTP authentication is rejected, use
+the [Google Apps Script delivery setup](personal-action-mailer.md). When its
+two GitHub secrets are present, the workflow sends over HTTPS through Google's
+MailApp instead of SMTP. This remains within Google services and needs no paid
+provider.
+
 For a safe workflow smoke test before adding the mailbox credential, dispatch
 `weekly-seo-intelligence.yml` with `preview_only=true`. It builds and uploads
 the reports while skipping both Monday and SMTP delivery.
