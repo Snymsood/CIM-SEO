@@ -29,6 +29,11 @@ paid email API.
    - `SEO_ACTION_APPS_SCRIPT_URL`: the `/exec` URL
    - `SEO_ACTION_APPS_SCRIPT_TOKEN`: exactly the same `WEBHOOK_TOKEN` value
 
+The repository variable `SEO_ACTION_DELIVERY_MODE` is set to
+`google_apps_script` so scheduled runs will use this route. Until both secrets
+are present, delivery fails immediately with a configuration error; it does
+not attempt Gmail SMTP again.
+
 The endpoint accepts only a matching random token, sends only to the fixed
 `REPORT_TO` address, validates the report shape, and records the completed
 reporting week to suppress repeat sends. The GitHub sender checks for a JSON

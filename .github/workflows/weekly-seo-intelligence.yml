@@ -130,6 +130,7 @@ jobs:
       - name: Email personal weekly action report
         if: ${{ !inputs.preview_only }}
         env:
+          SEO_ACTION_DELIVERY_MODE: ${{ vars.SEO_ACTION_DELIVERY_MODE || 'smtp' }}
           SEO_ACTION_APPS_SCRIPT_URL: ${{ secrets.SEO_ACTION_APPS_SCRIPT_URL }}
           SEO_ACTION_APPS_SCRIPT_TOKEN: ${{ secrets.SEO_ACTION_APPS_SCRIPT_TOKEN }}
           SEO_ACTION_REPORT_TO: ${{ secrets.SEO_ACTION_REPORT_TO }}
@@ -138,7 +139,7 @@ jobs:
           SEO_REPORT_SMTP_HOST: ${{ vars.SEO_REPORT_SMTP_HOST || 'smtp.gmail.com' }}
           SEO_REPORT_SMTP_PORT: ${{ vars.SEO_REPORT_SMTP_PORT || '465' }}
         run: |
-          if [ -n "$SEO_ACTION_APPS_SCRIPT_URL" ] || [ -n "$SEO_ACTION_APPS_SCRIPT_TOKEN" ]; then
+          if [ "$SEO_ACTION_DELIVERY_MODE" = "google_apps_script" ] || [ -n "$SEO_ACTION_APPS_SCRIPT_URL" ] || [ -n "$SEO_ACTION_APPS_SCRIPT_TOKEN" ]; then
             python -u send_weekly_action_webhook.py
           else
             python -u send_weekly_action_email.py
@@ -227,6 +228,7 @@ jobs:
 
       - name: Retry personal weekly action email
         env:
+          SEO_ACTION_DELIVERY_MODE: ${{ vars.SEO_ACTION_DELIVERY_MODE || 'smtp' }}
           SEO_ACTION_APPS_SCRIPT_URL: ${{ secrets.SEO_ACTION_APPS_SCRIPT_URL }}
           SEO_ACTION_APPS_SCRIPT_TOKEN: ${{ secrets.SEO_ACTION_APPS_SCRIPT_TOKEN }}
           SEO_ACTION_REPORT_TO: ${{ secrets.SEO_ACTION_REPORT_TO }}
@@ -235,7 +237,7 @@ jobs:
           SEO_REPORT_SMTP_HOST: ${{ vars.SEO_REPORT_SMTP_HOST || 'smtp.gmail.com' }}
           SEO_REPORT_SMTP_PORT: ${{ vars.SEO_REPORT_SMTP_PORT || '465' }}
         run: |
-          if [ -n "$SEO_ACTION_APPS_SCRIPT_URL" ] || [ -n "$SEO_ACTION_APPS_SCRIPT_TOKEN" ]; then
+          if [ "$SEO_ACTION_DELIVERY_MODE" = "google_apps_script" ] || [ -n "$SEO_ACTION_APPS_SCRIPT_URL" ] || [ -n "$SEO_ACTION_APPS_SCRIPT_TOKEN" ]; then
             python -u send_weekly_action_webhook.py --root saved-report
           else
             python -u send_weekly_action_email.py --root saved-report
