@@ -71,7 +71,7 @@ def test_smtp_delivery_has_plain_text_and_html_without_exposing_password(tmp_pat
     (tmp_path / "weekly_personal_action_report.html").write_text("<h1>Check a page</h1>")
     monkeypatch.setenv("SEO_ACTION_REPORT_TO", "specialist@example.com")
     monkeypatch.setenv("SEO_REPORT_SMTP_USER", "sender@example.com")
-    monkeypatch.setenv("SEO_REPORT_SMTP_PASSWORD", "test-password")
+    monkeypatch.setenv("SEO_REPORT_SMTP_PASSWORD", "test- password")
     captured = {}
 
     class FakeSMTP:

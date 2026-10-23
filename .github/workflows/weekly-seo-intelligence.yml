@@ -7,6 +7,14 @@ on:
         description: "Build reports without posting to Monday or sending email"
         type: boolean
         default: false
+      delivery_only:
+        description: "Retry email from a prior run without rebuilding reports"
+        type: boolean
+        default: false
+      source_run_id:
+        description: "Prior intelligence run ID for delivery_only"
+        type: string
+        default: ""
   schedule:
     - cron: "11 18 * * 1"
 
@@ -16,6 +24,7 @@ permissions:
 
 jobs:
   weekly-seo-intelligence:
+    if: ${{ !inputs.delivery_only }}
     runs-on: ubuntu-latest
 
     steps:
@@ -163,4 +172,63 @@ jobs:
             weekly_personal_action_report.json
             personal_email_delivery_status.json
             outputs/weekly_intelligence.json
+          retention-days: 90
+
+  retry-personal-email:
+    if: ${{ inputs.delivery_only }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Download and verify prior personal report
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+        run: |
+          if [ -z "$SOURCE_RUN_ID" ]; then
+            echo "source_run_id is required for delivery_only"
+            exit 1
+          fi
+          gh run download "$SOURCE_RUN_ID" --name weekly-seo-intelligence --dir .
+          python - "$SOURCE_RUN_ID" <<'PY'
+          import json
+          import sys
+          from datetime import datetime, timedelta, timezone
+          from pathlib import Path
+
+          source_run_id = sys.argv[1]
+          manifest = json.loads(Path("report_manifest.json").read_text())
+          report = json.loads(Path("weekly_personal_action_report.json").read_text())
+          delivery = json.loads(Path("personal_email_delivery_status.json").read_text())
+          today = datetime.now(timezone.utc).date()
+          days_since_sunday = (today.weekday() + 1) % 7 or 7
+          end = today - timedelta(days=days_since_sunday)
+          expected = f"{end - timedelta(days=6)}_{end}"
+          if str(manifest.get("run_id")) != source_run_id or report.get("period_id") != expected:
+              raise SystemExit("Prior report run or reporting period does not match this week")
+          if delivery.get("status") != "failed":
+              raise SystemExit("Only a failed email delivery can be retried")
+          PY
+
+      - name: Retry personal weekly action email
+        env:
+          SEO_ACTION_REPORT_TO: ${{ secrets.SEO_ACTION_REPORT_TO }}
+          SEO_REPORT_SMTP_USER: ${{ secrets.SEO_REPORT_SMTP_USER || secrets.SEO_ACTION_REPORT_TO }}
+          SEO_REPORT_SMTP_PASSWORD: ${{ secrets.SEO_REPORT_SMTP_PASSWORD }}
+          SEO_REPORT_SMTP_HOST: ${{ vars.SEO_REPORT_SMTP_HOST || 'smtp.gmail.com' }}
+          SEO_REPORT_SMTP_PORT: ${{ vars.SEO_REPORT_SMTP_PORT || '465' }}
+        run: python -u send_weekly_action_email.py
+
+      - name: Upload retry status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: personal-email-delivery-retry
+          path: personal_email_delivery_status.json
           retention-days: 90

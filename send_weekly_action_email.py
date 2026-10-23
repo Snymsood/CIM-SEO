@@ -23,8 +23,12 @@ def _address(value: str, label: str) -> str:
 def send(root: Path, *, smtp_factory=None) -> dict:
     recipient = _address(os.environ.get("SEO_ACTION_REPORT_TO", ""), "recipient")
     username = _address(os.environ.get("SEO_REPORT_SMTP_USER", ""), "sender")
-    password = os.environ.get("SEO_REPORT_SMTP_PASSWORD", "")
     host = os.environ.get("SEO_REPORT_SMTP_HOST", "smtp.gmail.com")
+    password = os.environ.get("SEO_REPORT_SMTP_PASSWORD", "")
+    if host == "smtp.gmail.com":
+        # Google displays app passwords in groups; pasted spaces are not part
+        # of the 16-character credential.
+        password = "".join(password.split())
     port = int(os.environ.get("SEO_REPORT_SMTP_PORT", "465"))
     if not password:
         raise ValueError("SEO_REPORT_SMTP_PASSWORD GitHub secret is not set")

@@ -134,6 +134,12 @@ For a safe workflow smoke test before adding the mailbox credential, dispatch
 `weekly-seo-intelligence.yml` with `preview_only=true`. It builds and uploads
 the reports while skipping both Monday and SMTP delivery.
 
+If SMTP delivery fails after the report was generated, dispatch the same
+workflow with `delivery_only=true` and `source_run_id` set to that failed run.
+The retry checks the report week and original run ID, then sends only the saved
+personal email; it does not rebuild reports or post to Monday again. Gmail app
+passwords pasted with display spaces are normalized before SMTP login.
+
 ---
 
 ## How Anomaly Detection Works
