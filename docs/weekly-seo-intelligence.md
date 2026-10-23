@@ -108,7 +108,8 @@ impact/effort/confidence, and direct page links. Broad branded queries and
 low-impression keywords receive lower priority. Lab speed and field Core Web
 Vitals are labeled separately; possible tracking anomalies are diagnosed before
 content changes are recommended. A missing core GSC or GA4 source stops the
-report instead of sending five invented or zero-data actions.
+report instead of sending five invented or zero-data actions. A four-site GA4
+session watchlist adds context without mixing the mini-sites into main-site KPIs.
 
 The email is sent as plain text and HTML through an existing SMTP mailbox.
 There is no paid reporting or email API dependency. Configure these repository

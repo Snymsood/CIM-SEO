@@ -220,9 +220,16 @@ def build_report(root: Path) -> dict:
         if run_id.isdigit():
             repository = os.environ.get("GITHUB_REPOSITORY", "Snymsood/CIM-SEO")
             action["source_run_url"] = f"https://github.com/{repository}/actions/runs/{run_id}"
+    site_watchlist = []
+    for row in _rows(root, "site_portfolio_trends"):
+        if row.get("metric") == "GA4 sessions" and row.get("site_id"):
+            site_watchlist.append({"site_id": row["site_id"], "site_name": row.get("site_name", row["site_id"]),
+                                   "current": _number(row.get("current")), "previous": _number(row.get("previous")),
+                                   "change_pct": _number(row.get("change_pct")) if row.get("change_pct") else None})
     return {"period_start": dates[0], "period_end": dates[1],
             "period_id": period_id, "source_runs": ledger, "actions": selected,
-            "candidate_count": len(candidates), "source_action_count": len(queue)}
+            "candidate_count": len(candidates), "source_action_count": len(queue),
+            "site_watchlist": site_watchlist}
 
 
 def render_html(report: dict) -> str:
@@ -240,13 +247,27 @@ def render_html(report: dict) -> str:
                      f'Confidence {esc(action["confidence"])} · Source {esc(action["source"])}</p>'
                      f'<p>{links}</p></section>')
     coverage = ", ".join(sorted({str(r.get("report_name", r.get("artifact"))) for r in report["source_runs"]}))
+    watchlist = ""
+    if report.get("site_watchlist"):
+        rows = "".join(
+            f'<tr><td>{esc(site["site_name"])}</td><td>{site["current"]:,.0f}</td>'
+            f'<td>{site["previous"]:,.0f}</td><td>{site["change_pct"]:+.1%}</td></tr>'
+            if site["change_pct"] is not None else
+            f'<tr><td>{esc(site["site_name"])}</td><td>{site["current"]:,.0f}</td>'
+            f'<td>{site["previous"]:,.0f}</td><td>—</td></tr>'
+            for site in report["site_watchlist"])
+        watchlist = ("<section class=\"card\"><h2>Four-site traffic watchlist</h2>"
+                     "<p>GA4 sessions, distinct completed Monday–Sunday weeks. These site signals are context for the actions above.</p>"
+                     "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"5\"><thead><tr><th align=\"left\">Site</th>"
+                     "<th align=\"right\">Current</th><th align=\"right\">Previous</th><th align=\"right\">Change</th>"
+                     f"</tr></thead><tbody>{rows}</tbody></table></section>")
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
             "<title>Weekly SEO action plan</title><style>body{font-family:Arial,sans-serif;color:#182c3a;max-width:760px;margin:auto;padding:24px;background:#f5f8fa}"
             ".card{background:#fff;border:1px solid #dce5e9;border-radius:10px;padding:20px;margin:18px 0}.eyebrow{font-size:12px;font-weight:700;color:#116c70;letter-spacing:.05em}"
             "h1{font-size:29px}h2{font-size:20px}p,li{line-height:1.5}.meta,.foot{color:#52626b;font-size:13px}a{color:#075d9b}</style></head><body>"
             f'<h1>Your weekly SEO action plan</h1><p>Completed week: {esc(report["period_start"])} to {esc(report["period_end"])}. '
             f'{len(report["actions"])} evidence-backed priorities from {len(report["source_runs"])} validated source reports.</p>'
-            + "".join(cards)
+            + "".join(cards) + watchlist
             + f'<p class="foot">Selection: ranked intelligence queue with source-level checks; uncertain claims are framed as verification tasks. '
               f'Coverage: {esc(coverage)}. A source can contribute context without generating a top-five action.</p></body></html>')
 
@@ -260,6 +281,12 @@ def render_text(report: dict) -> str:
         lines += [f"{label}: {url}" for label, url in action["links"]]
         if action.get("source_run_url"):
             lines += [f"Source run: {action['source_run_url']}"]
+        lines += [""]
+    if report.get("site_watchlist"):
+        lines += ["Four-site traffic watchlist (GA4 sessions):"]
+        for site in report["site_watchlist"]:
+            change = f"{site['change_pct']:+.1%}" if site["change_pct"] is not None else "unavailable"
+            lines += [f"- {site['site_name']}: {site['current']:,.0f} vs {site['previous']:,.0f} ({change})"]
         lines += [""]
     return "\n".join(lines)
 

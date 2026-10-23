@@ -40,11 +40,16 @@ def test_personal_report_uses_page_evidence_and_labels_lab_scope(tmp_path):
     _csv(tmp_path / "site_speed_opportunities.csv", [
         {"page": "https://www.cim.org/", "issue": "Unused JavaScript", "savings_ms": "750"},
     ])
+    _csv(tmp_path / "site_portfolio_trends.csv", [
+        {"site_id": "magazine", "site_name": "CIM Magazine", "metric": "GA4 sessions",
+         "current": "1357", "previous": "1227", "change_pct": "0.1059"},
+    ])
     report = build_report(tmp_path)
     assert report["period_id"] == "2026-10-12_2026-10-18"
     assert report["actions"][0]["details"]["page"] == "https://www.cim.org/"
     assert "Field Core Web Vitals pass" in report["actions"][0]["evidence"]
     assert "Unused JavaScript" in render_html(report)
+    assert "CIM Magazine" in render_html(report)
 
 
 def test_personal_report_rejects_missing_or_mixed_source_weeks(tmp_path):
