@@ -19,6 +19,16 @@ The analyst processes every row of these files in deterministic profiles;
 it does not claim to have received a separate daily feed that the project does
 not collect.
 
+The [October 23 live preview](https://github.com/Snymsood/CIM-SEO/actions/runs/39986999019)
+processed 87 measured CSVs and 110,470 file rows from 13 validated weekly source
+runs and nine detailed portfolio tables. All six category reviews, synthesis,
+and cited-record model review completed. The email uses three metric-checked
+cross-report signals; the broader proposed and model-reviewed interpretations
+remain in the artifact. This run used 32,606 tokens across eight Groq calls.
+The [saved-preview delivery](https://github.com/Snymsood/CIM-SEO/actions/runs/39987921388)
+was submitted through the existing one-recipient Mailchimp test route without
+reposting the intelligence report to Monday.
+
 ## Analysis flow
 
 1. Confirm all source run periods match and that GSC and GA4 sources exist.
@@ -98,3 +108,6 @@ quality of the input evidence.
 - Day-by-day anomaly detection requires a separate daily ingestion layer or
   day-granularity exports from the sources. The current pipeline operates on
   completed weekly source artifacts.
+- The October 19 GA4 custom-event artifact contained an HTML report but no
+  machine-readable event CSVs. The analyst marks that context as unavailable;
+  the current event script writes CSVs for subsequent runs.

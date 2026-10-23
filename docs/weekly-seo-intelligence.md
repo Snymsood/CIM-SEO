@@ -129,6 +129,10 @@ identity of a previously sent campaign in that audience.
 The October 12–18, 2026 saved report was submitted by the
 [delivery-only run](https://github.com/Snymsood/CIM-SEO/actions/runs/39894993419),
 and the recipient confirmed it arrived. Scheduled runs use the same route.
+The AI-enhanced saved preview for the same completed week was submitted by a
+[separate delivery-only run](https://github.com/Snymsood/CIM-SEO/actions/runs/39987921388)
+to one recipient; Mailchimp reported `submitted`, which does not by itself
+confirm inbox arrival.
 
 SMTP remains available when `SEO_ACTION_DELIVERY_MODE=smtp`. Configure these
 repository **Actions secrets**:
