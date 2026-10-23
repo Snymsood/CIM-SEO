@@ -99,6 +99,11 @@ class WeeklyAIAnalysisTests(unittest.TestCase):
             _csv(root / "normalized" / "ga4_pages_comparison_normalized.csv", [
                 {"landingPage": "/conference", "sessions_current": "12"},
             ])
+            _csv(root / "weekly_trends.csv", [
+                {"metric": "GA4 sessions", "current": "80", "previous": "100"},
+                {"metric": "GSC query impressions", "current": "900", "previous": "1000"},
+                {"metric": "Tracked conversion events", "current": "12", "previous": "10"},
+            ])
             stages = []
 
             def fake_model(prompt, name, **_kwargs):
@@ -113,7 +118,8 @@ class WeeklyAIAnalysisTests(unittest.TestCase):
                 return {"summary": "Review the conference path", "findings": [
                     {"title": "Check the event page", "insight": "Evidence needs comparison",
                      "evidence_ids": [reference], "next_step": "Inspect the page and query",
-                     "confidence": "medium"}], "data_gaps": []}
+                     "confidence": "medium"}],
+                    "data_gaps": ["Unsupported model speculation"] if name == "verification" else []}
 
             with patch.dict(os.environ, {"GROQ_API_KEY": "test-key"}):
                 result = analyze(root, model_call=fake_model)
@@ -122,8 +128,11 @@ class WeeklyAIAnalysisTests(unittest.TestCase):
             self.assertEqual(result["status"], "partial")
             self.assertEqual(result["coverage"]["successful_categories"], 2)
             self.assertEqual(result["verification"]["accepted"], 1)
+            self.assertEqual(result["model_reported_gaps"], ["Unsupported model speculation"])
+            self.assertNotIn("Unsupported model speculation", result["data_gaps"])
             self.assertEqual(result["patterns"][0]["evidence_ids"],
-                             ["file:ga4_pages_comparison_normalized.csv"])
+                             ["file:source/weekly_trends.csv"])
+            self.assertIn("different measures", result["patterns"][0]["insight"])
 
 
 if __name__ == "__main__":

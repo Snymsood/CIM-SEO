@@ -38,13 +38,17 @@ not collect.
    and quality warnings, to a separate synthesis call. It proposes up to four
    cross-report patterns with citations, confidence, and a next check.
 5. Recheck each proposed pattern against its exact cited file or row record in
-   a separate verification call. Unsupported causal links and wrong metric
-   scopes are rewritten or dropped. Retain proposed and verified patterns in
-   the artifact so a specialist can audit what was filtered.
-6. Validate cited evidence IDs against the profiled rows/files. The five
+   a separate model review. Retain the proposed and model-reviewed patterns in
+   the artifact for specialist inspection; this model check alone does not
+   establish factual correctness.
+6. Build the email's cross-report signals from named weekly KPI rows with
+   arithmetic checked in code. The emailed signals distinguish GSC exported
+   query data, GA4 sessions, configured event counts, and each site's property.
+   Free-form model interpretations and model-reported gaps stay in the artifact.
+7. Validate cited evidence IDs against the profiled rows/files. The five
    deterministic personal actions remain separate. The email adds a concise
    “Patterns across the reports” section with analysis coverage and explicit
-   data gaps. If AI is unavailable or only some domains succeed, the email
+   measured-data gaps. If AI is unavailable or only some domains succeed, the email
    labels that status instead of presenting a fabricated complete analysis.
 
 The full analyst outputs are `weekly_ai_evidence.json`,

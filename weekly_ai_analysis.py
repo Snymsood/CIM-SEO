@@ -405,6 +405,78 @@ def _cited_records(groups: dict, patterns: list[dict]) -> list[dict]:
     return records
 
 
+def _safe_patterns(root: Path, allowed_ids: set[str]) -> list[dict]:
+    """Build email-safe cross-report signals from named, scoped KPI rows."""
+    def rows(name: str) -> list[dict]:
+        path = root / name
+        if not path.is_file():
+            return []
+        with path.open(newline="", encoding="utf-8-sig") as stream:
+            return list(csv.DictReader(stream))
+
+    trends = {row.get("metric"): row for row in rows("weekly_trends.csv")}
+    portfolio = {row.get("site_id"): row for row in rows("site_portfolio_trends.csv")
+                 if row.get("metric") == "GA4 sessions"}
+    sessions = trends.get("GA4 sessions", {})
+    impressions = trends.get("GSC query impressions", {})
+    events = trends.get("Tracked conversion events", {})
+    patterns = []
+
+    def pair(row: dict) -> tuple[float, float] | None:
+        current, previous = _number(row.get("current")), _number(row.get("previous"))
+        return (current, previous) if current is not None and previous and previous > 0 else None
+
+    def change(values: tuple[float, float]) -> str:
+        return f"{(values[0] / values[1] - 1):+.1%}"
+
+    def file_id(name: str) -> str:
+        stem = Path(name).stem
+        return next((candidate for candidate in
+                     (f"file:source/{name}", f"file:{stem}_normalized.csv")
+                     if candidate in allowed_ids), "")
+
+    session_pair, impression_pair, event_pair = pair(sessions), pair(impressions), pair(events)
+    trend_id = file_id("weekly_trends.csv")
+    if session_pair and impression_pair and trend_id:
+        patterns.append({
+            "title": "Main-site traffic and exported search impressions moved together",
+            "insight": (f"GA4 sessions across channels changed from {session_pair[1]:,.0f} to "
+                        f"{session_pair[0]:,.0f} ({change(session_pair)}). GSC impressions in the "
+                        f"exported query set changed from {impression_pair[1]:,.0f} to "
+                        f"{impression_pair[0]:,.0f} ({change(impression_pair)}). These are different "
+                        "measures; the GSC export is not a whole-site total."),
+            "evidence_ids": [trend_id],
+            "next_step": "Compare GA4 channel/device and GSC page/query/device changes for the same dates before attributing a cause.",
+            "confidence": "high"})
+
+    portfolio_id = file_id("site_portfolio_trends.csv")
+    site_pairs = {site: pair(portfolio.get(site, {}))
+                  for site in ("main", "magazine", "mrmr2026", "cimconnect")}
+    if all(site_pairs.values()) and portfolio_id:
+        names = {"main": "www.cim.org", "magazine": "magazine.cim.org",
+                 "mrmr2026": "mrmr2026.cim.org", "cimconnect": "cimconnect.ca"}
+        movement = "; ".join(f"{names[site]} {change(site_pairs[site])}"
+                             for site in names)
+        patterns.append({
+            "title": "The four sites followed different traffic paths",
+            "insight": f"GA4 sessions changed week over week: {movement}. Each property has its own audience and event cycle; these changes do not establish a shared cause.",
+            "evidence_ids": [portfolio_id],
+            "next_step": "Review acquisition channels, campaign timing, and tag health within each property before comparing site performance.",
+            "confidence": "high"})
+
+    if session_pair and event_pair and trend_id:
+        patterns.append({
+            "title": "Tracked event counts diverged from session volume",
+            "insight": (f"Configured GA4 conversion event counts changed from {event_pair[1]:,.0f} "
+                        f"to {event_pair[0]:,.0f} ({change(event_pair)}), while site sessions changed "
+                        f"from {session_pair[1]:,.0f} to {session_pair[0]:,.0f} "
+                        f"({change(session_pair)}). Event counts are not unique conversions or a conversion rate."),
+            "evidence_ids": [trend_id],
+            "next_step": "Check event definitions, firing frequency, and page/channel denominators before interpreting the difference.",
+            "confidence": "high"})
+    return patterns
+
+
 def analyze(root: Path, *, dry_run: bool = False, model_call=_call_model) -> dict:
     source, all_ids = packets(root)
     period_id = source["period_id"]
@@ -460,6 +532,10 @@ def analyze(root: Path, *, dry_run: bool = False, model_call=_call_model) -> dic
                                                "error": str(exc)[:300]}
         completed = {name: data for name, data in output["categories"].items()
                      if data["status"] == "complete"}
+        missing_reviews = [name for name in CATEGORIES if name not in completed]
+        if missing_reviews:
+            output["data_gaps"].append("AI category reviews unavailable: " +
+                                       ", ".join(missing_reviews))
         if completed:
             cross, _ = _bounded(source["groups"]["cross_source"], 2500)
             cross_ids = {p["id"] for p in cross} | {x["id"] for p in cross for x in p["examples"]}
@@ -471,14 +547,13 @@ def analyze(root: Path, *, dry_run: bool = False, model_call=_call_model) -> dic
                       "Use only the cited evidence IDs in domain reviews or the cross-source profiles. "
                       "If a category failed, flag the coverage gap.\n" + json.dumps({
                           "completed_reviews": _synthesis_reviews(completed), "cross_source_profiles": cross,
-                          "missing_reviews": [name for name in CATEGORIES if name not in completed]},
+                          "missing_reviews": missing_reviews},
                           separators=(",", ":")))
             try:
                 result = _validated(model_call(prompt, "cross_source", key=key,
                                                pace_state=pace_state, usage_log=usage_log),
                                     all_ids | cross_ids, 4)
                 output["proposed_patterns"] = result["findings"]
-                output["data_gaps"] += result["data_gaps"]
                 cited = _cited_records(source["groups"], result["findings"])
                 qa_prompt = (f"Reporting period: {period_id}. Independently verify the proposed "
                              "cross-report findings against the exact cited records. Keep only claims "
@@ -496,17 +571,26 @@ def analyze(root: Path, *, dry_run: bool = False, model_call=_call_model) -> dic
                 verified = _validated(model_call(qa_prompt, "verification", key=key,
                                                  pace_state=pace_state, usage_log=usage_log),
                                       {record["id"] for record in cited}, 4)
-                output["verification"] = {"status": "complete",
+                output["verification"] = {"status": "model_reviewed",
                                           "proposed": len(result["findings"]),
                                           "accepted": len(verified["findings"])}
-                output["summary"] = verified["summary"]
-                output["patterns"] = verified["findings"]
-                output["data_gaps"] += verified["data_gaps"]
+                output["model_review_patterns"] = verified["findings"]
+                output["patterns"] = _safe_patterns(root, all_ids)
+                output["verification"]["displayed_metric_patterns"] = len(output["patterns"])
+                output["summary"] = ("The AI reviewed the available source categories and compared their signals. "
+                                     "The patterns below use checked, explicitly scoped weekly metrics; "
+                                     "the detailed model interpretations remain in the workflow artifact.")
+                output["model_reported_gaps"] = result["data_gaps"] + verified["data_gaps"]
                 output["status"] = (("complete" if len(completed) == len(CATEGORIES)
-                                     else "partial") if verified["findings"] else "failed")
+                                     else "partial") if output["patterns"] else "failed")
             except Exception as exc:
-                output["status"] = "failed"
                 output["data_gaps"].append(f"Cross-source synthesis or verification failed: {exc}")
+                output["patterns"] = _safe_patterns(root, all_ids)
+                if output["patterns"]:
+                    output["summary"] = ("The AI category review ran, but its cross-report "
+                                         "interpretation was incomplete. The scoped KPI signals "
+                                         "below are calculated from the source rows.")
+                output["status"] = "partial" if output["patterns"] else "failed"
         else:
             output["status"] = "failed"
             output["data_gaps"].append("No category AI review completed")
