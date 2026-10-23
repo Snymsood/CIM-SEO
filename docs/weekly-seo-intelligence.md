@@ -44,6 +44,8 @@ It does **not** replace any existing reports. The source pipelines still publish
 | `source_report_runs.json` | Validated upstream artifact run IDs and periods |
 | `weekly_seo_intelligence_summary.json` | Machine-readable summary of the run |
 | `weekly_seo_intelligence_ai_recommendations.md` | AI-generated action plan (or deterministic fallback) |
+| `weekly_personal_action_report.html`, `.txt`, `.json` | Five ranked, evidence-linked specialist tasks with specific next steps and verification |
+| `personal_email_delivery_status.json` | SMTP delivery outcome, separate from the Monday intelligence delivery status |
 | `ga4_conversion_summary.csv` | Conversion events: current vs previous counts |
 | `ga4_conversion_pages.csv` | Top converting landing pages |
 | `ga4_conversion_channels.csv` | Conversions by channel group |
@@ -94,6 +96,42 @@ apart, preserving the recorded phone or combined-device scope. These site
 trends appear in a separate subsection of Weekly Trends; they do not enter the
 main-site KPI grid or main-site trend history. A missing or stale portfolio
 artifact appears as unavailable rather than a zero.
+
+## Personal weekly action email
+
+The Monday `weekly-seo-intelligence.yml` run at **18:11 UTC** builds a separate
+personal work plan after validating the individual source artifacts. It uses the
+ranked intelligence queue, then checks the underlying keyword, GA4, PageSpeed,
+broken-link, internal-link, and content-decay rows for specific pages and
+measurements. Each action has evidence, two concrete steps, a success check,
+impact/effort/confidence, and direct page links. Broad branded queries and
+low-impression keywords receive lower priority. Lab speed and field Core Web
+Vitals are labeled separately; possible tracking anomalies are diagnosed before
+content changes are recommended. A missing core GSC or GA4 source stops the
+report instead of sending five invented or zero-data actions.
+
+The email is sent as plain text and HTML through an existing SMTP mailbox.
+There is no paid reporting or email API dependency. Configure these repository
+**Actions secrets**:
+
+| Secret | Meaning |
+|---|---|
+| `SEO_ACTION_REPORT_TO` | Personal recipient |
+| `SEO_REPORT_SMTP_USER` | Sending mailbox; defaults to the recipient when omitted |
+| `SEO_REPORT_SMTP_PASSWORD` | SMTP app password or mailbox-specific credential |
+
+Optional **Actions variables** `SEO_REPORT_SMTP_HOST` and
+`SEO_REPORT_SMTP_PORT` default to `smtp.gmail.com` and `465` (SSL); port `587`
+uses STARTTLS. For a Gmail sender, enable 2-Step Verification and create an
+[app password](https://support.google.com/accounts/answer/185833). Put that
+password in the GitHub secret, never in source control. If the credential is
+missing or delivery fails, the workflow fails visibly and retains the generated
+HTML/JSON/text files and delivery status in the 90-day artifact. Existing Monday
+intelligence publication remains separate.
+
+For a safe workflow smoke test before adding the mailbox credential, dispatch
+`weekly-seo-intelligence.yml` with `preview_only=true`. It builds and uploads
+the reports while skipping both Monday and SMTP delivery.
 
 ---
 
@@ -231,7 +269,7 @@ The Weekly Trends section compares the current and previous reporting weeks acro
 
 4. **The intelligence report is static HTML.** No interactive filtering or drill-down is available in this version.
 
-5. **No email delivery.** Reports are posted to Monday.com and saved as workflow artifacts.
+5. **Personal email is limited to the five-action digest.** Full reports remain on Monday.com and in workflow artifacts.
 
 6. **No Slack notifications.** The `SLACK_WEBHOOK_URL` variable is documented but not yet implemented.
 
@@ -240,7 +278,7 @@ The Weekly Trends section compares the current and previous reporting weeks acro
 ## Next Planned Improvements
 
 1. Read Google Sheets history back for 12-week trend charts
-2. Add email delivery of the intelligence report
+2. Consider optional email delivery of full stakeholder reports
 3. Add Slack webhook notification on report completion
 4. Add anomaly alerting (immediate notification when high-severity anomaly detected)
 5. Expand content decay to use 4-week and 12-week trends

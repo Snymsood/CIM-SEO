@@ -2,6 +2,11 @@ name: Weekly SEO Intelligence
 
 on:
   workflow_dispatch:
+    inputs:
+      preview_only:
+        description: "Build reports without posting to Monday or sending email"
+        type: boolean
+        default: false
   schedule:
     - cron: "11 18 * * 1"
 
@@ -102,7 +107,30 @@ jobs:
           MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
           MONDAY_INTELLIGENCE_ITEM_ID: ${{ secrets.MONDAY_INTELLIGENCE_ITEM_ID }}
           GOOGLE_SHEET_ID: ${{ secrets.GOOGLE_SHEET_ID }}
-        run: python -u weekly_seo_intelligence.py
+          PREVIEW_ONLY: ${{ inputs.preview_only || false }}
+        run: |
+          if [ "$PREVIEW_ONLY" = "true" ]; then
+            python -u weekly_seo_intelligence.py --dry-run
+          else
+            python -u weekly_seo_intelligence.py
+          fi
+
+      - name: Build personal weekly action report
+        run: python -u weekly_personal_action_report.py
+
+      - name: Email personal weekly action report
+        if: ${{ !inputs.preview_only }}
+        env:
+          SEO_ACTION_REPORT_TO: ${{ secrets.SEO_ACTION_REPORT_TO }}
+          SEO_REPORT_SMTP_USER: ${{ secrets.SEO_REPORT_SMTP_USER || secrets.SEO_ACTION_REPORT_TO }}
+          SEO_REPORT_SMTP_PASSWORD: ${{ secrets.SEO_REPORT_SMTP_PASSWORD }}
+          SEO_REPORT_SMTP_HOST: ${{ vars.SEO_REPORT_SMTP_HOST || 'smtp.gmail.com' }}
+          SEO_REPORT_SMTP_PORT: ${{ vars.SEO_REPORT_SMTP_PORT || '465' }}
+        run: python -u send_weekly_action_email.py
+
+      - name: Mark preview email as skipped
+        if: ${{ inputs.preview_only }}
+        run: python -c 'import json; from pathlib import Path; Path("personal_email_delivery_status.json").write_text(json.dumps({"status":"skipped","detail":"manual preview"}, indent=2))'
 
       - name: Finalize reporting artifacts
         if: always()
@@ -130,4 +158,9 @@ jobs:
             source_report_runs.json
             weekly_seo_intelligence_summary.json
             weekly_seo_intelligence_ai_recommendations.md
+            weekly_personal_action_report.html
+            weekly_personal_action_report.txt
+            weekly_personal_action_report.json
+            personal_email_delivery_status.json
             outputs/weekly_intelligence.json
+          retention-days: 90

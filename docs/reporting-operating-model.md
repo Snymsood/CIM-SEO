@@ -19,7 +19,8 @@ Scheduled Monday flow:
 | 15:00 | `content-audit-schedule.yml` | `MONDAY_CONTENT_AUDIT_ITEM_ID` | Refresh/archive recommendations |
 | 15:15 | `content-category-performance.yml` | `MONDAY_CONTENT_CATEGORY_ITEM_ID` | Content category performance |
 | 15:30 | `ai-snippet-verification.yml` | `MONDAY_AI_SNIPPET_ITEM_ID` | AI snippet readiness |
-| 16:30 | `weekly-seo-intelligence.yml` | `MONDAY_INTELLIGENCE_ITEM_ID` | Weekly action queue from the individual artifacts |
+| 15:41 | `site-source-portfolio.yml` | `13342351698` | Four-site GSC, GA4, and CrUX coverage |
+| 18:11 | `weekly-seo-intelligence.yml` | `MONDAY_INTELLIGENCE_ITEM_ID` | Weekly intelligence plus the personal five-action email from validated artifacts |
 
 ## Monthly Combined Report
 
