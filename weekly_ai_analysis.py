@@ -17,12 +17,9 @@ import re
 import time
 from collections import Counter
 from pathlib import Path
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
 
 MODEL = os.getenv("GROQ_MODEL", "openai/gpt-oss-120b")
-API_URL = "https://api.groq.com/openai/v1/chat/completions"
 MAX_PACKET_CHARS = 11000
 RATE_PACE_SECONDS = 40
 CATEGORIES = {
@@ -52,7 +49,8 @@ COUNT_HINTS = ("click", "impression", "session", "conversion", "count", "inlinks
 NO_EXAMPLE_FILES = {"broken_link_results", "discovered_internal_links",
                     "internal_linking_discovered_links", "keyword_page_mapping"}
 BREAKDOWN_FIELDS = ("status_code", "issue_type", "status", "site_id",
-                    "newsletter_segment", "strategy_status", "strategy")
+                    "newsletter_segment", "strategy_status", "strategy",
+                    "metric", "verdict", "coverage_state")
 EXAMPLE_FIELDS = {
     "content_strategy_scorecard": ("page_canonical", "strategy_status", "gsc_clicks_change",
                                    "gsc_impressions", "gsc_ctr", "ga4_sessions_change",
@@ -75,7 +73,7 @@ PROFILE_METRICS = {
     "content_strategy_scorecard": ("gsc_clicks_change", "gsc_impressions", "ga4_sessions_change",
                                    "email_unique_clicks", "inlinks"),
     "site_ga4_events": ("event_count",),
-    "site_crux_history": ("p75_raw",),
+    "site_crux_history": (),
     "site_speed_opportunities": ("savings_ms",),
     "broken_link_unique_issues": ("source_page_count",),
 }
@@ -144,8 +142,9 @@ def profile_csv(path: Path, label: str | None = None) -> dict:
         reader = csv.DictReader(stream)
         fields = reader.fieldnames or []
         stem = path.stem.replace("_normalized", "")
-        selected = [field for field in PROFILE_METRICS.get(stem, ()) if field in fields]
-        if not selected:
+        if stem in PROFILE_METRICS:
+            selected = [field for field in PROFILE_METRICS[stem] if field in fields]
+        else:
             selected = [field for field in fields if field not in BREAKDOWN_FIELDS and
                         any(hint in field.lower() for hint in METRIC_HINTS)][:5]
         stats = {field: {"n": 0, "sum": 0.0, "min": None, "max": None} for field in selected}
@@ -303,42 +302,48 @@ def _schema(name: str) -> dict:
 
 
 def _call_model(prompt: str, name: str, *, key: str, pace_state: list[float],
-                usage_log: list[dict], opener=urlopen) -> dict:
+                usage_log: list[dict]) -> dict:
+    from openai import APIConnectionError, APIStatusError, OpenAI, RateLimitError
+
     elapsed = time.monotonic() - pace_state[0]
     if pace_state[0] and elapsed < RATE_PACE_SECONDS:
         time.sleep(RATE_PACE_SECONDS - elapsed)
-    body = {"model": MODEL, "messages": [{"role": "system", "content": SYSTEM},
-                                           {"role": "user", "content": prompt}],
-            "reasoning_effort": "medium" if name == "cross_source" else "low",
-            "temperature": 0.1, "max_tokens": 2200,
-            "response_format": _schema(name)}
-    request = Request(API_URL, data=json.dumps(body).encode("utf-8"), method="POST",
-                      headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
+    client = OpenAI(api_key=key, base_url="https://api.groq.com/openai/v1",
+                    max_retries=0, timeout=100)
     for attempt in range(3):
         try:
             pace_state[0] = time.monotonic()
-            with opener(request, timeout=100) as response:
-                result = json.loads(response.read().decode("utf-8"))
-                usage = result.get("usage", {})
-                usage_log.append({"stage": name, "usage": usage,
-                                  "remaining_requests": response.headers.get("x-ratelimit-remaining-requests"),
-                                  "remaining_tokens_per_minute": response.headers.get("x-ratelimit-remaining-tokens")})
-                content = result["choices"][0]["message"]["content"]
-                if not content:
-                    raise ValueError("Model returned no structured content")
-                return json.loads(content)
-        except HTTPError as exc:
-            if exc.code == 429 and attempt < 2:
+            raw = client.chat.completions.with_raw_response.create(
+                model=MODEL,
+                messages=[{"role": "system", "content": SYSTEM},
+                          {"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=2200,
+                response_format=_schema(name),
+                extra_body={"reasoning_effort": "medium" if name == "cross_source" else "low"},
+            )
+            response = raw.parse()
+            usage_log.append({"stage": name,
+                              "usage": response.usage.model_dump() if response.usage else {},
+                              "remaining_requests": raw.headers.get("x-ratelimit-remaining-requests"),
+                              "remaining_tokens_per_minute": raw.headers.get("x-ratelimit-remaining-tokens")})
+            content = response.choices[0].message.content
+            if not content:
+                raise ValueError("Model returned no structured content")
+            return json.loads(content)
+        except RateLimitError as exc:
+            if attempt < 2:
                 try:
-                    delay = min(90, max(5, int(float(exc.headers.get("retry-after", "45")))))
+                    delay = min(90, max(5, int(float(exc.response.headers.get("retry-after", "45")))))
                 except ValueError:
                     delay = 45
                 time.sleep(delay)
                 continue
-            detail = exc.read().decode("utf-8", errors="replace")[:350]
-            raise RuntimeError(f"Groq {name} returned HTTP {exc.code}: {detail}") from exc
-        except URLError as exc:
-            raise RuntimeError(f"Groq {name} network error: {exc.reason}") from exc
+            raise RuntimeError(f"Groq {name} exhausted rate-limit retries") from exc
+        except APIStatusError as exc:
+            raise RuntimeError(f"Groq {name} returned HTTP {exc.status_code}: {str(exc)[:350]}") from exc
+        except APIConnectionError as exc:
+            raise RuntimeError(f"Groq {name} connection error: {str(exc)[:300]}") from exc
     raise RuntimeError(f"Groq {name} exhausted rate-limit retries")
 
 
