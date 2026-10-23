@@ -45,7 +45,7 @@ It does **not** replace any existing reports. The source pipelines still publish
 | `weekly_seo_intelligence_summary.json` | Machine-readable summary of the run |
 | `weekly_seo_intelligence_ai_recommendations.md` | AI-generated action plan (or deterministic fallback) |
 | `weekly_personal_action_report.html`, `.txt`, `.json` | Five ranked, evidence-linked specialist tasks with specific next steps and verification |
-| `personal_email_delivery_status.json` | SMTP delivery outcome, separate from the Monday intelligence delivery status |
+| `personal_email_delivery_status.json` | Personal email submission outcome and channel, separate from Monday intelligence delivery |
 | `ga4_conversion_summary.csv` | Conversion events: current vs previous counts |
 | `ga4_conversion_pages.csv` | Top converting landing pages |
 | `ga4_conversion_channels.csv` | Conversions by channel group |
@@ -121,6 +121,9 @@ and the draft campaign ID. One test send counts toward the account's existing
 send allowance or Pay As You Go credits. This route uses the existing
 `MAILCHIMP_API_KEY` and `MAILCHIMP_AUDIENCE_ID` secrets and reuses the sender
 identity of a previously sent campaign in that audience.
+The October 12–18, 2026 saved report was submitted by the
+[delivery-only run](https://github.com/Snymsood/CIM-SEO/actions/runs/39894993419),
+and the recipient confirmed it arrived. Scheduled runs use the same route.
 
 SMTP remains available when `SEO_ACTION_DELIVERY_MODE=smtp`. Configure these
 repository **Actions secrets**:

@@ -136,8 +136,10 @@ MONDAY_AI_SNIPPET_ITEM_ID=your_ai_snippet_item_id
 MONDAY_EVENT_REPORT_ITEM_ID=your_ga4_event_item_id
 MONDAY_INTELLIGENCE_ITEM_ID=your_intelligence_item_id
 
-# Personal weekly action email (SMTP password belongs in GitHub Secrets)
+# Personal weekly action email (uses the existing Mailchimp account)
 SEO_ACTION_REPORT_TO=your_email@example.com
+SEO_ACTION_DELIVERY_MODE=mailchimp_test
+# Optional SMTP fallback (password belongs in GitHub Secrets)
 SEO_REPORT_SMTP_USER=sender_email@example.com
 SEO_REPORT_SMTP_PASSWORD=your_app_password
 SEO_REPORT_SMTP_HOST=smtp.gmail.com

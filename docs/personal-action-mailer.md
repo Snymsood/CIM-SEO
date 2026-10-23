@@ -1,4 +1,9 @@
-# Google-native delivery for the personal action report
+# Optional Google-native delivery for the personal action report
+
+The active delivery route is the existing Mailchimp account. Its one-recipient
+test send was verified in the inbox. This Apps Script route is retained as an
+optional alternative; select it explicitly with the repository variable
+`SEO_ACTION_DELIVERY_MODE=google_apps_script` before following this setup.
 
 GitHub Actions generates `weekly_personal_action_report.html`, `.txt`, and
 `.json` after the weekly intelligence run. Gmail SMTP has closed the connection
@@ -29,10 +34,9 @@ paid email API.
    - `SEO_ACTION_APPS_SCRIPT_URL`: the `/exec` URL
    - `SEO_ACTION_APPS_SCRIPT_TOKEN`: exactly the same `WEBHOOK_TOKEN` value
 
-The repository variable `SEO_ACTION_DELIVERY_MODE` is set to
-`google_apps_script` so scheduled runs will use this route. Until both secrets
-are present, delivery fails immediately with a configuration error; it does
-not attempt Gmail SMTP again.
+When `SEO_ACTION_DELIVERY_MODE=google_apps_script`, scheduled runs use this
+route. Until both secrets are present, delivery fails immediately with a
+configuration error; it does not attempt Gmail SMTP again.
 
 The endpoint accepts only a matching random token, sends only to the fixed
 `REPORT_TO` address, validates the report shape, and records the completed
@@ -40,12 +44,10 @@ reporting week to suppress repeat sends. The GitHub sender checks for a JSON
 confirmation before marking delivery successful. The token and personal email
 address are not committed to source control.
 
-After configuring both secrets, dispatch `weekly-seo-intelligence.yml` with
-`delivery_only=true` and `source_run_id=39890793845` to send the already
-generated October 12–18 report without publishing another Monday update. The
-scheduled Monday run uses this HTTPS route whenever both Apps Script secrets
-are present. If either is missing, the workflow fails visibly rather than
-silently claiming email delivery.
+After configuring both secrets and selecting this mode, future scheduled runs
+use HTTPS delivery. A delivery-only run can retry a failed current-week report
+without publishing another Monday update. If either secret is missing, the
+workflow fails visibly rather than silently claiming email delivery.
 
 [Apps Script mail quotas](https://developers.google.com/apps-script/guides/services/quotas)
 currently allow far more than this one-recipient weekly report; quotas can
