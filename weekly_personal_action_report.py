@@ -226,10 +226,16 @@ def build_report(root: Path) -> dict:
             site_watchlist.append({"site_id": row["site_id"], "site_name": row.get("site_name", row["site_id"]),
                                    "current": _number(row.get("current")), "previous": _number(row.get("previous")),
                                    "change_pct": _number(row.get("change_pct")) if row.get("change_pct") else None})
+    ai_analysis = None
+    ai_path = root / "weekly_ai_analysis.json"
+    if ai_path.is_file():
+        ai_analysis = json.loads(ai_path.read_text(encoding="utf-8"))
+        if ai_analysis.get("period_id") != period_id:
+            raise ValueError("AI analysis and source runs have different periods")
     return {"period_start": dates[0], "period_end": dates[1],
             "period_id": period_id, "source_runs": ledger, "actions": selected,
             "candidate_count": len(candidates), "source_action_count": len(queue),
-            "site_watchlist": site_watchlist}
+            "site_watchlist": site_watchlist, "ai_analysis": ai_analysis}
 
 
 def render_html(report: dict) -> str:
@@ -261,13 +267,34 @@ def render_html(report: dict) -> str:
                      "<table width=\"100%\" cellspacing=\"0\" cellpadding=\"5\"><thead><tr><th align=\"left\">Site</th>"
                      "<th align=\"right\">Current</th><th align=\"right\">Previous</th><th align=\"right\">Change</th>"
                      f"</tr></thead><tbody>{rows}</tbody></table></section>")
+    ai_section = ""
+    analysis = report.get("ai_analysis")
+    if analysis:
+        cover = analysis.get("coverage", {})
+        status = str(analysis.get("status", "unavailable"))
+        summary = str(analysis.get("summary", ""))
+        patterns = analysis.get("patterns", [])[:4]
+        detail = (f"{cover.get('successful_categories', 0)}/{cover.get('total_categories', 0)} "
+                  f"domain reviews; {cover.get('files', 0)} files and {cover.get('rows', 0):,} file rows profiled. "
+                  "File rows may overlap and are not unique events.")
+        items = "".join(
+            f'<li><strong>{esc(item.get("title", ""))}</strong> — {esc(item.get("insight", ""))}'
+            f'<br><strong>Check or do:</strong> {esc(item.get("next_step", ""))}'
+            f'<br><span class="meta">Evidence: {esc(", ".join(item.get("evidence_ids", [])[:3]))} · '
+            f'Confidence: {esc(item.get("confidence", ""))}</span></li>' for item in patterns)
+        gaps = "".join(f"<li>{esc(gap)}</li>" for gap in analysis.get("data_gaps", [])[:3])
+        ai_section = (f'<section class="card"><div class="eyebrow">CROSS-REPORT AI READOUT · {esc(status.upper())}</div>'
+                      f'<h2>Patterns across the reports</h2><p>{esc(summary or "Analysis unavailable for this run.")}</p>'
+                      + (f'<ol>{items}</ol>' if items else "")
+                      + (f'<p><strong>Data gaps</strong></p><ul>{gaps}</ul>' if gaps else "")
+                      + f'<p class="meta">{esc(detail)} Model: {esc(analysis.get("model", ""))}.</p></section>')
     return ("<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
             "<title>Weekly SEO action plan</title><style>body{font-family:Arial,sans-serif;color:#182c3a;max-width:760px;margin:auto;padding:24px;background:#f5f8fa}"
             ".card{background:#fff;border:1px solid #dce5e9;border-radius:10px;padding:20px;margin:18px 0}.eyebrow{font-size:12px;font-weight:700;color:#116c70;letter-spacing:.05em}"
             "h1{font-size:29px}h2{font-size:20px}p,li{line-height:1.5}.meta,.foot{color:#52626b;font-size:13px}a{color:#075d9b}</style></head><body>"
             f'<h1>Your weekly SEO action plan</h1><p>Completed week: {esc(report["period_start"])} to {esc(report["period_end"])}. '
             f'{len(report["actions"])} evidence-backed priorities from {len(report["source_runs"])} validated source reports.</p>'
-            + "".join(cards) + watchlist
+            + "".join(cards) + watchlist + ai_section
             + f'<p class="foot">Selection: ranked intelligence queue with source-level checks; uncertain claims are framed as verification tasks. '
               f'Coverage: {esc(coverage)}. A source can contribute context without generating a top-five action.</p></body></html>')
 
@@ -288,6 +315,20 @@ def render_text(report: dict) -> str:
             change = f"{site['change_pct']:+.1%}" if site["change_pct"] is not None else "unavailable"
             lines += [f"- {site['site_name']}: {site['current']:,.0f} vs {site['previous']:,.0f} ({change})"]
         lines += [""]
+    analysis = report.get("ai_analysis")
+    if analysis:
+        cover = analysis.get("coverage", {})
+        lines += [f"Cross-report AI readout ({analysis.get('status', 'unavailable')}):",
+                  str(analysis.get("summary") or "Analysis unavailable for this run.")]
+        for item in analysis.get("patterns", [])[:4]:
+            lines += [f"- {item.get('title', '')}: {item.get('insight', '')}",
+                      f"  Check or do: {item.get('next_step', '')}",
+                      f"  Evidence: {', '.join(item.get('evidence_ids', [])[:3])}; confidence: {item.get('confidence', '')}"]
+        for gap in analysis.get("data_gaps", [])[:3]:
+            lines += [f"Data gap: {gap}"]
+        lines += [f"Coverage: {cover.get('successful_categories', 0)}/{cover.get('total_categories', 0)} domain reviews; "
+                  f"{cover.get('files', 0)} files and {cover.get('rows', 0):,} file rows profiled "
+                  "(file rows may overlap).", ""]
     return "\n".join(lines)
 
 

@@ -104,6 +104,41 @@ jobs:
             echo "No successful site portfolio run found."
           fi
 
+      - name: Download current rolling GA4 event context
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id="$(gh run list --workflow ga4-event-report.yml --branch "${{ github.ref_name }}" --status completed --limit 10 --json databaseId,conclusion --jq '.[] | select(.conclusion == "success") | .databaseId' | head -n 1)"
+          if [ -n "$run_id" ]; then
+            mkdir -p event_sources
+            if gh run download "$run_id" --name ga4-event-report --dir event_sources; then
+              EVENT_RUN_ID="$run_id" python - <<'PY'
+          import csv
+          import json
+          import os
+          from pathlib import Path
+          from seo_utils import get_weekly_date_windows
+
+          root = Path("event_sources")
+          manifest = json.loads((root / "report_manifest.json").read_text())
+          expected_end = get_weekly_date_windows()[1].isoformat()
+          files = list(root.glob("ga4_event_*.csv"))
+          valid = str(manifest.get("run_id")) == os.environ["EVENT_RUN_ID"] and bool(files)
+          for path in files:
+              with path.open(newline="", encoding="utf-8-sig") as stream:
+                  first = next(csv.DictReader(stream), None)
+              if first and first.get("period_end") != expected_end:
+                  valid = False
+          if not valid:
+              for path in files:
+                  path.unlink()
+              print("Rolling GA4 event CSVs unavailable or from another reporting window.")
+          else:
+              print(f"Validated {len(files)} rolling GA4 event CSVs ending {expected_end}.")
+          PY
+            fi
+          fi
+
       - name: Write service account key
         run: echo '${{ secrets.GSC_SERVICE_ACCOUNT_KEY }}' > gsc-key.json
 
@@ -123,6 +158,12 @@ jobs:
           else
             python -u weekly_seo_intelligence.py
           fi
+
+      - name: Analyze source domains and synthesize cross-report patterns
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GROQ_MODEL: ${{ vars.GROQ_MODEL || 'openai/gpt-oss-120b' }}
+        run: python -u weekly_ai_analysis.py
 
       - name: Build personal weekly action report
         run: python -u weekly_personal_action_report.py
@@ -167,6 +208,8 @@ jobs:
             reporting_quality_warnings.csv
             reporting_artifact_index.html
             normalized/
+            portfolio_sources/
+            event_sources/ga4_event_*.csv
             weekly_seo_action_queue.csv
             weekly_seo_action_queue.json
             weekly_seo_anomalies.csv
@@ -179,6 +222,9 @@ jobs:
             source_report_runs.json
             weekly_seo_intelligence_summary.json
             weekly_seo_intelligence_ai_recommendations.md
+            weekly_ai_analysis.json
+            weekly_ai_evidence.json
+            weekly_ai_usage.json
             weekly_personal_action_report.html
             weekly_personal_action_report.txt
             weekly_personal_action_report.json

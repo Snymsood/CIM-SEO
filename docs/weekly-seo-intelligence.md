@@ -45,6 +45,7 @@ It does **not** replace any existing reports. The source pipelines still publish
 | `weekly_seo_intelligence_summary.json` | Machine-readable summary of the run |
 | `weekly_seo_intelligence_ai_recommendations.md` | AI-generated action plan (or deterministic fallback) |
 | `weekly_personal_action_report.html`, `.txt`, `.json` | Five ranked, evidence-linked specialist tasks with specific next steps and verification |
+| `weekly_ai_analysis.json`, `weekly_ai_evidence.json`, `weekly_ai_usage.json` | Six independent domain reviews, cross-report synthesis, exact file-row profiles, and Groq usage/limit observations |
 | `personal_email_delivery_status.json` | Personal email submission outcome and channel, separate from Monday intelligence delivery |
 | `ga4_conversion_summary.csv` | Conversion events: current vs previous counts |
 | `ga4_conversion_pages.csv` | Top converting landing pages |
@@ -110,6 +111,10 @@ Vitals are labeled separately; possible tracking anomalies are diagnosed before
 content changes are recommended. A missing core GSC or GA4 source stops the
 report instead of sending five invented or zero-data actions. A four-site GA4
 session watchlist adds context without mixing the mini-sites into main-site KPIs.
+The same run now [profiles all validated source rows, analyzes six domains in
+isolation, then synthesizes cross-report patterns](weekly-ai-analysis.md). Its
+cited summary appears after the five actions in the weekly email. Partial or
+unavailable AI analysis is labeled explicitly.
 
 The personal report can be sent through the Mailchimp Marketing account already
 used for weekly content reporting. With `SEO_ACTION_DELIVERY_MODE=mailchimp_test`,
