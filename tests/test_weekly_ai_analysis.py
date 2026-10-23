@@ -108,6 +108,8 @@ class WeeklyAIAnalysisTests(unittest.TestCase):
                 if name == "cross_source":
                     self.assertIn("completed_reviews", prompt)
                     self.assertIn("Search demand and SERP visibility", prompt)
+                if name == "verification":
+                    self.assertIn("cited_records", prompt)
                 return {"summary": "Review the conference path", "findings": [
                     {"title": "Check the event page", "insight": "Evidence needs comparison",
                      "evidence_ids": [reference], "next_step": "Inspect the page and query",
@@ -115,9 +117,11 @@ class WeeklyAIAnalysisTests(unittest.TestCase):
 
             with patch.dict(os.environ, {"GROQ_API_KEY": "test-key"}):
                 result = analyze(root, model_call=fake_model)
-            self.assertEqual([name for name, _ in stages], ["search", "behavior", "cross_source"])
+            self.assertEqual([name for name, _ in stages],
+                             ["search", "behavior", "cross_source", "verification"])
             self.assertEqual(result["status"], "partial")
             self.assertEqual(result["coverage"]["successful_categories"], 2)
+            self.assertEqual(result["verification"]["accepted"], 1)
             self.assertEqual(result["patterns"][0]["evidence_ids"],
                              ["file:ga4_pages_comparison_normalized.csv"])
 

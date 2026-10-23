@@ -1,11 +1,11 @@
-# Two-stage AI analysis for the weekly specialist email
+# Staged AI analysis for the weekly specialist email
 
 ## Current data and model
 
 The repository uses the **Groq API**, with `openai/gpt-oss-120b` as the default
 model. Groq is the inference provider; GPT-OSS is the model. The repo does not
 currently use Google's Gemma or xAI's Grok. `GROQ_MODEL` can override the model,
-but the two-stage analyst expects JSON Schema output and GPT-OSS reasoning
+but the staged analyst expects JSON Schema output and GPT-OSS reasoning
 controls. No new provider account is required.
 
 The source Actions run **weekly on Monday** for the previous completed
@@ -35,10 +35,13 @@ not collect.
    four-site portfolio; AI answer verification. Each prompt has specialist
    interpretation rules and yields up to three cited findings.
 4. Give all domain findings in compact form, plus cross-source trends, anomalies,
-   and quality warnings, to a separate synthesis call. It rechecks metric
-   direction and scope and yields up to four
+   and quality warnings, to a separate synthesis call. It proposes up to four
    cross-report patterns with citations, confidence, and a next check.
-5. Validate cited evidence IDs against the profiled rows/files. The five
+5. Recheck each proposed pattern against its exact cited file or row record in
+   a separate verification call. Unsupported causal links and wrong metric
+   scopes are rewritten or dropped. Retain proposed and verified patterns in
+   the artifact so a specialist can audit what was filtered.
+6. Validate cited evidence IDs against the profiled rows/files. The five
    deterministic personal actions remain separate. The email adds a concise
    “Patterns across the reports” section with analysis coverage and explicit
    data gaps. If AI is unavailable or only some domains succeed, the email
@@ -68,7 +71,7 @@ requests/day, 8,000 tokens/minute, and 200,000 tokens/day. These are shared at
 the organization level and the account's actual limits may differ; check the
 Groq Limits page. The model has a [131,072-token context window](https://console.groq.com/docs/model/openai/gpt-oss-120b),
 but the per-minute throughput limit is the practical constraint here. Six
-domain calls plus one synthesis call use bounded packets, are paced, and retry
+domain calls, one synthesis call, and one cited-evidence verification call use bounded packets, are paced, and retry
 HTTP 429 using `retry-after`. `weekly_ai_usage.json` records returned token
 usage and remaining-limit headers so the next run gives an account-specific
 capacity picture. Other report workflows also consume the same Groq budget.

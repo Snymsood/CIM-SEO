@@ -329,9 +329,10 @@ def _call_model(prompt: str, name: str, *, key: str, pace_state: list[float],
                 messages=[{"role": "system", "content": SYSTEM},
                           {"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=3500 if name == "cross_source" else 2200,
+                max_tokens=(3500 if name == "cross_source" else
+                            2800 if name == "verification" else 2200),
                 response_format=_schema(name),
-                extra_body={"reasoning_effort": "medium" if name == "cross_source" else "low"},
+                extra_body={"reasoning_effort": "medium" if name in {"cross_source", "verification"} else "low"},
             )
             response = raw.parse()
             usage_log.append({"stage": name,
@@ -390,6 +391,18 @@ def _synthesis_reviews(completed: dict) -> dict:
                      for item in review.get("findings", [])],
         "data_gaps": review.get("data_gaps", [])[:1]}
         for name, review in completed.items()}
+
+
+def _cited_records(groups: dict, patterns: list[dict]) -> list[dict]:
+    selected = {ref for pattern in patterns for ref in pattern["evidence_ids"]}
+    records = []
+    for profiles in groups.values():
+        for profile in profiles:
+            if profile["id"] in selected:
+                records.append({key: value for key, value in profile.items() if key != "examples"})
+            records.extend(example for example in profile["examples"]
+                           if example["id"] in selected)
+    return records
 
 
 def analyze(root: Path, *, dry_run: bool = False, model_call=_call_model) -> dict:
@@ -464,14 +477,36 @@ def analyze(root: Path, *, dry_run: bool = False, model_call=_call_model) -> dic
                 result = _validated(model_call(prompt, "cross_source", key=key,
                                                pace_state=pace_state, usage_log=usage_log),
                                     all_ids | cross_ids, 4)
-                output["summary"] = result["summary"]
-                output["patterns"] = result["findings"]
+                output["proposed_patterns"] = result["findings"]
                 output["data_gaps"] += result["data_gaps"]
-                output["status"] = ("complete" if len(completed) == len(CATEGORIES)
-                                    else "partial")
+                cited = _cited_records(source["groups"], result["findings"])
+                qa_prompt = (f"Reporting period: {period_id}. Independently verify the proposed "
+                             "cross-report findings against the exact cited records. Keep only claims "
+                             "supported by those records, with correct arithmetic, metric definitions, "
+                             "site, page, period, and population scope. Rewrite cautiously or drop an "
+                             "unsupported finding. A GA4 conversion event count can exceed sessions "
+                             "without a tag defect; lab page speed does not directly explain search "
+                             "result CTR; query_lost_clicks row sums may repeat queries and are not "
+                             "measured page loss. Missing matched data is not zero performance. "
+                             "Do not make a new claim or prescribe a fix without evidence. Return at "
+                             "most four verified findings, each citing only the supplied records. "
+                             "In data_gaps, briefly note material rejected claims.\n" + json.dumps({
+                                 "proposed_findings": result["findings"],
+                                 "cited_records": cited}, separators=(",", ":")))
+                verified = _validated(model_call(qa_prompt, "verification", key=key,
+                                                 pace_state=pace_state, usage_log=usage_log),
+                                      {record["id"] for record in cited}, 4)
+                output["verification"] = {"status": "complete",
+                                          "proposed": len(result["findings"]),
+                                          "accepted": len(verified["findings"])}
+                output["summary"] = verified["summary"]
+                output["patterns"] = verified["findings"]
+                output["data_gaps"] += verified["data_gaps"]
+                output["status"] = (("complete" if len(completed) == len(CATEGORIES)
+                                     else "partial") if verified["findings"] else "failed")
             except Exception as exc:
                 output["status"] = "failed"
-                output["data_gaps"].append(f"Cross-source synthesis failed: {exc}")
+                output["data_gaps"].append(f"Cross-source synthesis or verification failed: {exc}")
         else:
             output["status"] = "failed"
             output["data_gaps"].append("No category AI review completed")
