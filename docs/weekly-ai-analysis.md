@@ -24,7 +24,8 @@ not collect.
 1. Confirm all source run periods match and that GSC and GA4 sources exist.
    Include detailed four-site portfolio files and, when available, the
    separately scoped 28-day GA4 custom-event exports ending on the same Sunday.
-2. Stream every row in each normalized or otherwise uncovered source CSV. Record row counts, numeric
+2. Stream every row in each measured normalized or otherwise uncovered source CSV,
+   excluding static tracking lists and report configuration. Record row counts, numeric
    distributions, key categorical breakdowns, and high-signal row examples.
    `row_sum` means a sum across that file's rows, **not** an authoritative site
    total. Keep large link and query-edge tables as aggregates rather than
@@ -33,8 +34,9 @@ not collect.
    conversion; technical links and speed; content and email distribution;
    four-site portfolio; AI answer verification. Each prompt has specialist
    interpretation rules and yields up to three cited findings.
-4. Give the smaller domain reviews and cross-source trends, anomalies, and
-   quality warnings to a separate synthesis call. It yields up to four
+4. Give all domain findings in compact form, plus cross-source trends, anomalies,
+   and quality warnings, to a separate synthesis call. It rechecks metric
+   direction and scope and yields up to four
    cross-report patterns with citations, confidence, and a next check.
 5. Validate cited evidence IDs against the profiled rows/files. The five
    deterministic personal actions remain separate. The email adds a concise

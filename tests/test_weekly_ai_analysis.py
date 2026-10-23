@@ -36,17 +36,24 @@ class WeeklyAIAnalysisTests(unittest.TestCase):
                 {"landingPage": "/a", "sessions_current": "12"},
                 {"landingPage": "/b", "sessions_current": "8"},
             ])
+            _csv(root / "normalized" / "content_strategy_scorecard_normalized.csv", [
+                {"page_canonical": "https://www.cim.org/a", "email_unique_clicks": "20"},
+                {"page_canonical": "https://www.cim.org/b", "email_unique_clicks": "40"},
+            ])
             _csv(root / "weekly_gsc_report.csv", [
                 {"query": "mining", "clicks": "3"},
             ])
             _csv(root / "tracked_keywords.csv", [
                 {"keyword": "static configuration"},
             ])
+            _csv(root / "normalized" / "tracked_pages_normalized.csv", [
+                {"page": "https://www.cim.org/static-configuration"},
+            ])
             with patch.dict(os.environ, {"GROQ_API_KEY": ""}):
                 result = analyze(root, dry_run=True)
             evidence = json.loads((root / "weekly_ai_evidence.json").read_text())
-            self.assertEqual(result["coverage"]["rows"], 6)
-            self.assertEqual(result["coverage"]["files"], 3)
+            self.assertEqual(result["coverage"]["rows"], 8)
+            self.assertEqual(result["coverage"]["files"], 4)
             self.assertEqual(evidence["unclassified_files"], [])
             self.assertEqual(evidence["categories"]["search"]["files"][0]["id"],
                              "file:source/weekly_gsc_report.csv")
@@ -55,6 +62,8 @@ class WeeklyAIAnalysisTests(unittest.TestCase):
             self.assertEqual(technical["examples"], [])
             behavior = evidence["categories"]["behavior"]["files"][0]
             self.assertEqual(behavior["metrics"]["sessions_current"]["row_sum"], 20)
+            content = evidence["categories"]["content"]["files"][0]
+            self.assertEqual(content["metrics"]["email_unique_clicks"]["mean"], 30)
 
     def test_fabricated_citation_is_dropped_and_email_labels_partial_coverage(self):
         result = _validated({"summary": "A pattern", "findings": [

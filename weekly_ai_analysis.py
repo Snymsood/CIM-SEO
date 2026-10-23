@@ -205,8 +205,10 @@ def packets(root: Path) -> tuple[dict, set[str]]:
     evidence_ids: set[str] = set()
     normalized_stems = set()
     for path in sorted(normalized.glob("*.csv")):
-        profile = profile_csv(path)
         stem = path.stem.replace("_normalized", "")
+        if stem in STATIC_CONFIG_FILES or stem.endswith("_config"):
+            continue
+        profile = profile_csv(path)
         normalized_stems.add(stem)
         group = category_for(stem)
         if group == "cross_source" and not stem.startswith(("weekly_trend", "weekly_seo_action_queue")):

@@ -284,7 +284,8 @@ def render_html(report: dict) -> str:
             f'Confidence: {esc(item.get("confidence", ""))}</span></li>' for item in patterns)
         gaps = "".join(f"<li>{esc(gap)}</li>" for gap in analysis.get("data_gaps", [])[:3])
         ai_section = (f'<section class="card"><div class="eyebrow">CROSS-REPORT AI READOUT · {esc(status.upper())}</div>'
-                      f'<h2>Patterns across the reports</h2><p>{esc(summary or "Analysis unavailable for this run.")}</p>'
+                      f'<h2>Patterns across the reports</h2><p>AI-generated hypotheses to verify against the linked source data.</p>'
+                      f'<p>{esc(summary or "Analysis unavailable for this run.")}</p>'
                       + (f'<ol>{items}</ol>' if items else "")
                       + (f'<p><strong>Data gaps</strong></p><ul>{gaps}</ul>' if gaps else "")
                       + f'<p class="meta">{esc(detail)} Model: {esc(analysis.get("model", ""))}.</p></section>')
@@ -318,7 +319,7 @@ def render_text(report: dict) -> str:
     analysis = report.get("ai_analysis")
     if analysis:
         cover = analysis.get("coverage", {})
-        lines += [f"Cross-report AI readout ({analysis.get('status', 'unavailable')}):",
+        lines += [f"Cross-report AI readout ({analysis.get('status', 'unavailable')}; verify hypotheses against source data):",
                   str(analysis.get("summary") or "Analysis unavailable for this run.")]
         for item in analysis.get("patterns", [])[:4]:
             lines += [f"- {item.get('title', '')}: {item.get('insight', '')}",
